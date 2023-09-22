@@ -1,11 +1,9 @@
-CC?=gcc
+CC?=x86_64-pc-linux-gnu-gcc
 CCFLAGS?=-c
 LIBS?=-lSDL2
 
 user-input: keyboard.o mouse.o
 
-keyboard.o: keyboard.c keyboard.h
-	$(CC) $(CCFLAGS) -o keyboard.o keyboard.c $(LIBS)
+%.o: %.c %.h
+	$(CC) $(CCFLAGS) -o $@ $*.c $(LIBS)
 
-mouse.o: mouse.c mouse.h
-	$(CC) $(CCFLAGS) -o mouse.o mouse.c $(LIBS)

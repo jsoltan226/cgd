@@ -5,7 +5,7 @@ LINKER_FLAGS=-ggdb -O2 -Wall -I. -I..
 MAKEFLAGS=-j2
 export
 
-FINAL_INGREDIENTS=gutils.o main.o main-menu/parallax-bg.o user-input/keyboard.o user-input/mouse.o
+FINAL_INGREDIENTS=util.o main.o main-menu/parallax-bg.o user-input/keyboard.o user-input/mouse.o main-menu/buttons.o
 
 all:
 	$(MAKE) -C main-menu
@@ -18,8 +18,8 @@ main: $(FINAL_INGREDIENTS)
 main.o: main.c config.h
 	$(CC) $(CCFLAGS) -o main.o main.c $(LIBS)
 
-gutils.o: gutils.c gutils.h
-	$(CC) $(CCFLAGS) -o gutils.o gutils.c $(LIBS)
+util.o: util.c util.h
+	$(CC) $(CCFLAGS) -o util.o util.c $(LIBS)
 
 clean: all
 	rm -f *.o */*.o

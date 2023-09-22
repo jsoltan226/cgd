@@ -1,3 +1,6 @@
+#ifndef PARALLAXBG_H
+#define PARALLAXBG_H
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
@@ -17,3 +20,5 @@ extern void bg_initBG(bg_ParallaxBG* bg, SDL_Renderer* renderer, const char** la
 extern void bg_updateBG(bg_ParallaxBG* bg);
 extern void bg_drawBG(bg_ParallaxBG* bg, SDL_Renderer* renderer);
 extern void bg_destroyBG(bg_ParallaxBG* bg);
+
+#endif

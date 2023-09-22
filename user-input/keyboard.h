@@ -1,3 +1,6 @@
+#ifndef KEYBOARD_H
+#define KEYBOARD_H
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_render.h>
@@ -99,4 +102,4 @@ static const SDL_Keycode input_correspondingSDLKeycodes[INPUT_KEYBOARD_LENGTH] =
     SDL_SCANCODE_Z,
 };
 
-
+#endif
