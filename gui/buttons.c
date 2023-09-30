@@ -7,7 +7,6 @@
 
 void btn_initButton(btn_Button* b, spr_Sprite sprite, SDL_Renderer* renderer, const char* textureFilePath)
 {
-    printf("made it to initButton function with texture file path: %s\n", textureFilePath);
     b->sprite = sprite;
     po_initPressableObj(&b->button);
     spr_initSprite(&b->sprite, renderer, textureFilePath);

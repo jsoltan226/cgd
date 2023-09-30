@@ -48,7 +48,6 @@ static int mainBGLayerSpeeds[] = {
 #define tb_HitboxSrcWidth 770.f
 #define tb_HitboxSrcHeight 160.f
 
-static const char* tBTextureFilePath = "assets/gui/buttons/testButton.png";
 static bool displayButtonHitboxOutlines = false;
 static const spr_Sprite testButtonSpriteProtoInfo = {
     /* HITBOX */
