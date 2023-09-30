@@ -1,0 +1,9 @@
+#CC=gcc
+#CCFLAGS?=-c -Wall
+#LIBS?=-lSDL2 -lSDL2_image
+
+user-input: $(wildcard *.o)
+
+%.o: %.c %.h
+	$(CC) $(CCFLAGS) -o $@ $*.c $(LIBS)
+

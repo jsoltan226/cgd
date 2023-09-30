@@ -1,6 +1,8 @@
+#pragma once
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
+#include "pressable-obj.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_render.h>
@@ -11,10 +13,7 @@
 #define INPUT_KEYBOARD_LENGTH               40
 
 typedef struct {
-    bool up;
-    bool down;
-    bool pressed;
-    unsigned int time;
+    po_PressableObj key;
     SDL_Keycode SDLKeycode;
 } input_Key;
 typedef input_Key input_Keyboard[INPUT_KEYBOARD_LENGTH];

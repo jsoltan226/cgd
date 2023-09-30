@@ -1,25 +1,42 @@
 LIBS=-lSDL2 -lSDL2_image
 CC=x86_64-pc-linux-gnu-gcc
-CCFLAGS=-c -ggdb -O2 -Wall -I. -I..
-LINKER_FLAGS=-ggdb -O2 -Wall -I. -I..
-MAKEFLAGS=-j2
-export
+CFLAGS=-c -Wall -O2 -ggdb
+LD=x86_64-pc-linux-gnu-gcc
+LDFLAGS=-Wall
+STRIP=strip
+STRIPFLAGS=-g -s
 
-FINAL_INGREDIENTS=util.o main.o main-menu/parallax-bg.o user-input/keyboard.o user-input/mouse.o main-menu/buttons.o
+ECHO=echo
+RM=rm
+TOUCH=touch
 
-all:
-	$(MAKE) -C main-menu
-	$(MAKE) -C user-input
-	$(MAKE) main
+SRCS=$(wildcard */*.c) $(wildcard *.c)
+OBJS=$(patsubst %.c,%.o,$(SRCS))
+EXE=./main
 
-main: $(FINAL_INGREDIENTS)
-	$(CC) $(LINKER_FLAGS) -o main $(FINAL_INGREDIENTS) $(LIBS)
+all: compile link
 
-main.o: main.c config.h
-	$(CC) $(CCFLAGS) -o main.o main.c $(LIBS)
+link: $(OBJS)
+	@$(ECHO) "CCLD	$(OBJS)"
+	@$(LD) $(LDFLAGS) -o main $(OBJS) $(LIBS)
 
-util.o: util.c util.h
-	$(CC) $(CCFLAGS) -o util.o util.c $(LIBS)
+compile: $(OBJS)
+%.o: %.c
+	@$(ECHO) "CC	$@"
+	@$(CC) $(CFLAGS) -o $@ $^
 
-clean: all
-	rm -f *.o */*.o
+strip:
+	@$(ECHO) "STRIP	$(EXE)"
+	@$(STRIP) $(STRIPFLAGS) $(EXE)
+
+clean:
+	@$(ECHO) "RM	$(OBJS)"
+	@$(RM) -f $(OBJS)
+
+update:
+	@$(ECHO) "TOUCH	$(SRCS)"
+	@$(TOUCH) $(SRCS)
+
+run: $(EXE)
+	@$(ECHO) "RUN	$(EXE)"
+	@$(EXE)

@@ -11,21 +11,19 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <math.h>
-#include "main-menu/parallax-bg.h"
+#include "gui/menu.h"
 #include "user-input/keyboard.h"
-#include "main-menu/buttons.h"
 #include "user-input/mouse.h"
 #include "util.h"
 #include "config.h"
 
-static bg_ParallaxBG mainBG;
+static mn_Menu MainMenu;
 static SDL_Window* window;
 static SDL_Renderer* renderer;
 static bool running = true;
 static bool paused = false;
 static input_Keyboard keyboard;
 static input_Mouse mouse;
-static btn_Button testButton;
 
 int main(int argc, char** argv)
 {
@@ -38,10 +36,9 @@ int main(int argc, char** argv)
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
 
-    bg_initBG(&mainBG, renderer, mainBGLayerImageFilePaths, mainBGLayerSpeeds, mainBGLayerCount);
+    mn_initMenu(&MainMenu, &mainMenuProtoInfo, renderer);
     input_initKeyboard(keyboard);
 
-    btn_initButton(&testButton, renderer, &testButtonOnClick, testButtonHitbox, testButtonSrcRect, testButtonDestRect, testButtonFilePath);
 
     while(running)
     {
@@ -53,30 +50,30 @@ int main(int argc, char** argv)
         input_updateKeyboard(keyboard);
         input_updateMouse(&mouse);
 
-        if(event.type == SDL_QUIT || keyboard[INPUT_KEYCODE_Q].pressed || mouse.buttonMiddle.pressed)
+        if(event.type == SDL_QUIT || keyboard[INPUT_KEYCODE_Q].key.pressed || mouse.buttonMiddle.pressed)
             running = false;
 
-        if(keyboard[INPUT_KEYCODE_ESCAPE].up)
+        if(keyboard[INPUT_KEYCODE_ESCAPE].key.up)
             paused = !paused;
 
-        if(keyboard[INPUT_KEYCODE_H].up)
+        if(keyboard[INPUT_KEYCODE_H].key.up)
             displayButtonHitboxOutlines = !displayButtonHitboxOutlines;
 
         /* UPDATE SECTION */
         if(!paused){
-            bg_updateBG(&mainBG);
-            btn_updateButton(&testButton, mouse);
+            mn_updateMenu(&MainMenu, mouse);
+            if(MainMenu.buttons[MAIN_MENU_BUTTON_TESTBUTTON].button.down)
+                printf("Button pressed!\n");
         
         /* RENDER SECTION */
             SDL_SetRenderDrawColor(renderer, rendererBg.r, rendererBg.g, rendererBg.b, rendererBg.a);
             SDL_RenderClear(renderer);
 
-            bg_drawBG(&mainBG, renderer);
+            mn_drawMenu(&MainMenu, renderer, displayButtonHitboxOutlines);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
 
-            btn_drawButton(testButton, renderer, displayButtonHitboxOutlines);
 
             SDL_RenderPresent(renderer);
 
@@ -84,8 +81,7 @@ int main(int argc, char** argv)
         }
     }
 
-    btn_destroyButton(&testButton);
-    bg_destroyBG(&mainBG);
+    mn_destroyMenu(&MainMenu);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

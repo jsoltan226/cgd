@@ -3,7 +3,7 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_surface.h>
 
-SDL_Texture* loadImage(SDL_Renderer* renderer, const char* restrict filePath)
+SDL_Texture* u_loadImage(SDL_Renderer* renderer, const char* restrict filePath)
 {
     SDL_Surface* tmpSurface = IMG_Load(filePath);
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, tmpSurface);
@@ -11,7 +11,7 @@ SDL_Texture* loadImage(SDL_Renderer* renderer, const char* restrict filePath)
     return texture;
 }
 
-int max(int a, int b)
+int u_max(int a, int b)
 {
     if(a > b)
         return a;
@@ -19,7 +19,7 @@ int max(int a, int b)
         return b;
 }
 
-bool collision(const SDL_Rect r1, const SDL_Rect r2)
+bool u_collision(const SDL_Rect r1, const SDL_Rect r2)
 {
     return (
             r1.x + r1.w >= r2.x &&
