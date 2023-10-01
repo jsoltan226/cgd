@@ -7,13 +7,16 @@
 #include "../user-input/mouse.h"
 #include <SDL2/SDL_render.h>
 
-typedef struct {
+typedef struct mn_Menu mn_Menu;
+struct mn_Menu {
     spr_Sprite* sprites;
     int spriteCount;
     btn_Button* buttons;
     int buttonCount;
     bg_ParallaxBG bg;
-} mn_Menu;
+    mn_Menu* switchTo;      
+};
+
 typedef struct {
     struct {
         int layerCount;

@@ -1,9 +1,9 @@
 #pragma once
-#include "gui/menu.h"
-#include "gui/sprite.h"
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "gui/menu.h"
+#include "gui/sprite.h"
 #include "gui/buttons.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
@@ -100,6 +100,9 @@ static mn_PrototypeInfo mainMenuProtoInfo = {
         (spr_Sprite*)mainMenuButtonSpriteProtoInfo,
         (const char**)mainMenuButtonSpriteTextureFilePaths,
     }
+};
+
+static mn_PrototypeInfo testMenuProtoInfo = {
 };
 
 #endif

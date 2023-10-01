@@ -11,6 +11,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <math.h>
+#include "gui/menu-mgr.h"
 #include "gui/menu.h"
 #include "user-input/keyboard.h"
 #include "user-input/mouse.h"
@@ -18,6 +19,8 @@
 #include "config.h"
 
 static mn_Menu MainMenu;
+static mn_Menu testMenu;
+static mmgr_MenuManager MenuManager;
 static SDL_Window* window;
 static SDL_Renderer* renderer;
 static bool running = true;
@@ -37,6 +40,9 @@ int main(int argc, char** argv)
 
 
     mn_initMenu(&MainMenu, &mainMenuProtoInfo, renderer);
+    mn_initMenu(&testMenu, &testMenuProtoInfo, renderer);
+    mmgr_initMenuManager(&MenuManager, NULL, 0, &MainMenu);
+
     input_initKeyboard(keyboard);
 
 
@@ -61,15 +67,19 @@ int main(int argc, char** argv)
 
         /* UPDATE SECTION */
         if(!paused){
-            mn_updateMenu(&MainMenu, mouse);
-            if(MainMenu.buttons[MAIN_MENU_BUTTON_TESTBUTTON].button.down)
-                printf("Button pressed!\n");
+            mmgr_updateMenuManager(&MenuManager, keyboard, mouse);
+
+            if(MainMenu.buttons[MAIN_MENU_BUTTON_TESTBUTTON].button.down && MenuManager.inMenuDepth == 0)
+                MainMenu.switchTo = &testMenu;
+            if(keyboard[INPUT_KEYCODE_P].key.down)
+                mmgr_goBackMenu(&MenuManager);
+                
         
         /* RENDER SECTION */
             SDL_SetRenderDrawColor(renderer, rendererBg.r, rendererBg.g, rendererBg.b, rendererBg.a);
             SDL_RenderClear(renderer);
 
-            mn_drawMenu(&MainMenu, renderer, displayButtonHitboxOutlines);
+            mmgr_drawMenuManager(&MenuManager, renderer, displayButtonHitboxOutlines);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
@@ -81,7 +91,7 @@ int main(int argc, char** argv)
         }
     }
 
-    mn_destroyMenu(&MainMenu);
+    mmgr_destroyMenuManager(&MenuManager);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

@@ -9,6 +9,7 @@ void mn_initMenu(mn_Menu* m, mn_PrototypeInfo* PI, SDL_Renderer* renderer)
     m->buttonCount = PI->buttonInfo.count;
     m->sprites = PI->spriteInfo.count == 0 ? NULL : malloc(sizeof(spr_Sprite) * PI->spriteInfo.count);
     m->buttons = PI->buttonInfo.count == 0 ? NULL : malloc(sizeof(btn_Button) * PI->buttonInfo.count);
+    m->switchTo = NULL;
 
     for(int i = 0; i < PI->spriteInfo.count; i++)
     {

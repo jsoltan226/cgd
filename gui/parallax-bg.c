@@ -8,7 +8,7 @@
 void bg_initBG(bg_ParallaxBG* bg, SDL_Renderer* renderer, const char** restrict layerImageFilePaths, int* layerSpeeds, int layerCount)
 {
     bg->layerCount = layerCount;
-    bg->layers = (bg_Layer*)malloc(layerCount * sizeof(bg_Layer));
+    bg->layers = layerCount <= 0 ? NULL : (bg_Layer*)malloc(layerCount * sizeof(bg_Layer));
     for(int i = 0; i < layerCount; i++)
     {
         bg_Layer* item = &bg->layers[i];
