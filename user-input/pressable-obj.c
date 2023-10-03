@@ -1,11 +1,15 @@
 #include "pressable-obj.h"
 
-void po_initPressableObj(po_PressableObj* po)
+po_PressableObj po_createPressableObj()
 {
-    po->up = false;
-    po->down = false;
-    po->pressed = false;
-    po->time = 0;
+    po_PressableObj po;
+
+    po.up = false;
+    po.down = false;
+    po.pressed = false;
+    po.time = 0;
+
+    return po;
 }
 
 void po_updatePressableObj(po_PressableObj* po, bool state)

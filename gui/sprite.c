@@ -1,26 +1,30 @@
 #include "sprite.h"
 #include "../util.h"
 #include <SDL2/SDL_render.h>
+#include <assert.h>
 
-void spr_createSprite(spr_Sprite* s, SDL_Renderer* renderer, SDL_Rect hitbox, SDL_Rect srcRect, SDL_Rect destRect, const char* textureFilePath)
+spr_Sprite* spr_initSprite(spr_SpriteConfig* cfg, SDL_Renderer* renderer)
 {
-    s->srcRect = srcRect;
-    s->destRect = destRect;
-    s->hitbox = hitbox;
-    s->texture = NULL;
+    spr_Sprite* spr = malloc(sizeof(spr_Sprite));
+    assert(spr != NULL);
+
+    spr->srcRect = cfg->srcRect;
+    spr->destRect = cfg->destRect;
+    spr->hitbox = cfg->hitbox;
+    spr->texture = u_loadImage(renderer, cfg->textureFilePath);
+
+    return spr;
 }
 
-void spr_initSprite(spr_Sprite* s, SDL_Renderer* renderer, const char* textureFilePath)
+void spr_drawSprite(spr_Sprite* s, SDL_Renderer* renderer)
 {
-    s->texture = u_loadImage(renderer, textureFilePath);
+    SDL_RenderCopy(renderer, s->texture, &s->srcRect, &s->destRect);
 }
 
-void spr_drawSprite(spr_Sprite s, SDL_Renderer* renderer)
+void spr_destroySprite(spr_Sprite* spr)
 {
-    SDL_RenderCopy(renderer, s.texture, &s.srcRect, &s.destRect);
-}
+    SDL_DestroyTexture(spr->texture);
 
-void spr_destroySprite(spr_Sprite* s)
-{
-    SDL_DestroyTexture(s->texture);
+    free(spr);
+    spr = NULL;
 }

@@ -8,7 +8,7 @@ typedef struct {
     int time;
 } po_PressableObj;
 
-void po_initPressableObj(po_PressableObj* po);
+po_PressableObj po_createPressableObj();
 void po_updatePressableObj(po_PressableObj* po, bool pressed);
 
 #endif

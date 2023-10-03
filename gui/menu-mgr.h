@@ -12,7 +12,12 @@ typedef struct {
     int menuCount;
 } mmgr_MenuManager;
 
-void mmgr_initMenuManager(mmgr_MenuManager* mmgr, mn_Menu** fullMenuList, int menuCount, mn_Menu* firstMenu);
+typedef struct {
+    int menuCount;
+    mn_MenuConfig* menus;
+} mmgr_MenuManagerConfig;
+
+mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer);
 void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, input_Keyboard keyboard, input_Mouse mouse);
 void mmgr_drawMenuManager(mmgr_MenuManager* mmgr, SDL_Renderer* r, bool displayButtonHitboxes);
 void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr);

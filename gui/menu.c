@@ -1,68 +1,70 @@
+#include <assert.h>
 #include "menu.h"
 #include "buttons.h"
 #include "parallax-bg.h"
 #include "sprite.h"
 
-void mn_initMenu(mn_Menu* m, mn_PrototypeInfo* PI, SDL_Renderer* renderer)
+mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer)
 {
-    m->spriteCount = PI->spriteInfo.count;
-    m->buttonCount = PI->buttonInfo.count;
-    m->sprites = PI->spriteInfo.count == 0 ? NULL : malloc(sizeof(spr_Sprite) * PI->spriteInfo.count);
-    m->buttons = PI->buttonInfo.count == 0 ? NULL : malloc(sizeof(btn_Button) * PI->buttonInfo.count);
-    m->switchTo = NULL;
+    mn_Menu* mn = malloc(sizeof(mn_Menu));
+    assert(mn != NULL);
 
-    for(int i = 0; i < PI->spriteInfo.count; i++)
-    {
-        m->sprites[i] = PI->spriteInfo.protos[i];
-        spr_initSprite(&m->sprites[i], renderer, PI->spriteInfo.textureFilePaths[i]);
+    mn->spriteCount = cfg->spriteCount;
+    mn->buttonCount = cfg->buttonCount;
+    mn->sprites = malloc(sizeof(spr_Sprite) * cfg->spriteCount);
+    mn->buttons = malloc(sizeof(btn_Button) * cfg->buttonCount);
+    mn->switchTo = NULL;
+    assert(mn->sprites != NULL && mn->buttons != NULL);
+
+    for(int i = 0; i < cfg->spriteCount; i++){
+        mn->sprites[i] = spr_initSprite(&cfg->spriteCfgs[i], renderer);
     }
 
-    for(int i = 0; i < PI->buttonInfo.count; i++)
-    {
-        spr_Sprite* currentSpriteProto = &PI->buttonInfo.spriteProtos[i];
-        spr_createSprite(&m->buttons[i].sprite, renderer,
-                currentSpriteProto->hitbox,
-                currentSpriteProto->srcRect,
-                currentSpriteProto->destRect,
-                PI->buttonInfo.spriteTextureFilePaths[i]);
-        btn_initButton(&m->buttons[i], *currentSpriteProto, renderer, PI->buttonInfo.spriteTextureFilePaths[i]);
+    for(int i = 0; i < cfg->buttonCount; i++){
+        mn->buttons[i] = btn_initButton(&cfg->buttonCfgs[i], renderer);
     }
 
-    bg_initBG(&m->bg, renderer, PI->bgInfo.layerFilePaths, PI->bgInfo.layerSpeeds, PI->bgInfo.layerCount);
+    mn->bg = bg_initBG(&cfg->bgConfig, renderer);
+
+    return mn;
 }
 
-void mn_updateMenu(mn_Menu* m, input_Mouse mouse)
+void mn_updateMenu(mn_Menu* mn, input_Mouse mouse)
 {
-    for(int i = 0; i < m->buttonCount; i++){
-        btn_updateButton(&m->buttons[i], mouse);
+    for(int i = 0; i < mn->buttonCount; i++){
+        btn_updateButton(mn->buttons[i], mouse);
     }
-    bg_updateBG(&m->bg);
+    bg_updateBG(mn->bg);
 }
 
-void mn_drawMenu(mn_Menu* m, SDL_Renderer* renderer, bool displayButtonHitboxes)
+void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes)
 {
-    bg_drawBG(&m->bg, renderer);
+    bg_drawBG(mn->bg, renderer);
 
-    for(int i = 0; i < m->spriteCount; i++){
-        spr_drawSprite(m->sprites[i], renderer);
+    for(int i = 0; i < mn->spriteCount; i++){
+        spr_drawSprite(mn->sprites[i], renderer);
     }
-    for(int i = 0; i < m->buttonCount; i++){
-        btn_drawButton(m->buttons[i], renderer, displayButtonHitboxes);
+    for(int i = 0; i < mn->buttonCount; i++){
+        btn_drawButton(mn->buttons[i], renderer, displayButtonHitboxes);
     }
 
 }
 
-void mn_destroyMenu(mn_Menu* m)
+void mn_destroyMenu(mn_Menu* mn)
 {
-    for(int i = 0; i < m->spriteCount; i++)
-        spr_destroySprite(&m->sprites[i]);
-    free(m->sprites);
-    m->sprites = NULL;
+    for(int i = 0; i < mn->spriteCount; i++)
+        spr_destroySprite(mn->sprites[i]);
+    free(mn->sprites);
+    mn->sprites = NULL;
     
-    for(int i = 0; i < m->buttonCount; i++)
-        btn_destroyButton(&m->buttons[i]);
-    free(m->buttons);
-    m->buttons = NULL;
+    for(int i = 0; i < mn->buttonCount; i++)
+        btn_destroyButton(mn->buttons[i]);
+    free(mn->buttons);
+    mn->buttons = NULL;
 
-    bg_destroyBG(&m->bg);
+    bg_destroyBG(mn->bg);
+    mn->bg = NULL;
+
+    free(mn);
+    mn = NULL;
 }

@@ -17,7 +17,13 @@ typedef struct {
     int layerCount;
 } bg_ParallaxBG;
 
-extern void bg_initBG(bg_ParallaxBG* bg, SDL_Renderer* renderer, const char** layerImageFilePaths, int* layerSpeeds, int layerCount);
+typedef struct {
+    const char** layerImageFilePaths;
+    int* layerSpeeds;
+    int layerCount;
+} bg_BGConfig;
+
+bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* r);
 extern void bg_updateBG(bg_ParallaxBG* bg);
 extern void bg_drawBG(bg_ParallaxBG* bg, SDL_Renderer* renderer);
 extern void bg_destroyBG(bg_ParallaxBG* bg);

@@ -4,18 +4,12 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include "pressable-obj.h"
 
 typedef struct {
-    bool up;
-    bool down;
-    bool pressed;
-    int time;
-} input_MouseButton;
-
-typedef struct {
-    input_MouseButton buttonLeft;
-    input_MouseButton buttonRight;
-    input_MouseButton buttonMiddle;
+    po_PressableObj buttonLeft;
+    po_PressableObj buttonRight;
+    po_PressableObj buttonMiddle;
     int x;
     int y;
 } input_Mouse;

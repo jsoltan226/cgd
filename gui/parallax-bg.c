@@ -4,22 +4,30 @@
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
+#include <assert.h>
 
-void bg_initBG(bg_ParallaxBG* bg, SDL_Renderer* renderer, const char** restrict layerImageFilePaths, int* layerSpeeds, int layerCount)
+bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
 {
-    bg->layerCount = layerCount;
-    bg->layers = layerCount <= 0 ? NULL : (bg_Layer*)malloc(layerCount * sizeof(bg_Layer));
-    for(int i = 0; i < layerCount; i++)
+    bg_ParallaxBG* bg = (bg_ParallaxBG*)malloc(sizeof(bg_ParallaxBG));
+    assert(bg != NULL);
+
+    bg->layerCount = cfg->layerCount;
+    bg->layers = (bg_Layer*)malloc(cfg->layerCount * sizeof(bg_Layer));
+    assert(bg->layers != NULL);
+
+    for(int i = 0; i < cfg->layerCount; i++)
     {
         bg_Layer* item = &bg->layers[i];
         
-        item->texture = u_loadImage(renderer, layerImageFilePaths[i]);
+        item->texture = u_loadImage(renderer, cfg->layerImageFilePaths[i]);
         SDL_SetTextureBlendMode(item->texture, SDL_BLENDMODE_BLEND);
         SDL_QueryTexture(item->texture, NULL, NULL, &item->w, &item->h);
         item->x = 0;
-        item->speed = layerSpeeds[i];
+        item->speed = cfg->layerSpeeds[i];
 
     }
+
+    return bg;
 }
 
 void bg_updateBG(bg_ParallaxBG* bg)
@@ -41,10 +49,14 @@ void bg_drawBG(bg_ParallaxBG* bg, SDL_Renderer* renderer)
     }
 }
 
-void bg_destroyBG(bg_ParallaxBG *bg)
+void bg_destroyBG(bg_ParallaxBG* bg)
 {
     for(int i = 0; i < bg->layerCount; i++)
         SDL_DestroyTexture(bg->layers[i].texture);
         
     free(bg->layers);
+    bg->layers = NULL;
+    
+    free(bg);
+    bg = NULL;
 }

@@ -11,14 +11,14 @@
 #include "sprite.h"
 
 typedef struct {
-    spr_Sprite sprite;
+    spr_Sprite* sprite;
     po_PressableObj button;
 } btn_Button;
 
-void btn_initButton(btn_Button* button, spr_Sprite sprite, SDL_Renderer* r, const char* textureFilePath);
-void btn_updateButton(btn_Button* button, input_Mouse mouse);
-void btn_drawButton(btn_Button button, SDL_Renderer* renderer, bool displayHitboxButton);
-void btn_destroyButton(btn_Button* button);
+btn_Button* btn_initButton(spr_SpriteConfig* spriteCfg, SDL_Renderer* renderer);
+void btn_updateButton(btn_Button* btn, input_Mouse mouse);
+void btn_drawButton(btn_Button* btn, SDL_Renderer* r, bool displayHitboxButton);
+void btn_destroyButton(btn_Button* btn);
 
 static const SDL_Color btn_hitboxOutlineColorNormal = { 255, 0, 0, 255 };
 static const SDL_Color btn_hitboxOutlineColorPressed = { 0, 255, 0, 255 };

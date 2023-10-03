@@ -12,9 +12,13 @@ typedef struct {
     SDL_Texture* texture;
 } spr_Sprite;
 
-void spr_createSprite(spr_Sprite* s, SDL_Renderer* r, SDL_Rect hitbox, SDL_Rect srcRect, SDL_Rect destRect, const char* textureFilePath);
-void spr_initSprite(spr_Sprite* s, SDL_Renderer* r, const char* textureFilePath);
-void spr_drawSprite(spr_Sprite s, SDL_Renderer* r);
-void spr_destroySprite(spr_Sprite* s);
+typedef struct {
+    SDL_Rect hitbox, srcRect, destRect;
+    const char* textureFilePath;
+} spr_SpriteConfig;
+
+spr_Sprite* spr_initSprite(spr_SpriteConfig* cfg, SDL_Renderer* r);
+void spr_drawSprite(spr_Sprite* spr, SDL_Renderer* r);
+void spr_destroySprite(spr_Sprite* spr);
 
 #endif

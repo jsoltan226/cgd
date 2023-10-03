@@ -5,31 +5,27 @@
 #include <assert.h>
 #include <error.h>
 
-void mmgr_initMenuManager(mmgr_MenuManager* mmgr, mn_Menu** fullMenuList, int menuCount, mn_Menu* firstMenu)
+mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer)
 {
-    assert(menuCount >= 0);
-    if((fullMenuList == NULL || menuCount <= 0) && firstMenu != NULL){
-        mmgr->menuCount = 0;
-        mmgr->fullMenuList = NULL;
-        mmgr->inMenuDepth = -1;
-        mmgr->previousMenus = NULL;
-        mmgr_switchMenu(mmgr, firstMenu);
-    } else if(!(fullMenuList == NULL || menuCount <= 0) && firstMenu == NULL){
-        mmgr->menuCount = menuCount;
-        mmgr->fullMenuList = calloc(menuCount, sizeof(mn_Menu*));
-        mmgr->currentMenu = fullMenuList[0];
-    } else if(!(fullMenuList == NULL || menuCount <= 0) && firstMenu != NULL){
-        mmgr->menuCount = menuCount;
-        mmgr->fullMenuList = fullMenuList;
-        mmgr->currentMenu = firstMenu;
-    } else {
-        mmgr->fullMenuList = NULL;
-        mmgr->menuCount = 0;
-        mmgr->currentMenu = NULL;
-    }
+    assert(cfg->menuCount >= 0);
+
+    mmgr_MenuManager* mmgr = malloc(sizeof(mmgr_MenuManager));
+    assert(mmgr != NULL);
+    
+    mmgr->menuCount = cfg->menuCount;
+    mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(mn_Menu*));
+    mmgr->previousMenus = malloc(0);
+    assert(mmgr->fullMenuList != NULL && mmgr->previousMenus != NULL);
 
     mmgr->inMenuDepth = 0;
-    mmgr->previousMenus = NULL;
+
+    for(int i = 0; i < cfg->menuCount; i++){
+        mmgr->fullMenuList[i] = mn_initMenu(&cfg->menus[i], renderer);
+    }
+
+    mmgr->currentMenu = mmgr->fullMenuList[0];
+
+    return mmgr;
 }
 
 void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, input_Keyboard keyboard, input_Mouse mouse)
@@ -58,6 +54,9 @@ void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr)
     free(mmgr->previousMenus);
     mmgr->fullMenuList = NULL;
     mmgr->previousMenus = NULL;
+
+    free(mmgr);
+    mmgr = NULL;
 }
 
 void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
@@ -66,6 +65,7 @@ void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
         return;
     else {
         mmgr->currentMenu = mmgr->previousMenus[mmgr->inMenuDepth - 1];
+        mmgr->currentMenu = mmgr->fullMenuList[0];
         mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth - 1) * sizeof(mn_Menu*));
         mmgr->inMenuDepth--;
     }
@@ -97,6 +97,7 @@ void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_Menu* newMenu)
 
     mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth + 1) * sizeof(mn_Menu*));
     mmgr->previousMenus[mmgr->inMenuDepth] = mmgr->currentMenu;
+    mmgr->currentMenu->switchTo = NULL;
     mmgr->currentMenu = newMenu;
     mmgr->inMenuDepth++;
 }

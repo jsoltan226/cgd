@@ -8,7 +8,7 @@ void input_initKeyboard(input_Keyboard keyboard)
 {
     for(int i = 0; i < INPUT_KEYBOARD_LENGTH; i++)
     {
-        po_initPressableObj(&keyboard[i].key);
+        keyboard[i].key = po_createPressableObj();
         keyboard[i].SDLKeycode = input_correspondingSDLKeycodes[i];
     }
 }

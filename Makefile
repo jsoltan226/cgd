@@ -16,6 +16,11 @@ EXE=./main
 
 all: compile link
 
+debug:
+	@$(ECHO) "Building debug version"
+	@CFLAGS="$(CFLAGS) -DASSERTIONS"
+	@$(MAKE) all
+
 link: $(OBJS)
 	@$(ECHO) "CCLD	$(OBJS)"
 	@$(LD) $(LDFLAGS) -o main $(OBJS) $(LIBS)
