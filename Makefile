@@ -1,47 +1,72 @@
-LIBS=-lSDL2 -lSDL2_image
-CC=x86_64-pc-linux-gnu-gcc
-CFLAGS=-c -Wall -O2 -ggdb
-LD=x86_64-pc-linux-gnu-gcc
-LDFLAGS=-Wall
-STRIP=strip
-STRIPFLAGS=-g -s
+CC?=x86_64-pc-linux-gnu-gcc
+CFLAGS?=-Wall -O2 -ggdb -fPIC -Wno-missing-braces
+DEPFLAGS?=-MMD -MP
+CCLD?=x86_64-pc-linux-gnu-gcc
+LDFLAGS?=-pie
+LIBS?=-lSDL2 -lSDL2_image
+STRIP?=strip
+STRIPFLAGS?=-g -s
 
 ECHO=echo
-RM=rm
-TOUCH=touch
+RM=rm -f
+TOUCH=touch -c
+EXEC=exec
+MKDIR=mkdir -p
+RMDIR=rmdir
 
-SRCS=$(wildcard */*.c) $(wildcard *.c)
-OBJS=$(patsubst %.c,%.o,$(SRCS))
+OBJDIR = obj
+SRCS=$(wildcard */*.c) $(wildcard ./*.c)
+OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell find . -name "*.c" | xargs basename -as .c))
+DEPS=$(patsubst %.o,%.d,$(OBJS))
 EXE=./main
 
-all: compile link
+.PHONY: all release compile link strip clean update run
+.NOTPARALLEL: all release
+
+all: $(OBJDIR) debug compile link
+
+release: $(OBJDIR) update compile link strip clean
+	@CFLAGS="$(CFLAGS) -O3 -Wpedantic -Werror=all"
 
 debug:
-	@$(ECHO) "Building debug version"
 	@CFLAGS="$(CFLAGS) -DASSERTIONS"
-	@$(MAKE) all
 
 link: $(OBJS)
 	@$(ECHO) "CCLD	$(OBJS)"
-	@$(LD) $(LDFLAGS) -o main $(OBJS) $(LIBS)
+	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
 compile: $(OBJS)
-%.o: %.c
-	@$(ECHO) "CC	$@"
-	@$(CC) $(CFLAGS) -o $@ $^
+
+$(OBJDIR):
+	@$(ECHO) "MKDIR	$(OBJDIR)"
+	@$(MKDIR) $(OBJDIR)
+
+$(EXEC): all
+
+$(OBJDIR)/%.o: ./%.c Makefile
+	@$(ECHO) "CC	$<"
+	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.o: */%.c Makefile
+	@$(ECHO) "CC	$<"
+	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
 strip:
 	@$(ECHO) "STRIP	$(EXE)"
 	@$(STRIP) $(STRIPFLAGS) $(EXE)
 
 clean:
-	@$(ECHO) "RM	$(OBJS)"
-	@$(RM) -f $(OBJS)
+	@$(ECHO) "RM	$(OBJS) $(DEPS)"
+	@$(RM) $(OBJS) $(DEPS)
+	@$(ECHO) "RMDIR	$(OBJDIR)"
+	@$(RMDIR) $(OBJDIR)
 
 update:
 	@$(ECHO) "TOUCH	$(SRCS)"
 	@$(TOUCH) $(SRCS)
 
 run: $(EXE)
-	@$(ECHO) "RUN	$(EXE)"
-	@$(EXE)
+	@$(ECHO) "EXEC	$(EXE)"
+	@$(EXEC) $(EXE)
+
+-include $(DEPS)
