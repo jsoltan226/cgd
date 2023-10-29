@@ -7,24 +7,24 @@
 #include "pressable-obj.h"
 
 typedef enum {
-    INPUT_MOUSE_LEFTBUTTONMASK = 1,
-    INPUT_MOUSE_RIGHTBUTTONMASK = 2,
-    INPUT_MOUSE_MIDDLEBUTTONMASK = 4,
-} input_Mouse_ButtonMask;
+    MS_LEFTBUTTONMASK = 1,
+    MS_RIGHTBUTTONMASK = 2,
+    MS_MIDDLEBUTTONMASK = 4,
+} ms_Mouse_ButtonMask;
 
-#define INPUT_MOUSE_EVERYBUTTONMASK (INPUT_MOUSE_LEFTBUTTONMASK | INPUT_MOUSE_RIGHTBUTTONMASK | INPUT_MOUSE_MIDDLEBUTTONMASK)
+#define MS_EVERYBUTTONMASK (MS_LEFTBUTTONMASK | MS_RIGHTBUTTONMASK | MS_MIDDLEBUTTONMASK)
 
 typedef struct {
-    po_PressableObj buttonLeft;
-    po_PressableObj buttonRight;
-    po_PressableObj buttonMiddle;
+    po_PressableObj *buttonLeft;
+    po_PressableObj *buttonRight;
+    po_PressableObj *buttonMiddle;
     int x;
     int y;
-} input_Mouse;
+} ms_Mouse;
 
-input_Mouse* input_initMouse();
-void input_updateMouse(input_Mouse *mouse);
-void input_forceReleaseMouse(input_Mouse *mouse, int buttons);
-void input_destroyMouse(input_Mouse *mouse);
+ms_Mouse* ms_initMouse();
+void ms_updateMouse(ms_Mouse *mouse);
+void ms_forceReleaseMouse(ms_Mouse *mouse, int buttons);
+void ms_destroyMouse(ms_Mouse *mouse);
 
 #endif

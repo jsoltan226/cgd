@@ -1,33 +1,34 @@
 #include "buttons.h"
 #include "../util.h"
+#include "on-event.h"
 #include "sprite.h"
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, btn_OnClickConfig *onClickCfg, SDL_Renderer *renderer)
+btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, oe_OnEvent *onClick, SDL_Renderer *renderer)
 {
     btn_Button *btn = malloc(sizeof(btn_Button));
 
     btn->sprite = spr_initSprite(spriteCfg, renderer);
     btn->button = po_createPressableObj();
-    btn->onClick = onClickCfg->fn;
-    btn->onClickArgc = onClickCfg->argc;
-    btn->onClickArgv = onClickCfg->argv;
+    btn->onClick.fn = onClick->fn;
+    btn->onClick.argc = onClick->argc;
+    btn->onClick.argv = onClick->argv;
 
     return btn;
 }
 
-void btn_updateButton(btn_Button *btn, input_Mouse *mouse)
+void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
 {
     const SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
-    bool hovering = u_collision(mouseRect, btn->sprite->hitbox);
+    bool hovering = u_collision(&mouseRect, &btn->sprite->hitbox);
 
-    po_updatePressableObj(&btn->button, hovering && mouse->buttonLeft.pressed);
+    po_updatePressableObj(btn->button, hovering && mouse->buttonLeft->pressed);
 
-    if(btn->button.pressed && btn->onClick)
-        btn->onClick(btn->onClickArgc, btn->onClickArgv);
+    if(btn->button->pressed && btn->onClick.fn)
+        oe_executeOnEventfn(btn->onClick);
 }
 
 void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer, bool displayHitboxOutline)
@@ -36,7 +37,7 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer, bool displayHitboxO
 
     if(displayHitboxOutline){
         SDL_Color outlineColor;
-        if(btn->button.pressed)
+        if(btn->button->pressed)
             outlineColor = btn_hitboxOutlineColorPressed;
         else
             outlineColor = btn_hitboxOutlineColorNormal;
@@ -49,7 +50,10 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer, bool displayHitboxO
 void btn_destroyButton(btn_Button *btn)
 {
     spr_destroySprite(btn->sprite);
-    if(btn->onClickArgv)
+    po_destroyPressableObj(btn->button);
+    btn->sprite = NULL;
+    btn->button = NULL;
+    if(btn->onClick.argv)
         fputs("WARNING (from btn_destroyButton): btn->onClickArgv was not set to NULL!\n", stderr);
 
     free(btn);

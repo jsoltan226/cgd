@@ -10,58 +10,61 @@
 #include <SDL2/SDL_scancode.h>
 #include <stdbool.h>
 
-#define INPUT_KEYBOARD_LENGTH               40
+#define KB_KEYBOARD_LENGTH                40
 
 typedef struct {
-    po_PressableObj key;
+    po_PressableObj *key;
     SDL_Keycode SDLKeycode;
-} input_Key;
-typedef input_Key input_Keyboard[INPUT_KEYBOARD_LENGTH];
+} kb_Key;
+typedef kb_Key kb_Keyboard[KB_KEYBOARD_LENGTH];
 
-extern void input_initKeyboard(input_Keyboard keyboard);
-extern void input_updateKeyboard(input_Keyboard keyboard);
+kb_Keyboard* kb_initKeyboard();
+void kb_updateKeyboard(kb_Keyboard *kb);
+void kb_destroyKeyboard(kb_Keyboard *kb);
+
+#define kb_getKey(kb, kc)                (*kb)[kc].key
 
 typedef enum {
-    INPUT_KEYCODE_SPACE,
-    INPUT_KEYCODE_ESCAPE,
-    INPUT_KEYCODE_DIGIT0,
-    INPUT_KEYCODE_DIGIT1,
-    INPUT_KEYCODE_DIGIT2,
-    INPUT_KEYCODE_DIGIT3,
-    INPUT_KEYCODE_DIGIT4,
-    INPUT_KEYCODE_DIGIT5,
-    INPUT_KEYCODE_DIGIT6,
-    INPUT_KEYCODE_DIGIT7,
-    INPUT_KEYCODE_DIGIT8,
-    INPUT_KEYCODE_DIGIT9,
-    INPUT_KEYCODE_A,
-    INPUT_KEYCODE_B,
-    INPUT_KEYCODE_C,
-    INPUT_KEYCODE_D,
-    INPUT_KEYCODE_E,
-    INPUT_KEYCODE_F,
-    INPUT_KEYCODE_G,
-    INPUT_KEYCODE_H,
-    INPUT_KEYCODE_I,
-    INPUT_KEYCODE_J,
-    INPUT_KEYCODE_K,
-    INPUT_KEYCODE_L,
-    INPUT_KEYCODE_M,
-    INPUT_KEYCODE_N,
-    INPUT_KEYCODE_O,
-    INPUT_KEYCODE_P,
-    INPUT_KEYCODE_Q,
-    INPUT_KEYCODE_S,
-    INPUT_KEYCODE_T,
-    INPUT_KEYCODE_U,
-    INPUT_KEYCODE_V,
-    INPUT_KEYCODE_W,
-    INPUT_KEYCODE_X,
-    INPUT_KEYCODE_Y,
-    INPUT_KEYCODE_Z,
-} input_KeyCode;
+    KB_KEYCODE_SPACE,
+    KB_KEYCODE_ESCAPE,
+    KB_KEYCODE_DIGIT0,
+    KB_KEYCODE_DIGIT1,
+    KB_KEYCODE_DIGIT2,
+    KB_KEYCODE_DIGIT3,
+    KB_KEYCODE_DIGIT4,
+    KB_KEYCODE_DIGIT5,
+    KB_KEYCODE_DIGIT6,
+    KB_KEYCODE_DIGIT7,
+    KB_KEYCODE_DIGIT8,
+    KB_KEYCODE_DIGIT9,
+    KB_KEYCODE_A,
+    KB_KEYCODE_B,
+    KB_KEYCODE_C,
+    KB_KEYCODE_D,
+    KB_KEYCODE_E,
+    KB_KEYCODE_F,
+    KB_KEYCODE_G,
+    KB_KEYCODE_H,
+    KB_KEYCODE_I,
+    KB_KEYCODE_J,
+    KB_KEYCODE_K,
+    KB_KEYCODE_L,
+    KB_KEYCODE_M,
+    KB_KEYCODE_N,
+    KB_KEYCODE_O,
+    KB_KEYCODE_P,
+    KB_KEYCODE_Q,
+    KB_KEYCODE_S,
+    KB_KEYCODE_T,
+    KB_KEYCODE_U,
+    KB_KEYCODE_V,
+    KB_KEYCODE_W,
+    KB_KEYCODE_X,
+    KB_KEYCODE_Y,
+    KB_KEYCODE_Z,
+} kb_KeyCode;
 
-static const SDL_Keycode input_correspondingSDLKeycodes[INPUT_KEYBOARD_LENGTH] = {
+static const SDL_Keycode kb_correspondingSDLKeycodes[KB_KEYBOARD_LENGTH] = {
     SDL_SCANCODE_SPACE,
     SDL_SCANCODE_ESCAPE,
     SDL_SCANCODE_0,

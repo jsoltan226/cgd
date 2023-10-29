@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <error.h>
 
-mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, input_Keyboard keyboard, input_Mouse *mouse)
+mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
 {
     mmgr_MenuManager* mmgr = malloc(sizeof(mmgr_MenuManager));
     assert(mmgr != NULL);
@@ -26,13 +26,17 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     return mmgr;
 }
 
-void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, input_Keyboard keyboard, input_Mouse *mouse)
+void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse)
 {
     mn_updateMenu(mmgr->currentMenu, mouse);
 
     if(mmgr->currentMenu->switchTo != MN_ID_NULL){
         mmgr_switchMenu(mmgr, mmgr->currentMenu->switchTo);
-        input_forceReleaseMouse(mouse, INPUT_MOUSE_EVERYBUTTONMASK);
+        ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
+    }
+    if(mmgr->currentMenu->statusFlags & MN_ONEVENT_GOBACK){
+        mmgr->currentMenu->statusFlags &= ~MN_ONEVENT_GOBACK;
+        mmgr_goBackMenu(mmgr);
     }
 }
 

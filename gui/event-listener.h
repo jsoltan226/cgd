@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "../user-input/mouse.h"
 #include "../user-input/keyboard.h"
+#include "on-event.h"
 
 typedef enum {
     EVL_EVENT_KEYBOARD_KEYPRESS,
@@ -16,6 +17,7 @@ typedef enum {
 
 typedef struct {
     evl_EventType type;
+    oe_OnEvent onEvent;
     bool *objectPtr;
     bool detected;
 } evl_EventListener;
@@ -23,17 +25,18 @@ typedef struct {
 typedef struct {
     evl_EventType type;
     union {
-        input_Mouse_ButtonMask buttonMask;
-        input_KeyCode keycode;
+        ms_Mouse_ButtonMask buttonMask;
+        kb_KeyCode keycode;
     } targetInfo;
+    oe_OnEvent *onEvent;
 } evl_EventListenerConfig;
 
 typedef union {
-    input_Mouse *mouse;
-    input_Key *keyboard;
+    ms_Mouse *mouse;
+    kb_Keyboard *keyboard;
 } evl_Target;
 
-evl_EventListener* evl_initEventListener(evl_Target target, evl_EventListenerConfig *cfg);
+evl_EventListener* evl_initEventListener(evl_Target target, oe_OnEvent *onEvent, evl_EventListenerConfig *cfg);
 void evl_updateEventListener(evl_EventListener *evl);
 void evl_destroyEventListener(evl_EventListener *evl);
 

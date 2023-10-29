@@ -4,6 +4,7 @@
 #include "gui/event-listener.h"
 #include "gui/menu.h"
 #include "gui/menu-mgr.h"
+#include "gui/on-event.h"
 #include "gui/parallax-bg.h"
 #include "gui/sprite.h"
 #include "gui/buttons.h"
@@ -89,14 +90,14 @@ const spr_SpriteConfig mainMenuButtonConfigs[] = {
     testButtonSpriteConfig
 };
 
-const mn_ButtonOnClickCfg mainMenuTestButtonOnClickCfg = {
-    .onClickType = MN_ONCLICK_SWITCHMENU,
-    .onClickArgs = {
+const mn_OnEventCfg mainMenuTestButtonOnClickCfg = {
+    .onEventType = MN_ONEVENT_SWITCHMENU,
+    .onEventArgs = {
         .switchToID = SUB_MENU
     }, 
 };
 
-const mn_ButtonOnClickCfg mainMenuButtonCfgs[] = {
+const mn_OnEventCfg mainMenuButtonCfgs[] = {
     mainMenuTestButtonOnClickCfg,
 };
 
@@ -105,7 +106,7 @@ const mn_MenuConfig mainMenuConfig = {
     .spriteCfgs = NULL,
     .spriteCount = 0,
     .buttonSpriteCfgs = (btn_SpriteConfig*)mainMenuButtonConfigs,
-    .buttonOnClickCfgs = (mn_ButtonOnClickCfg*)mainMenuButtonCfgs,
+    .buttonOnClickCfgs = (mn_OnEventCfg*)mainMenuButtonCfgs,
     .buttonCount = 1,
     .eventListenerCfgs = NULL,
     .eventListenerCount = 0,
@@ -115,16 +116,23 @@ const mn_MenuConfig mainMenuConfig = {
 const btn_SpriteConfig subMenuButtonSpriteConfigs[] = {
     testButtonSpriteConfig,
 };
-const mn_ButtonOnClickCfg subMenuTestButtonOnClickCfg = {
-    .onClickType = MN_ONCLICK_SWITCHMENU,
-    .onClickArgs = { .switchToID = MAIN_MENU },
+const mn_OnEventCfg subMenuTestButtonOnClickCfg = {
+    .onEventType = MN_ONEVENT_SWITCHMENU,
+    .onEventArgs = { .switchToID = MAIN_MENU },
 };
-const mn_ButtonOnClickCfg subMenuButtonOnClickConfigs[] = {
+const mn_OnEventCfg subMenuButtonOnClickConfigs[] = {
     subMenuTestButtonOnClickCfg,
+};
+const mn_OnEventCfg subMenuBackEventListenerOnEventConfig = {
+    .onEventType = MN_ONEVENT_GOBACK,
+    .onEventArgs = {},
+};
+const mn_OnEventCfg subMenuEventListernerOnEventConfigs[] = {
+    subMenuBackEventListenerOnEventConfig,
 };
 const evl_EventListenerConfig subMenuBackEventListenerConfig = {
     .type = EVL_EVENT_KEYBOARD_KEYDOWN,
-    .targetInfo = { .keycode = INPUT_KEYCODE_P },
+    .targetInfo = { .keycode = KB_KEYCODE_P },
 };
 const evl_EventListenerConfig subMenuEventListenerConfigs[] = {
     subMenuBackEventListenerConfig
@@ -138,9 +146,10 @@ const mn_MenuConfig subMenuConfig = {
     .spriteCfgs = NULL,
     .spriteCount = 0,
     .buttonSpriteCfgs = (btn_SpriteConfig*)subMenuButtonSpriteConfigs,
-    .buttonOnClickCfgs = (mn_ButtonOnClickCfg*)subMenuButtonOnClickConfigs,
+    .buttonOnClickCfgs = (mn_OnEventCfg*)subMenuButtonOnClickConfigs,
     .buttonCount = 1,
     .eventListenerCfgs = (evl_EventListenerConfig*)subMenuEventListenerConfigs,
+    .eventListenerOnEventConfigs = (mn_OnEventCfg*)subMenuEventListernerOnEventConfigs,
     .eventListenerCount = 1,
     .id = SUB_MENU,
 };

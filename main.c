@@ -18,13 +18,13 @@
 #include "util.h"
 #include "config.h"
 
-static mmgr_MenuManager* MenuManager;
-static SDL_Window* window;
-static SDL_Renderer* renderer;
-static bool running = true;
-static bool paused = false;
-static input_Keyboard keyboard;
-input_Mouse *mouse;
+mmgr_MenuManager* MenuManager;
+SDL_Window* window;
+SDL_Renderer* renderer;
+bool running = true;
+bool paused = false;
+kb_Keyboard *keyboard;
+ms_Mouse *mouse;
 
 int main(int argc, char** argv)
 {
@@ -36,8 +36,8 @@ int main(int argc, char** argv)
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    input_initKeyboard(keyboard);
-    mouse = input_initMouse();
+    keyboard = kb_initKeyboard();
+    mouse = ms_initMouse();
 
     MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
 
@@ -49,16 +49,22 @@ int main(int argc, char** argv)
         while(SDL_PollEvent(&event));
 
         /* EVENT/INPUT HANDLING SECTION */
-        input_updateKeyboard(keyboard);
-        input_updateMouse(mouse);
+        kb_updateKeyboard(keyboard);
+        ms_updateMouse(mouse);
 
-        if(event.type == SDL_QUIT || keyboard[INPUT_KEYCODE_Q].key.pressed || mouse->buttonMiddle.pressed)
+        /* Reset mouse when it gets out of the window */
+        SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+        SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
+        if(!u_collision(&windowRect, &mouseRect))
+            ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
+
+        if(event.type == SDL_QUIT || kb_getKey(keyboard, KB_KEYCODE_Q)->up || mouse->buttonMiddle->up)
             running = false;
 
-        if(keyboard[INPUT_KEYCODE_ESCAPE].key.up)
+        if(kb_getKey(keyboard, KB_KEYCODE_ESCAPE)->up)
             paused = !paused;
 
-        if(keyboard[INPUT_KEYCODE_H].key.up)
+        if(kb_getKey(keyboard, KB_KEYCODE_H)->up)
             displayButtonHitboxOutlines = !displayButtonHitboxOutlines;
 
         /* UPDATE SECTION */
@@ -81,7 +87,7 @@ int main(int argc, char** argv)
         }
     }
 
-    input_destroyMouse(mouse);
+    ms_destroyMouse(mouse);
     mmgr_destroyMenuManager(MenuManager);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
