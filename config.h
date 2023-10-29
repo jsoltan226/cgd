@@ -1,11 +1,13 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "gui/event-listener.h"
 #include "gui/menu.h"
 #include "gui/menu-mgr.h"
 #include "gui/parallax-bg.h"
 #include "gui/sprite.h"
 #include "gui/buttons.h"
+#include "user-input/keyboard.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
@@ -71,10 +73,14 @@ const spr_SpriteConfig testButtonSpriteConfig = {
     /* DESTINATION RECT */
     .destRect = { 20, 20, 200, 200 },
 
-    /* SDL_TEXTURE POINTER, INITIALIZED DURING RUNTIME */
+    /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
     .textureFilePath = "assets/gui/buttons/testButton.png"
 };
 
+enum MenuIDs {
+    MAIN_MENU,
+    SUB_MENU
+};
 enum MainMenuButtonIDs {
     MAIN_MENU_BUTTON_TESTBUTTON
 };
@@ -83,17 +89,65 @@ const spr_SpriteConfig mainMenuButtonConfigs[] = {
     testButtonSpriteConfig
 };
 
+const mn_ButtonOnClickCfg mainMenuTestButtonOnClickCfg = {
+    .onClickType = MN_ONCLICK_SWITCHMENU,
+    .onClickArgs = {
+        .switchToID = SUB_MENU
+    }, 
+};
+
+const mn_ButtonOnClickCfg mainMenuButtonCfgs[] = {
+    mainMenuTestButtonOnClickCfg,
+};
+
 const mn_MenuConfig mainMenuConfig = {
     .bgConfig = mainMenuBgConfig,
     .spriteCfgs = NULL,
     .spriteCount = 0,
-    .buttonCfgs = (spr_SpriteConfig*)mainMenuButtonConfigs,
+    .buttonSpriteCfgs = (btn_SpriteConfig*)mainMenuButtonConfigs,
+    .buttonOnClickCfgs = (mn_ButtonOnClickCfg*)mainMenuButtonCfgs,
     .buttonCount = 1,
+    .eventListenerCfgs = NULL,
+    .eventListenerCount = 0,
+    .id = MAIN_MENU,
+};
+
+const btn_SpriteConfig subMenuButtonSpriteConfigs[] = {
+    testButtonSpriteConfig,
+};
+const mn_ButtonOnClickCfg subMenuTestButtonOnClickCfg = {
+    .onClickType = MN_ONCLICK_SWITCHMENU,
+    .onClickArgs = { .switchToID = MAIN_MENU },
+};
+const mn_ButtonOnClickCfg subMenuButtonOnClickConfigs[] = {
+    subMenuTestButtonOnClickCfg,
+};
+const evl_EventListenerConfig subMenuBackEventListenerConfig = {
+    .type = EVL_EVENT_KEYBOARD_KEYDOWN,
+    .targetInfo = { .keycode = INPUT_KEYCODE_P },
+};
+const evl_EventListenerConfig subMenuEventListenerConfigs[] = {
+    subMenuBackEventListenerConfig
+};
+const mn_MenuConfig subMenuConfig = {
+    .bgConfig = {
+        .layerImageFilePaths = NULL,
+        .layerSpeeds = NULL,
+        .layerCount = 0,
+    },
+    .spriteCfgs = NULL,
+    .spriteCount = 0,
+    .buttonSpriteCfgs = (btn_SpriteConfig*)subMenuButtonSpriteConfigs,
+    .buttonOnClickCfgs = (mn_ButtonOnClickCfg*)subMenuButtonOnClickConfigs,
+    .buttonCount = 1,
+    .eventListenerCfgs = (evl_EventListenerConfig*)subMenuEventListenerConfigs,
+    .eventListenerCount = 1,
+    .id = SUB_MENU,
 };
 
 const mn_MenuConfig menuManagerConfigs[] = {
     mainMenuConfig,
-    NULL
+    subMenuConfig,
 };
 
 const mmgr_MenuManagerConfig menuManagerConfig = {

@@ -1,5 +1,5 @@
 CC?=x86_64-pc-linux-gnu-gcc
-CFLAGS?=-Wall -O2 -ggdb -fPIC -Wno-missing-braces
+CFLAGS=-Wall -O2 -fPIC -ggdb
 DEPFLAGS?=-MMD -MP
 CCLD?=x86_64-pc-linux-gnu-gcc
 LDFLAGS?=-pie
@@ -21,15 +21,17 @@ DEPS=$(patsubst %.o,%.d,$(OBJS))
 EXE=./main
 
 .PHONY: all release compile link strip clean update run
-.NOTPARALLEL: all release
+.NOTPARALLEL: all release debug br
 
 all: $(OBJDIR) debug compile link
 
 release: $(OBJDIR) update compile link strip clean
-	@CFLAGS="$(CFLAGS) -O3 -Wpedantic -Werror=all"
+	@CFLAGS="$(CFLAGS) -O3 -Wall -Werror"
 
 debug:
-	@CFLAGS="$(CFLAGS) -DASSERTIONS"
+	@CFLAGS="-ggdb $(CFLAGS) -DASSERTIONS"
+
+br: all run
 
 link: $(OBJS)
 	@$(ECHO) "CCLD	$(OBJS)"

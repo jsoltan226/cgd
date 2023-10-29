@@ -24,7 +24,7 @@ static SDL_Renderer* renderer;
 static bool running = true;
 static bool paused = false;
 static input_Keyboard keyboard;
-static input_Mouse mouse;
+input_Mouse *mouse;
 
 int main(int argc, char** argv)
 {
@@ -36,9 +36,10 @@ int main(int argc, char** argv)
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer);
-
     input_initKeyboard(keyboard);
+    mouse = input_initMouse();
+
+    MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
 
 
     while(running)
@@ -49,9 +50,9 @@ int main(int argc, char** argv)
 
         /* EVENT/INPUT HANDLING SECTION */
         input_updateKeyboard(keyboard);
-        input_updateMouse(&mouse);
+        input_updateMouse(mouse);
 
-        if(event.type == SDL_QUIT || keyboard[INPUT_KEYCODE_Q].key.pressed || mouse.buttonMiddle.pressed)
+        if(event.type == SDL_QUIT || keyboard[INPUT_KEYCODE_Q].key.pressed || mouse->buttonMiddle.pressed)
             running = false;
 
         if(keyboard[INPUT_KEYCODE_ESCAPE].key.up)
@@ -64,18 +65,6 @@ int main(int argc, char** argv)
         if(!paused){
             mmgr_updateMenuManager(MenuManager, keyboard, mouse);
 
-            if(keyboard[INPUT_KEYCODE_P].key.down && MenuManager->inMenuDepth == 1){
-                mmgr_switchMenu(MenuManager, MenuManager->fullMenuList[0]);
-                MenuManager->inMenuDepth = 0;
-            }
-
-            if(MenuManager->fullMenuList[0]->buttons[MAIN_MENU_BUTTON_TESTBUTTON]->button.down && MenuManager->inMenuDepth == 0){
-                mmgr_switchMenu(MenuManager, MenuManager->fullMenuList[1]);
-                MenuManager->fullMenuList[0]->buttons[MAIN_MENU_BUTTON_TESTBUTTON]->button.down = false;
-                MenuManager->inMenuDepth = 1;
-            }
-
-        
         /* RENDER SECTION */
             SDL_SetRenderDrawColor(renderer, rendererBg.r, rendererBg.g, rendererBg.b, rendererBg.a);
             SDL_RenderClear(renderer);
@@ -92,6 +81,7 @@ int main(int argc, char** argv)
         }
     }
 
+    input_destroyMouse(mouse);
     mmgr_destroyMenuManager(MenuManager);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

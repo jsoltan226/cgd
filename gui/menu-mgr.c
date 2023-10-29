@@ -5,10 +5,8 @@
 #include <assert.h>
 #include <error.h>
 
-mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer)
+mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, input_Keyboard keyboard, input_Mouse *mouse)
 {
-    assert(cfg->menuCount >= 0);
-
     mmgr_MenuManager* mmgr = malloc(sizeof(mmgr_MenuManager));
     assert(mmgr != NULL);
     
@@ -20,7 +18,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     mmgr->inMenuDepth = 0;
 
     for(int i = 0; i < cfg->menuCount; i++){
-        mmgr->fullMenuList[i] = mn_initMenu(&cfg->menus[i], renderer);
+        mmgr->fullMenuList[i] = mn_initMenu(&cfg->menus[i], renderer, keyboard, mouse);
     }
 
     mmgr->currentMenu = mmgr->fullMenuList[0];
@@ -28,14 +26,13 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     return mmgr;
 }
 
-void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, input_Keyboard keyboard, input_Mouse mouse)
+void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, input_Keyboard keyboard, input_Mouse *mouse)
 {
     mn_updateMenu(mmgr->currentMenu, mouse);
 
-    if(mmgr->currentMenu->switchTo != NULL){
-        mn_Menu* switchTo = mmgr->currentMenu->switchTo;
-        mmgr->currentMenu->switchTo = NULL;
-        mmgr_switchMenu(mmgr, switchTo);
+    if(mmgr->currentMenu->switchTo != MN_ID_NULL){
+        mmgr_switchMenu(mmgr, mmgr->currentMenu->switchTo);
+        input_forceReleaseMouse(mouse, INPUT_MOUSE_EVERYBUTTONMASK);
     }
 }
 
@@ -71,33 +68,20 @@ void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
     }
 }
 
-void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_Menu* newMenu)
+void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_ID switchTo)
 {
-    bool createNewEntry = true;
+    mn_Menu *destMenuPtr = NULL;
     for(int i = 0; i < mmgr->menuCount; i++){
-        if(newMenu == mmgr->fullMenuList[i]){
-            createNewEntry = false;
+        if(mmgr->fullMenuList[i]->ID == switchTo){
+            destMenuPtr = mmgr->fullMenuList[i];
             break;
         }
     }
-    if(createNewEntry){
-        mmgr->fullMenuList = realloc(mmgr->fullMenuList, (mmgr->menuCount + 1) * sizeof(mn_Menu*));
-        mmgr->fullMenuList[mmgr->menuCount] = newMenu;
-        mmgr->menuCount++;
-    }
-
-    if(mmgr->inMenuDepth < 0)
-    {
-        mmgr->menuCount = 0;
-        mmgr->previousMenus = NULL;
-        mmgr->currentMenu = newMenu;
-        mmgr->inMenuDepth = 0;
-        return;
-    }
-
-    mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth + 1) * sizeof(mn_Menu*));
-    mmgr->previousMenus[mmgr->inMenuDepth] = mmgr->currentMenu;
-    mmgr->currentMenu->switchTo = NULL;
-    mmgr->currentMenu = newMenu;
-    mmgr->inMenuDepth++;
+    if(destMenuPtr){
+        mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth + 1) * sizeof(mn_Menu*));
+        mmgr->previousMenus[mmgr->inMenuDepth] = mmgr->currentMenu;
+        mmgr->currentMenu->switchTo = MN_ID_NULL;
+        mmgr->currentMenu = destMenuPtr;
+        mmgr->inMenuDepth++;
+    } 
 }
