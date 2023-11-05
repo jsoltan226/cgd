@@ -96,24 +96,17 @@ void mn_destroyMenu(mn_Menu* mn)
     free(mn->sprites);
     mn->sprites = NULL;
     
-    for(int i = 0; i < mn->buttonCount; i++){
-        free(mn->buttons[i]->onClick.argv);
-        mn->buttons[i]->onClick.argv = NULL;
+    for(int i = 0; i < mn->buttonCount; i++)
         btn_destroyButton(mn->buttons[i]);
-    }
     free(mn->buttons);
     mn->buttons = NULL;
 
-    for(int i = 0; i < mn->eventListenerCount; i++){
-        free(mn->eventListeners[i]->onEvent.argv);
-        mn->eventListeners[i]->onEvent.argv = NULL;
+    for(int i = 0; i < mn->eventListenerCount; i++)
         evl_destroyEventListener(mn->eventListeners[i]);
-    }
     free(mn->eventListeners);
     mn->eventListeners = NULL;
 
     bg_destroyBG(mn->bg);
-    mn->bg = NULL;
 
     free(mn);
     mn = NULL;

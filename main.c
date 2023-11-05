@@ -87,11 +87,13 @@ int main(int argc, char** argv)
         }
     }
 
+    kb_destroyKeyboard(keyboard);
     ms_destroyMouse(mouse);
     mmgr_destroyMenuManager(MenuManager);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
+    IMG_Quit();
 
     return EXIT_SUCCESS;
 }

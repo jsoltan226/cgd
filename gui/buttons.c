@@ -22,7 +22,7 @@ btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, oe_OnEvent *onClick, SDL
 
 void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
 {
-    const SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
+    const SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };;
     bool hovering = u_collision(&mouseRect, &btn->sprite->hitbox);
 
     po_updatePressableObj(btn->button, hovering && mouse->buttonLeft->pressed);
@@ -51,10 +51,8 @@ void btn_destroyButton(btn_Button *btn)
 {
     spr_destroySprite(btn->sprite);
     po_destroyPressableObj(btn->button);
-    btn->sprite = NULL;
-    btn->button = NULL;
-    if(btn->onClick.argv)
-        fputs("WARNING (from btn_destroyButton): btn->onClickArgv was not set to NULL!\n", stderr);
+
+    oe_destroyOnEventObj(btn->onClick);
 
     free(btn);
     btn = NULL;

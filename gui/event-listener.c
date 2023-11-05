@@ -81,9 +81,7 @@ void evl_updateEventListener(evl_EventListener *evl)
 
 void evl_destroyEventListener(evl_EventListener *evl)
 {
-    if(evl->onEvent.argv != NULL)
-        fputs("WARNING (from evl_destroyEventListener): evl->onEvent->argv was not set to NULL",stderr);
-
+    oe_destroyOnEventObj(evl->onEvent);
     free(evl);
     evl = NULL;
 }

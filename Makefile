@@ -1,13 +1,14 @@
-CC?=x86_64-pc-linux-gnu-gcc
-CFLAGS=-Wall -O2 -fPIC -ggdb
+CC?=cc
+CFLAGS=-Wall -O2 -fPIC
 DEPFLAGS?=-MMD -MP
-CCLD?=x86_64-pc-linux-gnu-gcc
+CCLD?=cc
 LDFLAGS?=-pie
 LIBS?=-lSDL2 -lSDL2_image
 STRIP?=strip
 STRIPFLAGS?=-g -s
 
 ECHO=echo
+PRINTF=printf
 RM=rm -f
 TOUCH=touch -c
 EXEC=exec
@@ -15,26 +16,24 @@ MKDIR=mkdir -p
 RMDIR=rmdir
 
 OBJDIR = obj
+BINDIR = bin
 SRCS=$(wildcard */*.c) $(wildcard ./*.c)
 OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell find . -name "*.c" | xargs basename -as .c))
 DEPS=$(patsubst %.o,%.d,$(OBJS))
-EXE=./main
+EXE=$(BINDIR)/main
 
-.PHONY: all release compile link strip clean update run
-.NOTPARALLEL: all release debug br
+.PHONY: all release compile link strip clean update run br
+.NOTPARALLEL: all release br
 
-all: $(OBJDIR) debug compile link
+all: $(OBJDIR) $(BINDIR) compile link
 
-release: $(OBJDIR) update compile link strip clean
-	@CFLAGS="$(CFLAGS) -O3 -Wall -Werror"
-
-debug:
-	@CFLAGS="-ggdb $(CFLAGS) -DASSERTIONS"
+release: CFLAGS += -O3 -Wall -Werror
+release: $(OBJDIR) $(BINDIR) update compile link strip clean
 
 br: all run
 
 link: $(OBJS)
-	@$(ECHO) "CCLD	$(OBJS)"
+	@$(PRINTF) "CCLD 	%-20s %-20s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
 compile: $(OBJS)
@@ -43,14 +42,18 @@ $(OBJDIR):
 	@$(ECHO) "MKDIR	$(OBJDIR)"
 	@$(MKDIR) $(OBJDIR)
 
-$(EXEC): all
+$(BINDIR):
+	@$(ECHO) "MKDIR	$(BINDIR)"
+	@$(MKDIR) $(BINDIR)
+
+$(EXE): all
 
 $(OBJDIR)/%.o: ./%.c Makefile
-	@$(ECHO) "CC	$<"
+	@$(PRINTF) "CC 	%-20s %-20s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.o: */%.c Makefile
-	@$(ECHO) "CC	$<"
+	@$(PRINTF) "CC 	%-20s %-20s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
 
 strip:
@@ -58,10 +61,8 @@ strip:
 	@$(STRIP) $(STRIPFLAGS) $(EXE)
 
 clean:
-	@$(ECHO) "RM	$(OBJS) $(DEPS)"
-	@$(RM) $(OBJS) $(DEPS)
-	@$(ECHO) "RMDIR	$(OBJDIR)"
-	@$(RMDIR) $(OBJDIR)
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE)"
+	@$(RM) $(OBJS) $(DEPS) $(EXE)
 
 update:
 	@$(ECHO) "TOUCH	$(SRCS)"

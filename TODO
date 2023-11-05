@@ -1,5 +1,3 @@
-** Add the kb_destroyKeyboard() call at the end of main() **
-** Locate memory leak (valgrind showed about 1500 bytes leaked!) **
 Rewrite how event listeners listen in on their event
 ** Add free(oe_OnEvent*) where it is needed **
 Perhaps rewrite the oe_OnEvent class altogether
