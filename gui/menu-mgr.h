@@ -1,6 +1,7 @@
 #ifndef MENUMGR_H
 #define MENUMGR_H
 
+#include "event-listener.h"
 #include "menu.h"
 #include <SDL2/SDL_render.h>
 
@@ -10,11 +11,16 @@ typedef struct {
     int inMenuDepth;
     mn_Menu **fullMenuList;
     int menuCount;
+    evl_EventListener **globalEventListeners;
+    int globalEventListenerCount;
 } mmgr_MenuManager;
 
 typedef struct {
     int menuCount;
     mn_MenuConfig *menus;
+    mn_OnEventCfg *globalEventListenerOnEventCfgs;
+    evl_EventListenerConfig *globalEventListenerCfgs;
+    int globalEventListenerCount;
 } mmgr_MenuManagerConfig;
 
 mmgr_MenuManager *mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse);

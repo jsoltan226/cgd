@@ -1,5 +1,5 @@
 CC?=cc
-CFLAGS=-Wall -O2 -fPIC
+COMMON_CFLAGS=-Wall -fPIC
 DEPFLAGS?=-MMD -MP
 CCLD?=cc
 LDFLAGS?=-pie
@@ -25,9 +25,10 @@ EXE=$(BINDIR)/main
 .PHONY: all release compile link strip clean update run br
 .NOTPARALLEL: all release br
 
+all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) compile link
 
-release: CFLAGS += -O3 -Wall -Werror
+release: CFLAGS = -O3 -Wall -Werror
 release: $(OBJDIR) $(BINDIR) update compile link strip clean
 
 br: all run
@@ -46,11 +47,9 @@ $(BINDIR):
 	@$(ECHO) "MKDIR	$(BINDIR)"
 	@$(MKDIR) $(BINDIR)
 
-$(EXE): all
-
 $(OBJDIR)/%.o: ./%.c Makefile
 	@$(PRINTF) "CC 	%-20s %-20s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.o: */%.c Makefile
 	@$(PRINTF) "CC 	%-20s %-20s\n" "$@" "<= $<"

@@ -1,8 +1,12 @@
-Rewrite how event listeners listen in on their event
-** Add free(oe_OnEvent*) where it is needed **
-Perhaps rewrite the oe_OnEvent class altogether
+*** FIX THE FPS ***
+** STOP USING SDL2_IMAGE!!!!!!!!!!!!!111111 (it adds like 15 additional runtime library dependencies) **
+** Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time) **
+
 Add clicking animations in buttons
 Implement lazy loading of menus in menu-mgr
+
 (Near future) Add popup menus
 (Future) Add clicking sound in buttons, work with SDL_audio
 (Future) implement switch menu animations
+
+(Future) Add the goddamn editor

@@ -13,6 +13,7 @@
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define WINDOW_TITLE                    "cgd"
 #define WINDOW_X                        SDL_WINDOWPOS_CENTERED
@@ -28,6 +29,8 @@
 #define TESTBUTTON_Y                    20
 #define TESTBUTTON_WIDTH                200
 #define TESTBUTTON_HEIGHT               200
+
+static bool running = true;
 
 const SDL_Color rendererBg = { 30, 30, 30, 100 };
 const SDL_Rect gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
@@ -93,7 +96,7 @@ const spr_SpriteConfig mainMenuButtonConfigs[] = {
 const mn_OnEventCfg mainMenuTestButtonOnClickCfg = {
     .onEventType = MN_ONEVENT_SWITCHMENU,
     .onEventArgs = {
-        .switchToID = SUB_MENU
+        .switchDestMenuID = SUB_MENU,
     }, 
 };
 
@@ -118,14 +121,14 @@ const btn_SpriteConfig subMenuButtonSpriteConfigs[] = {
 };
 const mn_OnEventCfg subMenuTestButtonOnClickCfg = {
     .onEventType = MN_ONEVENT_SWITCHMENU,
-    .onEventArgs = { .switchToID = MAIN_MENU },
+    .onEventArgs = { .switchDestMenuID = MAIN_MENU },
 };
 const mn_OnEventCfg subMenuButtonOnClickConfigs[] = {
     subMenuTestButtonOnClickCfg,
 };
 const mn_OnEventCfg subMenuBackEventListenerOnEventConfig = {
-    .onEventType = MN_ONEVENT_GOBACK,
-    .onEventArgs = {},
+    .onEventType = MN_ONEVENT_PRINTMESSAGE,
+    .onEventArgs = { .message = "hello from mmgr!\n" },
 };
 const mn_OnEventCfg subMenuEventListernerOnEventConfigs[] = {
     subMenuBackEventListenerOnEventConfig,
@@ -149,8 +152,8 @@ const mn_MenuConfig subMenuConfig = {
     .buttonOnClickCfgs = (mn_OnEventCfg*)subMenuButtonOnClickConfigs,
     .buttonCount = 1,
     .eventListenerCfgs = (evl_EventListenerConfig*)subMenuEventListenerConfigs,
-    .eventListenerOnEventConfigs = (mn_OnEventCfg*)subMenuEventListernerOnEventConfigs,
-    .eventListenerCount = 1,
+    .eventListenerOnEventCfgs = (mn_OnEventCfg*)subMenuEventListernerOnEventConfigs,
+    .eventListenerCount = 0,
     .id = SUB_MENU,
 };
 
@@ -159,9 +162,26 @@ const mn_MenuConfig menuManagerConfigs[] = {
     subMenuConfig,
 };
 
+const mn_OnEventCfg mmgrGELOECfg = {
+    .onEventType = MN_ONEVENT_QUIT,
+    .onEventArgs = { .runningVarPtr = &running },
+};
+const mn_OnEventCfg mmgrGELOECfgs[] = {
+    mmgrGELOECfg
+};
+const evl_EventListenerConfig mmgrGELCfg = {
+    .type = EVL_EVENT_KEYBOARD_KEYUP,
+    .targetInfo = { .keycode = KB_KEYCODE_Q },
+};
+const evl_EventListenerConfig mmgrGELCfgs[] = {
+    mmgrGELCfg
+};
 const mmgr_MenuManagerConfig menuManagerConfig = {
     .menuCount = 2,
-    .menus = (mn_MenuConfig*)menuManagerConfigs
+    .menus = (mn_MenuConfig*)menuManagerConfigs,
+    .globalEventListenerOnEventCfgs = (mn_OnEventCfg*)mmgrGELOECfgs,
+    .globalEventListenerCfgs = (evl_EventListenerConfig*)mmgrGELCfgs,
+    .globalEventListenerCount = 3,
 };
 
 #endif

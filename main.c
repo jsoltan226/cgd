@@ -18,15 +18,20 @@
 #include "util.h"
 #include "config.h"
 
+/* bool running = true (moved to config.h) */
 mmgr_MenuManager* MenuManager;
 SDL_Window* window;
 SDL_Renderer* renderer;
-bool running = true;
 bool paused = false;
 kb_Keyboard *keyboard;
 ms_Mouse *mouse;
 
-int main(int argc, char** argv)
+/* Fix linker error ('undefined reference to WinMain') when compiling for windows */
+#ifdef _WIN32
+int WinMain(void)
+#else
+int main(void)
+#endif
 {
 
     SDL_Init(SDL_INIT_VIDEO);
@@ -41,31 +46,33 @@ int main(int argc, char** argv)
 
     MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
 
-
     while(running)
     {
 
-        SDL_Event event;
-        while(SDL_PollEvent(&event));
-
         /* EVENT/INPUT HANDLING SECTION */
-        kb_updateKeyboard(keyboard);
-        ms_updateMouse(mouse);
+        SDL_Event event;
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_KEYUP || event.type == SDL_KEYDOWN)
+                kb_updateKeyboard(keyboard);
+            else if(event.type == SDL_MOUSEMOTION || 
+                    event.type == SDL_MOUSEBUTTONUP || 
+                    event.type == SDL_MOUSEBUTTONDOWN)
+            {
+                ms_updateMouse(mouse);
+                /* Reset mouse when it gets out of the window */
+                SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+                SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
+                if(!u_collision(&windowRect, &mouseRect))
+                    ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
+            } else if(event.type == SDL_QUIT)
+                running = false;
 
-        /* Reset mouse when it gets out of the window */
-        SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
-        SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
-        if(!u_collision(&windowRect, &mouseRect))
-            ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
+            if(kb_getKey(keyboard, KB_KEYCODE_ESCAPE)->up)
+                paused = !paused;
 
-        if(event.type == SDL_QUIT || kb_getKey(keyboard, KB_KEYCODE_Q)->up || mouse->buttonMiddle->up)
-            running = false;
-
-        if(kb_getKey(keyboard, KB_KEYCODE_ESCAPE)->up)
-            paused = !paused;
-
-        if(kb_getKey(keyboard, KB_KEYCODE_H)->up)
-            displayButtonHitboxOutlines = !displayButtonHitboxOutlines;
+            if(kb_getKey(keyboard, KB_KEYCODE_H)->up)
+                displayButtonHitboxOutlines = !displayButtonHitboxOutlines;
+        }
 
         /* UPDATE SECTION */
         if(!paused){
@@ -87,9 +94,9 @@ int main(int argc, char** argv)
         }
     }
 
+    mmgr_destroyMenuManager(MenuManager);
     kb_destroyKeyboard(keyboard);
     ms_destroyMouse(mouse);
-    mmgr_destroyMenuManager(MenuManager);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

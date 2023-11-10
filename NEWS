@@ -1,6 +1,9 @@
-Added kb_destroyKeyboard() at the end of main
-Located memory leak; turns out it was all in X11_InitKeyboard and other functions not written by me, so I have no way of fixing that
-Added oe_destroyOnEventObj() macro, used it wherever it was needed
-Removed unnecessary obj = NULL after calls to obj_destroyObj()
-Added .gitignore
-Moved the executable to a new 'bin' directory
+Fixed linker error when compiling for windows
+Started work on configuration parsing system
+Fixed event handling
+Rewrote how oe_OnEvent objects are handled in menu.c
+Added global event listeners to mmgr_MenuManager, now they will be used to handle things like pausing and quitting
+NOTE: The above 2 changes are not thoroughly tested, and therefore probably extremely buggy
+
+Added .gitignore to .gitignore
+Added some comments to menu.c (Yay!)

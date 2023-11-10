@@ -3,38 +3,38 @@
 #include "on-event.h"
 #include <stdio.h>
 
-evl_EventListener* evl_initEventListener(evl_Target target, oe_OnEvent *onEvent, evl_EventListenerConfig *cfg)
+evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *onEventObj, evl_Target *t)
 {
     evl_EventListener *evl = malloc(sizeof(evl_EventListener));
 
     evl->type = cfg->type;
     evl->detected = false;
 
-    evl->onEvent.fn = onEvent->fn;
-    evl->onEvent.argc = onEvent->argc;
-    evl->onEvent.argv = onEvent->argv;
+    evl->onEvent.fn = onEventObj->fn;
+    evl->onEvent.argc = onEventObj->argc;
+    evl->onEvent.argv = onEventObj->argv;
 
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
-            evl->objectPtr = &(*target.keyboard)[cfg->targetInfo.keycode].key->pressed;
+            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode)->pressed);
         	break;
         case EVL_EVENT_KEYBOARD_KEYDOWN:
-            evl->objectPtr = &(*target.keyboard)[cfg->targetInfo.keycode].key->down;
+            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode)->down);
         	break;
         case EVL_EVENT_KEYBOARD_KEYUP:
-            evl->objectPtr = &(*target.keyboard)[cfg->targetInfo.keycode].key->up;
+            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode)->up);
         	break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
             switch(cfg->targetInfo.buttonMask){
                 default:
                 case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonLeft->pressed;
+                    evl->objectPtr = &(t->mouse->buttonLeft->pressed);
                     break;
                 case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonRight->pressed;
+                    evl->objectPtr = &(t->mouse->buttonRight->pressed);
                     break;
                 case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonMiddle->pressed;
+                    evl->objectPtr = &(t->mouse->buttonMiddle->pressed);
                     break;
             }
             break;
@@ -42,26 +42,26 @@ evl_EventListener* evl_initEventListener(evl_Target target, oe_OnEvent *onEvent,
             switch(cfg->targetInfo.buttonMask){
                 default:
                 case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonLeft->down;
+                    evl->objectPtr = &(t->mouse->buttonLeft->down);
                     break;
                 case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonRight->down;
+                    evl->objectPtr = &(t->mouse->buttonRight->down);
                     break;
                 case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonMiddle->down;
+                    evl->objectPtr = &(t->mouse->buttonMiddle->down);
                     break;
             }
         case EVL_EVENT_MOUSE_BUTTONUP:
             switch(cfg->targetInfo.buttonMask){
                 default:
                 case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonLeft->up;
+                    evl->objectPtr = &(t->mouse->buttonLeft->up);
                     break;
                 case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonRight->up;
+                    evl->objectPtr = &(t->mouse->buttonRight->up);
                     break;
                 case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &target.mouse->buttonMiddle->up;
+                    evl->objectPtr = &(t->mouse->buttonMiddle->up);
                     break;
             }
         	break;

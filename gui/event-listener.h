@@ -28,15 +28,14 @@ typedef struct {
         ms_Mouse_ButtonMask buttonMask;
         kb_KeyCode keycode;
     } targetInfo;
-    oe_OnEvent *onEvent;
 } evl_EventListenerConfig;
 
-typedef union {
+typedef struct {
     ms_Mouse *mouse;
     kb_Keyboard *keyboard;
 } evl_Target;
 
-evl_EventListener* evl_initEventListener(evl_Target target, oe_OnEvent *onEvent, evl_EventListenerConfig *cfg);
+evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *oeObj, evl_Target *t);
 void evl_updateEventListener(evl_EventListener *evl);
 void evl_destroyEventListener(evl_EventListener *evl);
 

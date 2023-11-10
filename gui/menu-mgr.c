@@ -1,5 +1,7 @@
 #include "menu-mgr.h"
+#include "event-listener.h"
 #include "menu.h"
+#include "on-event.h"
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -11,14 +13,26 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     assert(mmgr != NULL);
     
     mmgr->menuCount = cfg->menuCount;
+    mmgr->globalEventListenerCount = cfg->globalEventListenerCount;
     mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(mn_Menu*));
     mmgr->previousMenus = malloc(0);
-    assert(mmgr->fullMenuList != NULL && mmgr->previousMenus != NULL);
+    mmgr->globalEventListeners = malloc(cfg->globalEventListenerCount * sizeof(evl_EventListener*));
+    assert(mmgr->fullMenuList != NULL && mmgr->previousMenus != NULL && mmgr->globalEventListeners != NULL);
 
     mmgr->inMenuDepth = 0;
 
     for(int i = 0; i < cfg->menuCount; i++){
         mmgr->fullMenuList[i] = mn_initMenu(&cfg->menus[i], renderer, keyboard, mouse);
+    }
+
+    evl_Target tempEvlTargetObj = {
+        .keyboard = keyboard,
+        .mouse = mouse,
+    };
+    for(int i = 0; i < cfg->globalEventListenerCount; i++){
+        oe_OnEvent tempOEObj;
+        mn_initOnEventObj(&tempOEObj, &cfg->globalEventListenerOnEventCfgs[i], NULL);
+        mmgr->globalEventListeners[i] = evl_initEventListener(&cfg->globalEventListenerCfgs[i], &tempOEObj, &tempEvlTargetObj);
     }
 
     mmgr->currentMenu = mmgr->fullMenuList[0];
@@ -28,6 +42,10 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
 
 void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse)
 {
+    for(int i = 0; i < mmgr->globalEventListenerCount; i++){
+        evl_updateEventListener(mmgr->globalEventListeners[i]);
+    }
+
     mn_updateMenu(mmgr->currentMenu, mouse);
 
     if(mmgr->currentMenu->switchTo != MN_ID_NULL){
@@ -35,7 +53,7 @@ void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mo
         ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
     }
     if(mmgr->currentMenu->statusFlags & MN_ONEVENT_GOBACK){
-        mmgr->currentMenu->statusFlags &= ~MN_ONEVENT_GOBACK;
+        mmgr->currentMenu->statusFlags ^= MN_ONEVENT_GOBACK;
         mmgr_goBackMenu(mmgr);
     }
 }
@@ -55,6 +73,13 @@ void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr)
     free(mmgr->previousMenus);
     mmgr->fullMenuList = NULL;
     mmgr->previousMenus = NULL;
+
+    for(int i = 0; i < mmgr->globalEventListenerCount; i++)
+    {
+        evl_destroyEventListener(mmgr->globalEventListeners[i]);
+    }
+    free(mmgr->globalEventListeners);
+    mmgr->globalEventListeners = NULL;
 
     free(mmgr);
     mmgr = NULL;
