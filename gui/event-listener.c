@@ -12,7 +12,7 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
 
     evl->onEvent.fn = onEventObj->fn;
     evl->onEvent.argc = onEventObj->argc;
-    evl->onEvent.argv = onEventObj->argv;
+    memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*));
 
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
@@ -75,13 +75,12 @@ void evl_updateEventListener(evl_EventListener *evl)
     if(evl->objectPtr)
         evl->detected = *evl->objectPtr;
     
-    if(evl->detected)
+    if(evl->detected && evl->onEvent.fn)
         oe_executeOnEventfn(evl->onEvent);
 }
 
 void evl_destroyEventListener(evl_EventListener *evl)
 {
-    oe_destroyOnEventObj(evl->onEvent);
     free(evl);
     evl = NULL;
 }

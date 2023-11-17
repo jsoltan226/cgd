@@ -136,36 +136,32 @@ void mn_destroyMenu(mn_Menu* mn)
 void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optionalMenuPtr)
 {
     /* =====> Do not bother reading this, see explanations in the menu.h header file  <===== */
+    memset(oeObj->argv, OE_ARGV_SIZE, sizeof(void*));
     switch(oeCfg->onEventType){
         default:
         case MN_ONEVENT_NONE:
             oeObj->fn = NULL;
             oeObj->argc = 0;
-            oeObj->argv = NULL;
             break;
         case MN_ONEVENT_SWITCHMENU:
             oeObj->fn = &mn_switchMenu;
             oeObj->argc = 2;
-            oeObj->argv = malloc(sizeof(void*) * 2);
             oeObj->argv[0] = &optionalMenuPtr->switchTo;
             oeObj->argv[1] = (void*)oeCfg->onEventArgs.switchDestMenuID;
             break;
         case MN_ONEVENT_QUIT:
             oeObj->fn = &mn_quit;
             oeObj->argc = 1;
-            oeObj->argv = malloc(sizeof(void*) * 1);
             oeObj->argv[0] = (void*)oeCfg->onEventArgs.runningVarPtr;
             break;
         case MN_ONEVENT_GOBACK:
             oeObj->fn = &mn_goBack;
             oeObj->argc = 1;
-            oeObj->argv = malloc(sizeof(void*) * 1);
             oeObj->argv[0] = (void*)&optionalMenuPtr->statusFlags;
             break;
         case MN_ONEVENT_MEMCOPY:
             oeObj->fn = &mn_memCopy;
             oeObj->argc = 3;
-            oeObj->argv = malloc(sizeof(void*) * 3);
             oeObj->argv[0] = oeCfg->onEventArgs.memCopyInfo.source;
             oeObj->argv[1] = oeCfg->onEventArgs.memCopyInfo.dest;
             oeObj->argv[2] = (void*)oeCfg->onEventArgs.memCopyInfo.size;
@@ -173,13 +169,11 @@ void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optiona
         case MN_ONEVENT_PRINTMESSAGE:
             oeObj->fn = &mn_printMessage;
             oeObj->argc = 1;
-            oeObj->argv = malloc(sizeof(void*) * 1);
             oeObj->argv[0] = (void*)oeCfg->onEventArgs.message;
             break;
         case MN_ONEVENT_EXECUTE_OTHER:
             oeObj->fn = &mn_executeOther;
             oeObj->argc = 1;
-            oeObj->argv = malloc(sizeof(void*) * 1);
             oeObj->argv[0] = (void*)oeCfg->onEventArgs.executeOther;
             break;
     }

@@ -1,1 +1,2 @@
 Dropped dependency for SDL2_image, now using libpng to load textures
+oe_OnEvent->argv is now allocated on the stack instead of the heap, eliminating the need for a oe_destroyOnEventObj function

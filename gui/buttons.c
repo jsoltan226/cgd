@@ -15,7 +15,7 @@ btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, oe_OnEvent *onClick, SDL
     btn->button = po_createPressableObj();
     btn->onClick.fn = onClick->fn;
     btn->onClick.argc = onClick->argc;
-    btn->onClick.argv = onClick->argv;
+    memcpy(btn->onClick.argv, onClick->argv, OE_ARGV_SIZE * sizeof(void*));
 
     return btn;
 }
@@ -51,8 +51,6 @@ void btn_destroyButton(btn_Button *btn)
 {
     spr_destroySprite(btn->sprite);
     po_destroyPressableObj(btn->button);
-
-    oe_destroyOnEventObj(btn->onClick);
 
     free(btn);
     btn = NULL;

@@ -1,6 +1,5 @@
 *** FIX THE FPS ***
-*** dont use the heap for oe_OnEvent->argv (type void **), instead use the stack (void *argv[SOME_MAX_BUFFER_LENGTH]). Like, wtf was i even thinking????!!?!? ***
-*** Fix the comipilation error "initializer is not a compile time constant" in gcc < 8.2 and clang in config.h (use #define for obj initialization)
+*** Fix the comipilation error "initializer is not a compile time constant" in gcc < 8.2 and clang in config.h
 ** Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time) **
 
 Add clicking animations in buttons
