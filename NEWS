@@ -1,2 +1,3 @@
 Dropped dependency for SDL2_image, now using libpng to load textures
 oe_OnEvent->argv is now allocated on the stack instead of the heap, eliminating the need for a oe_destroyOnEventObj function
+Fixed the comipilation error "initializer is not a compile time constant" in gcc < 8.2 and clang in config.h

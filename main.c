@@ -27,9 +27,9 @@ ms_Mouse *mouse;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
 #ifdef _WIN32
-int WinMain(void)
+int WinMain(int argc, char **argv)
 #else
-int main(void)
+int main(int argc, char **argv)
 #endif
 {
 

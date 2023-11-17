@@ -1,6 +1,4 @@
 *** FIX THE FPS ***
-*** Fix the comipilation error "initializer is not a compile time constant" in gcc < 8.2 and clang in config.h
-** Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time) **
 
 Add clicking animations in buttons
 Implement lazy loading of menus in menu-mgr
@@ -10,3 +8,4 @@ Implement lazy loading of menus in menu-mgr
 (Future) implement switch menu animations
 
 (Future) Add the goddamn editor
+(Future) Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time)

@@ -31,27 +31,11 @@
 #define TESTBUTTON_HEIGHT               200
 
 static bool running = true;
+static bool displayButtonHitboxOutlines = false;
 
 const SDL_Color rendererBg = { 30, 30, 30, 100 };
 const SDL_Rect gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
-const int mainBGLayerCount = 5;
 
-const char* const mainBGLayerImageFilePaths[] = {
-    "assets/gui/background/layer_01.png",
-    "assets/gui/background/layer_02.png",
-    "assets/gui/background/layer_03.png", 
-    "assets/gui/background/layer_04.png",
-    "assets/gui/background/layer_05.png",
-};
-const int mainBGLayerSpeeds[] = {
-    1, 2, 4, 16, 16 
-};
-
-const bg_BGConfig mainMenuBgConfig = {
-    .layerImageFilePaths = (const char**)mainBGLayerImageFilePaths,
-    .layerSpeeds = (int*)mainBGLayerSpeeds,
-    .layerCount = 5,
-};
 /* tb is test button */
 #define tb_SrcWidth 780.f
 #define tb_SrcHeight 280.f
@@ -59,27 +43,6 @@ const bg_BGConfig mainMenuBgConfig = {
 #define tb_HitboxSrcY 121.f
 #define tb_HitboxSrcWidth 770.f
 #define tb_HitboxSrcHeight 160.f
-
-static bool displayButtonHitboxOutlines = false;
-const spr_SpriteConfig testButtonSpriteConfig = {
-    /* HITBOX */
-    .hitbox = {
-        .x = TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
-        .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
-
-        .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
-        .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
-    },
-
-    /* SOURCE RECT */
-    .srcRect = { 0, 0, 780, 280 },
-
-    /* DESTINATION RECT */
-    .destRect = { 20, 20, 200, 200 },
-
-    /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
-    .textureFilePath = "assets/gui/buttons/testButton.png"
-};
 
 enum MenuIDs {
     MAIN_MENU,
@@ -89,98 +52,121 @@ enum MainMenuButtonIDs {
     MAIN_MENU_BUTTON_TESTBUTTON
 };
 
-const spr_SpriteConfig mainMenuButtonConfigs[] = {
-    testButtonSpriteConfig
-};
-
-const mn_OnEventCfg mainMenuTestButtonOnClickCfg = {
-    .onEventType = MN_ONEVENT_SWITCHMENU,
-    .onEventArgs = {
-        .switchDestMenuID = SUB_MENU,
-    }, 
-};
-
-const mn_OnEventCfg mainMenuButtonCfgs[] = {
-    mainMenuTestButtonOnClickCfg,
-};
-
-const mn_MenuConfig mainMenuConfig = {
-    .bgConfig = mainMenuBgConfig,
-    .spriteCfgs = NULL,
-    .spriteCount = 0,
-    .buttonSpriteCfgs = (btn_SpriteConfig*)mainMenuButtonConfigs,
-    .buttonOnClickCfgs = (mn_OnEventCfg*)mainMenuButtonCfgs,
-    .buttonCount = 1,
-    .eventListenerCfgs = NULL,
-    .eventListenerCount = 0,
-    .id = MAIN_MENU,
-};
-
-const btn_SpriteConfig subMenuButtonSpriteConfigs[] = {
-    testButtonSpriteConfig,
-};
-const mn_OnEventCfg subMenuTestButtonOnClickCfg = {
-    .onEventType = MN_ONEVENT_SWITCHMENU,
-    .onEventArgs = { .switchDestMenuID = MAIN_MENU },
-};
-const mn_OnEventCfg subMenuButtonOnClickConfigs[] = {
-    subMenuTestButtonOnClickCfg,
-};
-const mn_OnEventCfg subMenuBackEventListenerOnEventConfig = {
-    .onEventType = MN_ONEVENT_PRINTMESSAGE,
-    .onEventArgs = { .message = "hello from mmgr!\n" },
-};
-const mn_OnEventCfg subMenuEventListernerOnEventConfigs[] = {
-    subMenuBackEventListenerOnEventConfig,
-};
-const evl_EventListenerConfig subMenuBackEventListenerConfig = {
-    .type = EVL_EVENT_KEYBOARD_KEYDOWN,
-    .targetInfo = { .keycode = KB_KEYCODE_P },
-};
-const evl_EventListenerConfig subMenuEventListenerConfigs[] = {
-    subMenuBackEventListenerConfig
-};
-const mn_MenuConfig subMenuConfig = {
-    .bgConfig = {
-        .layerImageFilePaths = NULL,
-        .layerSpeeds = NULL,
-        .layerCount = 0,
-    },
-    .spriteCfgs = NULL,
-    .spriteCount = 0,
-    .buttonSpriteCfgs = (btn_SpriteConfig*)subMenuButtonSpriteConfigs,
-    .buttonOnClickCfgs = (mn_OnEventCfg*)subMenuButtonOnClickConfigs,
-    .buttonCount = 1,
-    .eventListenerCfgs = (evl_EventListenerConfig*)subMenuEventListenerConfigs,
-    .eventListenerOnEventCfgs = (mn_OnEventCfg*)subMenuEventListernerOnEventConfigs,
-    .eventListenerCount = 0,
-    .id = SUB_MENU,
-};
-
-const mn_MenuConfig menuManagerConfigs[] = {
-    mainMenuConfig,
-    subMenuConfig,
-};
-
-const mn_OnEventCfg mmgrGELOECfg = {
-    .onEventType = MN_ONEVENT_QUIT,
-    .onEventArgs = { .runningVarPtr = &running },
-};
-const mn_OnEventCfg mmgrGELOECfgs[] = {
-    mmgrGELOECfg
-};
-const evl_EventListenerConfig mmgrGELCfg = {
-    .type = EVL_EVENT_KEYBOARD_KEYUP,
-    .targetInfo = { .keycode = KB_KEYCODE_Q },
-};
-const evl_EventListenerConfig mmgrGELCfgs[] = {
-    mmgrGELCfg
-};
 const mmgr_MenuManagerConfig menuManagerConfig = {
     .menuCount = 2,
-    .menus = (mn_MenuConfig*)menuManagerConfigs,
-    .globalEventListenerOnEventCfgs = (mn_OnEventCfg*)mmgrGELOECfgs,
-    .globalEventListenerCfgs = (evl_EventListenerConfig*)mmgrGELCfgs,
+    .menus = (mn_MenuConfig*)(mn_MenuConfig[]){
+        {
+            .bgConfig = {
+                .layerImageFilePaths = (const char**)(const char*[]){
+                    "assets/gui/background/layer_01.png",
+                    "assets/gui/background/layer_02.png",
+                    "assets/gui/background/layer_03.png",
+                    "assets/gui/background/layer_04.png",
+                    "assets/gui/background/layer_05.png",
+                },
+                .layerSpeeds = (int*)(int[]){ 1, 2, 4, 16, 16 },
+                .layerCount = 5,
+            },
+            .spriteCfgs = NULL,
+            .spriteCount = 0,
+            .buttonSpriteCfgs = (btn_SpriteConfig*)(btn_SpriteConfig[]){
+                {
+                    /* HITBOX */
+                    .hitbox = {
+                        .x = TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
+                        .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
+
+                        .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
+                        .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
+                    },
+
+                    /* SOURCE RECT */
+                    .srcRect = { 0, 0, 780, 280 },
+
+                    /* DESTINATION RECT */
+                    .destRect = { 20, 20, 200, 200 },
+
+                    .textureFilePath = "assets/gui/buttons/testButton.png"
+                }
+            },
+            .buttonOnClickCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
+                {
+                    .onEventType = MN_ONEVENT_SWITCHMENU,
+                    .onEventArgs = {
+                        .switchDestMenuID = SUB_MENU,
+                    }, 
+                }
+            },
+            .buttonCount = 1,
+            .eventListenerCfgs = NULL,
+            .eventListenerCount = 0,
+            .id = MAIN_MENU,
+
+        },
+        {
+            .bgConfig = {
+                .layerImageFilePaths = NULL,
+                .layerSpeeds = NULL,
+                .layerCount = 0,
+            },
+            .spriteCfgs = NULL,
+            .spriteCount = 0,
+            .buttonSpriteCfgs = (btn_SpriteConfig*)(btn_SpriteConfig[]){
+                {
+                    /* HITBOX */
+                    .hitbox = {
+                        .x = TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
+                        .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
+
+                        .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
+                        .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
+                    },
+
+                    /* SOURCE RECT */
+                    .srcRect = { 0, 0, 780, 280 },
+
+                    /* DESTINATION RECT */
+                    .destRect = { 20, 20, 200, 200 },
+
+                    /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
+                    .textureFilePath = "assets/gui/buttons/testButton.png"
+                }
+            },
+            .buttonOnClickCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
+                {
+                    .onEventType = MN_ONEVENT_SWITCHMENU,
+                    .onEventArgs = { .switchDestMenuID = MAIN_MENU },
+                }
+            },
+            .buttonCount = 1,
+            .eventListenerCfgs = (evl_EventListenerConfig*)(evl_EventListenerConfig[]){
+                {
+                    .type = EVL_EVENT_KEYBOARD_KEYDOWN,
+                    .targetInfo = { .keycode = KB_KEYCODE_P },
+                }
+            },
+            .eventListenerOnEventCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
+                {
+                    .onEventType = MN_ONEVENT_PRINTMESSAGE,
+                    .onEventArgs = { .message = "hello from mmgr!\n" },
+                }
+            },
+            .eventListenerCount = 0,
+            .id = SUB_MENU,
+        },
+    },
+    .globalEventListenerOnEventCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
+        {
+            .onEventType = MN_ONEVENT_QUIT,
+            .onEventArgs = { .runningVarPtr = &running },
+        }
+    },
+    .globalEventListenerCfgs = (evl_EventListenerConfig*)(evl_EventListenerConfig[]){
+        {
+            .type = EVL_EVENT_KEYBOARD_KEYUP,
+            .targetInfo = { .keycode = KB_KEYCODE_Q },
+        }
+    },
     .globalEventListenerCount = 3,
 };
 

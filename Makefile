@@ -1,7 +1,7 @@
 CC?=cc
 COMMON_CFLAGS=-Wall -fPIC
 DEPFLAGS?=-MMD -MP
-CCLD?=cc
+CCLD?=$(CC)
 LDFLAGS?=-pie
 LIBS?=-lSDL2 -lpng
 STRIP?=strip
