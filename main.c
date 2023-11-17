@@ -21,7 +21,6 @@
 mmgr_MenuManager *MenuManager;
 SDL_Window *window;
 SDL_Renderer *renderer;
-bool paused = false;
 kb_Keyboard *keyboard;
 ms_Mouse *mouse;
 
@@ -48,33 +47,31 @@ int main(int argc, char **argv)
         Uint32 startTime = SDL_GetTicks();
 
         /* EVENT/INPUT HANDLING SECTION */
+
+        /* The keyboard and mouse structs need updating every game tick. They use SDL_Get(..)State, not SDL_PollEvent. */
+        kb_updateKeyboard(keyboard);
+        ms_updateMouse(mouse);
+
+        /* Check for input events */
         SDL_Event event;
         while(SDL_PollEvent(&event)){
-            if(event.type == SDL_KEYUP || event.type == SDL_KEYDOWN)
-                kb_updateKeyboard(keyboard);
-            else if(event.type == SDL_MOUSEMOTION || 
-                    event.type == SDL_MOUSEBUTTONUP || 
-                    event.type == SDL_MOUSEBUTTONDOWN)
-            {
-                ms_updateMouse(mouse);
+            if(event.type == SDL_MOUSEMOTION || event.type == SDL_MOUSEBUTTONUP || event.type == SDL_MOUSEBUTTONDOWN){
+
                 /* Reset mouse when it gets out of the window */
                 SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
                 SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
+
                 if(!u_collision(&windowRect, &mouseRect))
                     ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
-            } else if(event.type == SDL_QUIT)
-                running = false;
 
-            if(kb_getKey(keyboard, KB_KEYCODE_ESCAPE)->up)
-                paused = !paused;
-
-            if(kb_getKey(keyboard, KB_KEYCODE_H)->up)
-                displayButtonHitboxOutlines = !displayButtonHitboxOutlines;
+            } else if(event.type == SDL_QUIT){
+                running = false; 
+            }
         }
 
         /* UPDATE SECTION */
+        mmgr_updateMenuManager(MenuManager, keyboard, mouse, paused);
         if(!paused){
-            mmgr_updateMenuManager(MenuManager, keyboard, mouse);
 
         /* RENDER SECTION */
             SDL_SetRenderDrawColor(renderer, rendererBg.r, rendererBg.g, rendererBg.b, rendererBg.a);
@@ -90,7 +87,7 @@ int main(int argc, char **argv)
 
             Uint32 deltaTime = SDL_GetTicks() - startTime;
 
-            if(deltaTime < FRAME_DURATION)
+            if(deltaTime <= FRAME_DURATION)
                 SDL_Delay(FRAME_DURATION - deltaTime);
         }
     }

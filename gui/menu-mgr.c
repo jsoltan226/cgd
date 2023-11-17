@@ -56,12 +56,15 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     return mmgr;
 }
 
-void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse)
+void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse, bool paused)
 {
     /* Update the event listeners first */
     for(int i = 0; i < mmgr->globalEventListenerCount; i++){
         evl_updateEventListener(mmgr->globalEventListeners[i]);
     }
+
+    /* If paused, only update the event listeners. This is a temporary solution, though */
+    if(paused) return;
 
     /* Update the menus */
     mn_updateMenu(mmgr->currentMenu, mouse);

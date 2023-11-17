@@ -1,4 +1,4 @@
-CC?=cc
+CC?=clang
 COMMON_CFLAGS=-Wall -fPIC
 DEPFLAGS?=-MMD -MP
 CCLD?=$(CC)

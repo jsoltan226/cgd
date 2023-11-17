@@ -19,6 +19,8 @@ typedef enum {
     MN_ONEVENT_NONE,
     MN_ONEVENT_MEMCOPY,
     MN_ONEVENT_SWITCHMENU,
+    MN_ONEVENT_FLIPBOOL,
+    MN_ONEVENT_PAUSE,
     MN_ONEVENT_GOBACK,
     MN_ONEVENT_PRINTMESSAGE,
     MN_ONEVENT_QUIT,
@@ -47,7 +49,7 @@ typedef struct {
 
         const char *message;
 
-        bool *runningVarPtr;
+        bool *boolVarPtr;
 
         void (*executeOther)();
     } onEventArgs;

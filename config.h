@@ -32,6 +32,7 @@
 
 static bool running = true;
 static bool displayButtonHitboxOutlines = false;
+static bool paused = false;
 
 const SDL_Color rendererBg = { 30, 30, 30, 100 };
 const SDL_Rect gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
@@ -115,8 +116,8 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                 {
                     /* HITBOX */
                     .hitbox = {
-                        .x = TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
-                        .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
+                        .x = 100 + TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
+                        .y = 150 + TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
 
                         .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
                         .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
@@ -126,7 +127,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                     .srcRect = { 0, 0, 780, 280 },
 
                     /* DESTINATION RECT */
-                    .destRect = { 20, 20, 200, 200 },
+                    .destRect = { 100 + 20, 150 + 20, 200, 200 },
 
                     /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
                     .textureFilePath = "assets/gui/buttons/testButton.png"
@@ -148,24 +149,40 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
             .eventListenerOnEventCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
                 {
                     .onEventType = MN_ONEVENT_PRINTMESSAGE,
-                    .onEventArgs = { .message = "hello from mmgr!\n" },
+                    .onEventArgs = { .message = "hello!\n" },
                 }
             },
-            .eventListenerCount = 0,
+            .eventListenerCount = 1,
             .id = SUB_MENU,
         },
     },
     .globalEventListenerOnEventCfgs = (mn_OnEventCfg*)(mn_OnEventCfg[]){
         {
             .onEventType = MN_ONEVENT_QUIT,
-            .onEventArgs = { .runningVarPtr = &running },
+            .onEventArgs = { .boolVarPtr = &running },
+        },
+        {
+            .onEventType = MN_ONEVENT_PAUSE,
+            .onEventArgs = { .boolVarPtr = &paused },
+        },
+        {
+            .onEventType = MN_ONEVENT_FLIPBOOL,
+            .onEventArgs = { .boolVarPtr = &displayButtonHitboxOutlines },
         }
     },
     .globalEventListenerCfgs = (evl_EventListenerConfig*)(evl_EventListenerConfig[]){
         {
             .type = EVL_EVENT_KEYBOARD_KEYUP,
             .targetInfo = { .keycode = KB_KEYCODE_Q },
-        }
+        },
+        {
+            .type = EVL_EVENT_KEYBOARD_KEYUP,
+            .targetInfo = { .keycode = KB_KEYCODE_ESCAPE },
+        },
+        {
+            .type = EVL_EVENT_KEYBOARD_KEYDOWN,
+            .targetInfo = { .keycode = KB_KEYCODE_H },
+        },
     },
     .globalEventListenerCount = 3,
 };

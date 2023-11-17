@@ -10,7 +10,7 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
     evl_EventListener *evl = malloc(sizeof(evl_EventListener));
     assert(evl != NULL);
 
-    /* Copy over the info from the 'oneventObj' argument */
+    /* Copy over the info from the 'onEventObj' argument */
     evl->onEvent.fn = onEventObj->fn;
     evl->onEvent.argc = onEventObj->argc;
     assert( memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*)) );

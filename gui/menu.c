@@ -13,7 +13,7 @@ static int mn_memCopy(int argc, void **argv);
 static int mn_switchMenu(int argc, void **argv);
 static int mn_goBack(int argc, void **argv);
 static int mn_printMessage(int argc, void **argv);
-static int mn_quit(int argc, void **argv);
+static int mn_flipBool(int argc, void **argv);
 static int mn_executeOther(int argc, void **argv);
 
 mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
@@ -103,7 +103,6 @@ void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes
     }
 
     /* Event listeners do not need drawing because they are invisible */
-
 }
 
 void mn_destroyMenu(mn_Menu* mn)
@@ -151,10 +150,11 @@ void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optiona
             oeObj->argv[0] = &optionalMenuPtr->switchTo;
             oeObj->argv[1] = (void*)oeCfg->onEventArgs.switchDestMenuID;
             break;
-        case MN_ONEVENT_QUIT:
-            oeObj->fn = &mn_quit;
+        case MN_ONEVENT_QUIT: case MN_ONEVENT_PAUSE:
+        case MN_ONEVENT_FLIPBOOL:
+            oeObj->fn = &mn_flipBool;
             oeObj->argc = 1;
-            oeObj->argv[0] = (void*)oeCfg->onEventArgs.runningVarPtr;
+            oeObj->argv[0] = (void*)oeCfg->onEventArgs.boolVarPtr;
             break;
         case MN_ONEVENT_GOBACK:
             assert(optionalMenuPtr != NULL);
@@ -261,7 +261,7 @@ static int mn_printMessage(int argc, void **argv)
     return EXIT_SUCCESS;
 }
 
-static int mn_quit(int argc, void **argv)
+static int mn_flipBool(int argc, void **argv)
 {
     /* check for argument existence and validity */
     if(!argv)
@@ -270,8 +270,8 @@ static int mn_quit(int argc, void **argv)
     if(argc != 1 || !argv[0])
         return EXIT_FAILURE;
     
-    /* argv[0] contains the pointer to a 'running' variable, so cast it to bool*, dereference it and set it to false */
-    *(bool*)argv[0] = false;
+    /* argv[0] contains the pointer to a boolean variable, so convert it to a bool* and then dereference it */
+    *(bool*)argv[0] = !(*(bool*)argv[0]);
 
     return EXIT_SUCCESS;
 }
