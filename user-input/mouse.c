@@ -6,18 +6,25 @@
 
 ms_Mouse* ms_initMouse()
 {
+    /* Allocate the mouse struct on the heap */
     ms_Mouse *m = malloc(sizeof(ms_Mouse));
     assert(m != NULL);
-    m->x = m->y = 0;
+
+    /* Initializethe mouse buttons */
     m->buttonLeft = po_createPressableObj();
     m->buttonRight = po_createPressableObj();
     m->buttonMiddle = po_createPressableObj();
+    assert(m->buttonLeft != NULL && m->buttonRight != NULL && m->buttonMiddle != NULL);
     
+    /* Set other members to default values */
+    m->x = m->y = 0;
+
     return m;
 }
 
 void ms_updateMouse(ms_Mouse *mouse)
 {   
+    /* Get the mouse state from SDL, and update all the buttons accordingly */
     Uint32 mouseState = SDL_GetMouseState(&mouse->x, &mouse->y);
 
     po_updatePressableObj(mouse->buttonLeft, mouseState & SDL_BUTTON_LMASK);
@@ -27,6 +34,7 @@ void ms_updateMouse(ms_Mouse *mouse)
 
 void ms_forceReleaseMouse(ms_Mouse *mouse, int buttons)
 {
+    /* It's pretty obvious what this does... */
     if(buttons & MS_LEFTBUTTONMASK){
         po_forceReleasePressableObj(mouse->buttonLeft);
     }
@@ -40,6 +48,7 @@ void ms_forceReleaseMouse(ms_Mouse *mouse, int buttons)
 
 void ms_destroyMouse(ms_Mouse *mouse)
 {
+    /* Free the idividual buttons, and then the mouse struct itself */
     po_destroyPressableObj(mouse->buttonLeft);
     po_destroyPressableObj(mouse->buttonRight);
     po_destroyPressableObj(mouse->buttonMiddle);

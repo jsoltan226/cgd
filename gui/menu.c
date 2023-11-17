@@ -18,6 +18,7 @@ static int mn_executeOther(int argc, void **argv);
 
 mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
 {
+    /* Allocate the mn_Menu struct */
     mn_Menu* mn = malloc(sizeof(mn_Menu));
     assert(mn != NULL);
 
@@ -144,6 +145,7 @@ void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optiona
             oeObj->argc = 0;
             break;
         case MN_ONEVENT_SWITCHMENU:
+            assert(optionalMenuPtr != NULL);
             oeObj->fn = &mn_switchMenu;
             oeObj->argc = 2;
             oeObj->argv[0] = &optionalMenuPtr->switchTo;
@@ -155,6 +157,7 @@ void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optiona
             oeObj->argv[0] = (void*)oeCfg->onEventArgs.runningVarPtr;
             break;
         case MN_ONEVENT_GOBACK:
+            assert(optionalMenuPtr != NULL);
             oeObj->fn = &mn_goBack;
             oeObj->argc = 1;
             oeObj->argv[0] = (void*)&optionalMenuPtr->statusFlags;

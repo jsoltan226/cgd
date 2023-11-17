@@ -18,9 +18,9 @@
 #include "config.h"
 
 /* bool running = true (moved to config.h) */
-mmgr_MenuManager* MenuManager;
-SDL_Window* window;
-SDL_Renderer* renderer;
+mmgr_MenuManager *MenuManager;
+SDL_Window *window;
+SDL_Renderer *renderer;
 bool paused = false;
 kb_Keyboard *keyboard;
 ms_Mouse *mouse;
@@ -32,7 +32,6 @@ int WinMain(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
-
     SDL_Init(SDL_INIT_VIDEO);
 
     window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
@@ -46,6 +45,7 @@ int main(int argc, char **argv)
 
     while(running)
     {
+        Uint32 startTime = SDL_GetTicks();
 
         /* EVENT/INPUT HANDLING SECTION */
         SDL_Event event;
@@ -88,13 +88,17 @@ int main(int argc, char **argv)
 
             SDL_RenderPresent(renderer);
 
-            SDL_Delay(FRAME_DURATION);
+            Uint32 deltaTime = SDL_GetTicks() - startTime;
+
+            if(deltaTime < FRAME_DURATION)
+                SDL_Delay(FRAME_DURATION - deltaTime);
         }
     }
 
     mmgr_destroyMenuManager(MenuManager);
     kb_destroyKeyboard(keyboard);
     ms_destroyMouse(mouse);
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

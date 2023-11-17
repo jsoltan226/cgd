@@ -5,6 +5,7 @@
 
 SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* restrict filePath)
 {
+    /* (Try to) Open the given file */
     FILE *file = fopen(filePath, "rb");
     if (!file) {
         fprintf(stderr, "[u_loadPNG] Error: File '%s' could not be opened for reading.\n", filePath);
@@ -90,9 +91,11 @@ SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* restrict filePath)
 
     for (int y = 0; y < height; y++) {
         memcpy(tmpSurface->pixels + y * tmpSurface->pitch, rowPointers[y], tmpSurface->pitch);
+        /* The value in rowPointers[y] will no longer be needed, so free it */
         free(rowPointers[y]);
     }
 
+    /* We are done with libpng, so free all the unneeded png structures */
     free(rowPointers);
     fclose(file);
     png_destroy_read_struct(&png, &info, NULL); 
@@ -103,6 +106,7 @@ SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* restrict filePath)
     return texture;
 }
 
+/* You already know what this does */
 int u_max(int a, int b)
 {
     if(a > b)
@@ -111,6 +115,18 @@ int u_max(int a, int b)
         return b;
 }
 
+/* Same here */
+int u_min(int a, int b)
+{
+    if(a < b)
+        return a;
+    else 
+        return b;
+}
+
+/* The simplest collision checking implementation;
+ * returns true if 2 rectangles overlap 
+ */
 bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2)
 {
     return (

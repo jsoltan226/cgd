@@ -9,32 +9,46 @@
 
 btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, oe_OnEvent *onClick, SDL_Renderer *renderer)
 {
+    /* Allocate space for the button struct */
     btn_Button *btn = malloc(sizeof(btn_Button));
+    assert(btn != NULL);
 
+    /* Initialize the sprite member */
     btn->sprite = spr_initSprite(spriteCfg, renderer);
+    assert(btn->sprite != NULL);
+
+    /* Initialize the button (pressabel object) member */
     btn->button = po_createPressableObj();
+    assert(btn->button != NULL);
+
+    /* Copy over info given in the 'onClick' arg */
     btn->onClick.fn = onClick->fn;
     btn->onClick.argc = onClick->argc;
-    memcpy(btn->onClick.argv, onClick->argv, OE_ARGV_SIZE * sizeof(void*));
+    assert( memcpy(btn->onClick.argv, onClick->argv, OE_ARGV_SIZE * sizeof(void*)) );
 
     return btn;
 }
 
 void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
 {
+    /* Check whether the mouse is hovering over the button ... */
     const SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };;
     bool hovering = u_collision(&mouseRect, &btn->sprite->hitbox);
 
+    /* And given that info, update the button (Pressable Object) member */
     po_updatePressableObj(btn->button, hovering && mouse->buttonLeft->pressed);
 
+    /* If the button is pressed and the onClick function pointer is valid, execute the onClick function */
     if(btn->button->pressed && btn->onClick.fn)
         oe_executeOnEventfn(btn->onClick);
 }
 
 void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer, bool displayHitboxOutline)
 {
+    /* Draw the sprite */
     spr_drawSprite(btn->sprite, renderer);
 
+    /* Draw the hitbox outline */
     if(displayHitboxOutline){
         SDL_Color outlineColor;
         if(btn->button->pressed)

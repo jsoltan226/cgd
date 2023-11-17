@@ -11,6 +11,7 @@ typedef struct {
 
 SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* filePath);
 int u_max(int a, int b);
+int u_min(int a, int b);
 bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2);
 
 #endif

@@ -2,17 +2,22 @@
 #include "../user-input/pressable-obj.h"
 #include "on-event.h"
 #include <stdio.h>
+#include <assert.h>
 
 evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *onEventObj, evl_Target *t)
 {
+    /* Allocate space for the event listener struct */
     evl_EventListener *evl = malloc(sizeof(evl_EventListener));
+    assert(evl != NULL);
 
-    evl->type = cfg->type;
-    evl->detected = false;
-
+    /* Copy over the info from the 'oneventObj' argument */
     evl->onEvent.fn = onEventObj->fn;
     evl->onEvent.argc = onEventObj->argc;
-    memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*));
+    assert( memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*)) );
+
+    /* Copy other info given in configuration */
+    evl->type = cfg->type;
+    evl->detected = false;
 
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
@@ -67,14 +72,17 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
         	break;
     }
 
+    assert(evl->objectPtr != NULL);
+
     return evl;
 }
 
 void evl_updateEventListener(evl_EventListener *evl)
 {
-    if(evl->objectPtr)
-        evl->detected = *evl->objectPtr;
+    /* Update the event listener. It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
+    evl->detected = *evl->objectPtr;
     
+    /* If the button is pressed and the onClick function pointer is valid, execute the onClick function */
     if(evl->detected && evl->onEvent.fn)
         oe_executeOnEventfn(evl->onEvent);
 }
