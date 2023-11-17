@@ -1,9 +1,1 @@
-Fixed linker error when compiling for windows
-Started work on configuration parsing system
-Fixed event handling
-Rewrote how oe_OnEvent objects are handled in menu.c
-Added global event listeners to mmgr_MenuManager, now they will be used to handle things like pausing and quitting
-NOTE: The above 2 changes are not thoroughly tested, and therefore probably extremely buggy
-
-Added .gitignore to .gitignore
-Added some comments to menu.c (Yay!)
+Dropped dependency for SDL2_image, now using libpng to load textures

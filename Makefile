@@ -3,7 +3,7 @@ COMMON_CFLAGS=-Wall -fPIC
 DEPFLAGS?=-MMD -MP
 CCLD?=cc
 LDFLAGS?=-pie
-LIBS?=-lSDL2 -lSDL2_image
+LIBS?=-lSDL2 -lpng
 STRIP?=strip
 STRIPFLAGS?=-g -s
 
@@ -15,21 +15,23 @@ EXEC=exec
 MKDIR=mkdir -p
 RMDIR=rmdir
 
+EXEPREFIX =
+EXESUFFIX =
 OBJDIR = obj
 BINDIR = bin
 SRCS=$(wildcard */*.c) $(wildcard ./*.c)
 OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell find . -name "*.c" | xargs basename -as .c))
 DEPS=$(patsubst %.o,%.d,$(OBJS))
-EXE=$(BINDIR)/main
+EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
 
-.PHONY: all release compile link strip clean update run br
+.PHONY: all release compile link strip clean mostlyclean update run br
 .NOTPARALLEL: all release br
 
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) compile link
 
 release: CFLAGS = -O3 -Wall -Werror
-release: $(OBJDIR) $(BINDIR) update compile link strip clean
+release: clean $(OBJDIR) $(BINDIR) update compile link strip mostlyclean
 
 br: all run
 
@@ -53,14 +55,18 @@ $(OBJDIR)/%.o: ./%.c Makefile
 
 $(OBJDIR)/%.o: */%.c Makefile
 	@$(PRINTF) "CC 	%-20s %-20s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 strip:
 	@$(ECHO) "STRIP	$(EXE)"
 	@$(STRIP) $(STRIPFLAGS) $(EXE)
 
+mostlyclean:
+	@$(ECHO) "RM	$(OBJS) $(DEPS)"
+	@$(RM) $(OBJS) $(DEPS) $(EXE)
+
 clean:
-	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE)"
+	@$(ECHO) "RM	$(OBJS) $(DEPS)"
 	@$(RM) $(OBJS) $(DEPS) $(EXE)
 
 update:

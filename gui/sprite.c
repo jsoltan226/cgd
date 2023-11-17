@@ -11,7 +11,7 @@ spr_Sprite* spr_initSprite(spr_SpriteConfig* cfg, SDL_Renderer* renderer)
     spr->srcRect = cfg->srcRect;
     spr->destRect = cfg->destRect;
     spr->hitbox = cfg->hitbox;
-    spr->texture = u_loadImage(renderer, cfg->textureFilePath);
+    spr->texture = u_loadPNG(renderer, cfg->textureFilePath);
 
     return spr;
 }

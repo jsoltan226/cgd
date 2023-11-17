@@ -19,7 +19,7 @@ bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
     {
         bg_Layer* item = &bg->layers[i];
         
-        item->texture = u_loadImage(renderer, cfg->layerImageFilePaths[i]);
+        item->texture = u_loadPNG(renderer, cfg->layerImageFilePaths[i]);
         SDL_SetTextureBlendMode(item->texture, SDL_BLENDMODE_BLEND);
         SDL_QueryTexture(item->texture, NULL, NULL, &item->w, &item->h);
         item->x = 0;

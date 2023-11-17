@@ -9,7 +9,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <math.h>
 #include "gui/menu-mgr.h"
 #include "gui/menu.h"
@@ -35,7 +34,6 @@ int main(void)
 {
 
     SDL_Init(SDL_INIT_VIDEO);
-    IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG);
 
     window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
@@ -100,7 +98,6 @@ int main(void)
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    IMG_Quit();
 
     return EXIT_SUCCESS;
 }
