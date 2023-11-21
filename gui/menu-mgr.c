@@ -133,7 +133,7 @@ void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
 
 void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_ID switchTo)
 {
-    /* Check if a menu with the given ID exists in the menu list. If it does't, don't do anything. */
+    /* Check if a menu with the given ID exists in the menu list. If it doesn't, don't do anything. */
     mn_Menu *destMenuPtr = NULL;
     for(int i = 0; i < mmgr->menuCount; i++){
         if(mmgr->fullMenuList[i]->ID == switchTo){

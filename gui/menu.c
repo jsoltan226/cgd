@@ -23,17 +23,17 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *ke
     assert(mn != NULL);
 
     /* Get the counts of all the dynamic array members' elements */
-    mn->spriteCount = cfg->spriteCount;
-    mn->buttonCount = cfg->buttonCount;
-    mn->eventListenerCount = cfg->eventListenerCount;
+    mn->sprites.count = cfg->spriteInfo.count;
+    mn->buttons.count = cfg->buttonInfo.count;
+    mn->eventListeners.count = cfg->eventListenerInfo.count;
 
     /* Allocate memory for all the members, check for failures */
-    mn->sprites = malloc(sizeof(spr_Sprite) * cfg->spriteCount);
-    mn->buttons = malloc(sizeof(btn_Button) * cfg->buttonCount);
-    mn->eventListeners = malloc(sizeof(evl_EventListener) * cfg->eventListenerCount);
-    assert( (mn->sprites != NULL || mn->spriteCount == 0) && 
-            (mn->buttons != NULL || mn->buttonCount == 0) &&
-            (mn->eventListeners != NULL || mn->eventListenerCount == 0)
+    mn->sprites.ptrArray = malloc(sizeof(spr_Sprite) * cfg->spriteInfo.count);
+    mn->buttons.ptrArray = malloc(sizeof(btn_Button) * cfg->buttonInfo.count);
+    mn->eventListeners.ptrArray = malloc(sizeof(evl_EventListener) * cfg->eventListenerInfo.count);
+    assert( (mn->sprites.ptrArray != NULL || mn->sprites.count == 0) && 
+            (mn->buttons.ptrArray != NULL || mn->buttons.count == 0) &&
+            (mn->eventListeners.ptrArray != NULL || mn->eventListeners.count == 0)
           );
 
     /* Set other miscellaneous members to given values */
@@ -46,22 +46,24 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *ke
         .keyboard = keyboard,
         .mouse = mouse,
     };
-    for(int i = 0; i < cfg->eventListenerCount; i++){
+    for(int i = 0; i < cfg->eventListenerInfo.count; i++){
+        mn_eventListenerConfig *currentCfg = &cfg->eventListenerInfo.cfgs[i];
         oe_OnEvent onEventObj;
-        mn_initOnEventObj(&onEventObj, &cfg->eventListenerOnEventCfgs[i], mn);
-        mn->eventListeners[i] = evl_initEventListener(&cfg->eventListenerCfgs[i], &onEventObj, &tempEvlTargetObj);
+        mn_initOnEventObj(&onEventObj, &currentCfg->onEventCfg, mn);
+        mn->eventListeners.ptrArray[i] = 
+            evl_initEventListener(&currentCfg->eventListenerCfg, &onEventObj, &tempEvlTargetObj);
     }
 
     /* Initialize the static sprites */
-    for(int i = 0; i < cfg->spriteCount; i++){
-        mn->sprites[i] = spr_initSprite(&cfg->spriteCfgs[i], renderer);
+    for(int i = 0; i < cfg->spriteInfo.count; i++){
+        mn->sprites.ptrArray[i] = spr_initSprite(&cfg->spriteInfo.cfgs[i], renderer);
     }
 
     /* Initialize the buttons */
-    for(int i = 0; i < cfg->buttonCount; i++){
+    for(int i = 0; i < cfg->buttonInfo.count; i++){
         oe_OnEvent onClickObj;
-        mn_initOnEventObj(&onClickObj, &cfg->buttonOnClickCfgs[i], mn);
-        mn->buttons[i] = btn_initButton(&cfg->buttonSpriteCfgs[i], &onClickObj, renderer);
+        mn_initOnEventObj(&onClickObj, &cfg->buttonInfo.cfgs[i].onClickCfg, mn);
+        mn->buttons.ptrArray[i] = btn_initButton(&cfg->buttonInfo.cfgs[i].spriteCfg, &onClickObj, renderer);
     }
 
     /* Initialize the background */
@@ -74,13 +76,13 @@ void mn_updateMenu(mn_Menu* mn, ms_Mouse *mouse)
 {
     /* Sprites do not need updating; they never change */
     /* Update buttons */
-    for(int i = 0; i < mn->buttonCount; i++){
-        btn_updateButton(mn->buttons[i], mouse);
+    for(int i = 0; i < mn->buttons.count; i++){
+        btn_updateButton(mn->buttons.ptrArray[i], mouse);
     }
 
     /* Update the event listeners */
-    for(int i = 0; i < mn->eventListenerCount; i++){
-        evl_updateEventListener(mn->eventListeners[i]);
+    for(int i = 0; i < mn->eventListeners.count; i++){
+        evl_updateEventListener(mn->eventListeners.ptrArray[i]);
     }
 
     /* Update the background */
@@ -93,13 +95,13 @@ void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes
     bg_drawBG(mn->bg, renderer);
 
     /* Draw the sprites */
-    for(int i = 0; i < mn->spriteCount; i++){
-        spr_drawSprite(mn->sprites[i], renderer);
+    for(int i = 0; i < mn->sprites.count; i++){
+        spr_drawSprite(mn->sprites.ptrArray[i], renderer);
     }
 
     /* Draw the buttons */
-    for(int i = 0; i < mn->buttonCount; i++){
-        btn_drawButton(mn->buttons[i], renderer, displayButtonHitboxes);
+    for(int i = 0; i < mn->buttons.count; i++){
+        btn_drawButton(mn->buttons.ptrArray[i], renderer, displayButtonHitboxes);
     }
 
     /* Event listeners do not need drawing because they are invisible */
@@ -108,22 +110,22 @@ void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes
 void mn_destroyMenu(mn_Menu* mn)
 {
     /* Destroy all the sprites */
-    for(int i = 0; i < mn->spriteCount; i++)
-        spr_destroySprite(mn->sprites[i]);
-    free(mn->sprites);
-    mn->sprites = NULL;
+    for(int i = 0; i < mn->sprites.count; i++)
+        spr_destroySprite(mn->sprites.ptrArray[i]);
+    free(mn->sprites.ptrArray);
+    mn->sprites.ptrArray = NULL;
      
     /* Destroy the buttons */
-    for(int i = 0; i < mn->buttonCount; i++)
-        btn_destroyButton(mn->buttons[i]);
-    free(mn->buttons);
-    mn->buttons = NULL; 
+    for(int i = 0; i < mn->buttons.count; i++)
+        btn_destroyButton(mn->buttons.ptrArray[i]);
+    free(mn->buttons.ptrArray);
+    mn->buttons.ptrArray = NULL; 
 
     /* Destroy the event listeners */
-    for(int i = 0; i < mn->eventListenerCount; i++)
-        evl_destroyEventListener(mn->eventListeners[i]);
-    free(mn->eventListeners);
-    mn->eventListeners = NULL;
+    for(int i = 0; i < mn->eventListeners.count; i++)
+        evl_destroyEventListener(mn->eventListeners.ptrArray[i]);
+    free(mn->eventListeners.ptrArray);
+    mn->eventListeners.ptrArray = NULL;
 
     /* Destroy the background */
     bg_destroyBG(mn->bg);
@@ -133,7 +135,7 @@ void mn_destroyMenu(mn_Menu* mn)
     mn = NULL;
 }
 
-void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *oeCfg, mn_Menu *optionalMenuPtr)
+void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *oeCfg, mn_Menu *optionalMenuPtr)
 {
     /* =====> Do not bother reading this, see explanations in the menu.h header file  <===== */
     memset(oeObj->argv, OE_ARGV_SIZE, sizeof(void*));

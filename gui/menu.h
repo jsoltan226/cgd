@@ -53,17 +53,34 @@ typedef struct {
 
         void (*executeOther)();
     } onEventArgs;
-} mn_OnEventCfg;
+} mn_OnEventConfig;
+
+typedef bg_BGConfig mn_BGConfig;
+typedef spr_SpriteConfig mn_SpriteConfig;
+typedef struct {
+    btn_SpriteConfig spriteCfg;
+    mn_OnEventConfig onClickCfg;
+} mn_ButtonConfig;
+typedef struct {
+    evl_EventListenerConfig eventListenerCfg;
+    mn_OnEventConfig onEventCfg;
+} mn_eventListenerConfig;
 
 struct  mn_Menu {
-    evl_EventListener **eventListeners;
-    int eventListenerCount;
+    struct {
+        evl_EventListener **ptrArray;
+        int count;
+    } eventListeners;
 
-    spr_Sprite **sprites;
-    int spriteCount;
+    struct {
+        spr_Sprite **ptrArray;
+        int count;
+    } sprites;
 
-    btn_Button **buttons;
-    int buttonCount;
+    struct {
+        btn_Button **ptrArray;
+        int count;
+    } buttons;
 
     bg_ParallaxBG *bg;
 
@@ -73,18 +90,22 @@ struct  mn_Menu {
 };
 
 typedef struct {
-    bg_BGConfig bgConfig;
+    mn_BGConfig bgConfig;
 
-    spr_SpriteConfig *spriteCfgs;
-    int spriteCount;
+    struct {
+        int count;
+        mn_SpriteConfig *cfgs;
+    } spriteInfo;
 
-    btn_SpriteConfig *buttonSpriteCfgs;
-    mn_OnEventCfg *buttonOnClickCfgs;
-    int buttonCount;
+    struct {
+        int count;
+        mn_ButtonConfig *cfgs;
+    } buttonInfo;
 
-    evl_EventListenerConfig *eventListenerCfgs;
-    mn_OnEventCfg *eventListenerOnEventCfgs;
-    int eventListenerCount;
+    struct {
+        int count;
+        mn_eventListenerConfig *cfgs;
+    } eventListenerInfo;
 
     mn_ID id;
 } mn_MenuConfig;
@@ -93,6 +114,6 @@ mn_Menu* mn_initMenu(mn_MenuConfig *cfg, SDL_Renderer *r, kb_Keyboard *keyboard,
 void mn_updateMenu(mn_Menu *menu, ms_Mouse *mouse);
 void mn_drawMenu(mn_Menu *menu, SDL_Renderer *r, bool displayButtonHitboxes);
 void mn_destroyMenu(mn_Menu *menu);
-void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventCfg *cfg, mn_Menu *optionalMenuPtr);
+void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *cfg, mn_Menu *optionalMenuPtr);
 
 #endif

@@ -19,7 +19,7 @@ typedef struct {
 typedef struct {
     int menuCount;
     mn_MenuConfig *menus;
-    mn_OnEventCfg *globalEventListenerOnEventCfgs;
+    mn_OnEventConfig *globalEventListenerOnEventCfgs;
     evl_EventListenerConfig *globalEventListenerCfgs;
     int globalEventListenerCount;
 } mmgr_MenuManagerConfig;

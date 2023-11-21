@@ -1,7 +1,1 @@
-Dropped dependency for SDL2_image, now using libpng to load textures
-oe_OnEvent->argv is now allocated on the stack instead of the heap, eliminating the need for a oe_destroyOnEventObj function
-Fixed the comipilation error "initializer is not a compile time constant" in gcc < 8.2 and clang in config.h
-Added assertions on every instance something is being allocated dynamically,
-Added comments in source (*.c) files (except in main.c and config.h)
-Now the next frame isn't always delayed by as set amount of time, but by the difference between the desired frame duration and the time it took to process the frame
-Minor bug fixes (mostly from the last few commits)
+currently working on a font loader, will take a while
