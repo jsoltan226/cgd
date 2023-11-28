@@ -1,4 +1,4 @@
-CC?=clang
+CC?=cc
 COMMON_CFLAGS=-Wall -fPIC
 DEPFLAGS?=-MMD -MP
 CCLD?=$(CC)
@@ -24,14 +24,14 @@ OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell find . -name "*.c" | xargs basename -as 
 DEPS=$(patsubst %.o,%.d,$(OBJS))
 EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
 
-.PHONY: all release compile link strip clean mostlyclean update run br
+.PHONY: all release compile link strip clean mostlyclean run br
 .NOTPARALLEL: all release br
 
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) compile link
 
 release: CFLAGS = -O3 -Wall -Werror
-release: clean $(OBJDIR) $(BINDIR) update compile link strip mostlyclean
+release: clean $(OBJDIR) $(BINDIR) compile link strip mostlyclean
 
 br: all run
 
@@ -63,15 +63,11 @@ strip:
 
 mostlyclean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS)"
-	@$(RM) $(OBJS) $(DEPS) $(EXE)
+	@$(RM) $(OBJS) $(DEPS)
 
 clean:
-	@$(ECHO) "RM	$(OBJS) $(DEPS)"
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE)"
 	@$(RM) $(OBJS) $(DEPS) $(EXE)
-
-update:
-	@$(ECHO) "TOUCH	$(SRCS)"
-	@$(TOUCH) $(SRCS)
 
 run: $(EXE)
 	@$(ECHO) "EXEC	$(EXE)"
