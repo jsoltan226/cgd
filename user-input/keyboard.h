@@ -10,7 +10,7 @@
 #include <SDL2/SDL_scancode.h>
 #include <stdbool.h>
 
-#define KB_KEYBOARD_LENGTH                40
+#define KB_KEYBOARD_LENGTH                41
 
 typedef struct {
     po_PressableObj *key;
@@ -22,7 +22,7 @@ kb_Keyboard* kb_initKeyboard();
 void kb_updateKeyboard(kb_Keyboard *kb);
 void kb_destroyKeyboard(kb_Keyboard *kb);
 
-#define kb_getKey(kb, kc)                (*kb)[kc].key
+#define kb_getKey(kbPtr, kc)                (*kbPtr)[kc].key
 
 typedef enum {
     KB_KEYCODE_SPACE,
@@ -62,6 +62,10 @@ typedef enum {
     KB_KEYCODE_X,
     KB_KEYCODE_Y,
     KB_KEYCODE_Z,
+    KB_KEYCODE_ARROWUP,
+    KB_KEYCODE_ARROWDOWN,
+    KB_KEYCODE_ARROWLEFT,
+    KB_KEYCODE_ARROWRIGHT,
 } kb_KeyCode;
 
 static const SDL_Keycode kb_correspondingSDLKeycodes[KB_KEYBOARD_LENGTH] = {
@@ -102,6 +106,10 @@ static const SDL_Keycode kb_correspondingSDLKeycodes[KB_KEYBOARD_LENGTH] = {
     SDL_SCANCODE_X,
     SDL_SCANCODE_Y,
     SDL_SCANCODE_Z,
+    SDL_SCANCODE_UP,
+    SDL_SCANCODE_DOWN,
+    SDL_SCANCODE_LEFT,
+    SDL_SCANCODE_RIGHT,
 };
 
 #endif
