@@ -68,25 +68,25 @@ release: clean compile link strip mostlyclean test
 br: all run
 
 link: $(C_OBJS) $(CXX_OBJS) $(LIBS)
-	@$(PRINTF) "LD 	%-40s %-40s\n" "$(EXE)" "<= $^"
+	@$(PRINTF) "LD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(LD) $(LDFLAGS) -o $(EXE) $^
 
 compile: $(C_OBJS) $(CXX_OBJS)
 
-$(OBJDIR)/%.c.o: ./%.c Makefile $(OBJDIR)
-	@$(PRINTF) "CC 	%-40s %-40s\n" "$@" "<= $<"
+$(OBJDIR)/%.c.o: ./%.c Makefile
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.c.o: */%.c Makefile $(OBJDIR)
-	@$(PRINTF) "CC 	%-40s %$40-s\n" "$@" "<= $<"
+$(OBJDIR)/%.c.o: */%.c Makefile
+	@$(PRINTF) "CC 	%-30s %$30-s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.cpp.o: ./%.cpp Makefile $(OBJDIR)
-	@$(PRINTF) "CXX	%-40s %-40s\n" "$@" "<= $<"
+$(OBJDIR)/%.cpp.o: ./%.cpp Makefile
+	@$(PRINTF) "CXX	%-30s %-30s\n" "$@" "<= $<"
 	@$(CXX) $(DEPFLAGS) $(COMMON_CFLAGS) $(CXXFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.cpp.o: */%.cpp Makefile $(OBJDIR)
-	@$(PRINTF) "CXX 	%-40s %-40s\n" "$@" "<= $<"
+$(OBJDIR)/%.cpp.o: */%.cpp Makefile
+	@$(PRINTF) "CXX 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CXX) $(DEPFLAGS) $(COMMON_CXXFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 strip:
