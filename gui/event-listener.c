@@ -19,6 +19,7 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
     evl->type = cfg->type;
     evl->detected = false;
 
+    evl->objectPtr = NULL;
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
             evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode)->pressed);

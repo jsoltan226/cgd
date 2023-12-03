@@ -50,7 +50,7 @@ C_OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell echo "$(C_SRCS)" | xargs basename -a))
 CXX_OBJS=$(patsubst %,$(OBJDIR)/%.o,$(shell echo "$(CXX_SRCS)" | xargs basename -a "$(CXX_SRCS)"))
 DEPFILES=$(patsubst %.o,%.d,$(C_OBJS) $(CXX_OBJS))
 EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TESTEXE=./test.sh
+TESTEXE=$(EXE)
 
 _LONGEST_FILE_NAME_LENGTH=$(shell find . | awk '{print length}' | sort -n | tail -n1)
 
