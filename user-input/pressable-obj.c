@@ -21,7 +21,7 @@ po_PressableObj* po_createPressableObj()
 void po_updatePressableObj(po_PressableObj* po, bool state)
 {
     /* Down should only be true if on the current tick the object is pressed, but wasn't pressed on the previous one */
-    po->down = (state && !po->pressed);
+    po->down = (state && !po->pressed && !po->forceReleased);
 
     /* Down is active only when the object WAS pressed, and now is not. */
     po->up = (!state && po->pressed && !po->forceReleased);
@@ -30,9 +30,9 @@ void po_updatePressableObj(po_PressableObj* po, bool state)
     po->pressed = state & !po->forceReleased;
 
     /* Time pressed should always be incremented when the object is pressed */
-    if(state)
+    if(state) {
         po->time++;
-    else {
+    } else {
         /* Otherwise reset the time, as well as the forceReleased state */
         po->time = 0;
         po->forceReleased = false;

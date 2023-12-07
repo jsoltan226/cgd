@@ -74,7 +74,7 @@ typedef struct {
 fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float charW, fnt_float charH, 
         fnt_Charset charset, fnt_uInt16 flags);
 
-void fnt_drawText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...);
+void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTexture, fnt_Vector2D *pos, const char *fmt, ...);
 
 void fnt_destroyFont(fnt_Font *fnt);
 

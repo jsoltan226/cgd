@@ -2,6 +2,8 @@
 #include <png.h>
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_surface.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* restrict filePath)
 {
@@ -135,4 +137,12 @@ bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2)
             r1->y + r1->h >= r2->y &&
             r1->y <= r2->y + r2->h 
            );
+}
+
+void u_error(const char *fmt, ...)
+{
+    va_list vaList;
+    va_start(vaList, fmt);
+    vfprintf(stderr, fmt, vaList);
+    va_end(vaList);
 }

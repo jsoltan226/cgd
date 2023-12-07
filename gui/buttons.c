@@ -36,10 +36,10 @@ void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
     bool hovering = u_collision(&mouseRect, &btn->sprite->hitbox);
 
     /* And given that info, update the button (Pressable Object) member */
-    po_updatePressableObj(btn->button, hovering && mouse->buttonLeft->pressed);
+    po_updatePressableObj(btn->button, hovering && mouse->buttonLeft->down);
 
     /* If the button is pressed and the onClick function pointer is valid, execute the onClick function */
-    if(btn->button->pressed && btn->onClick.fn)
+    if(btn->button->pressed && btn->onClick.fn != NULL)
         oe_executeOnEventfn(btn->onClick);
 }
 

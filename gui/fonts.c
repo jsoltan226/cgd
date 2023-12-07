@@ -322,7 +322,7 @@ err:
     return NULL;
 }
 
-void fnt_drawText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...)
+void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTexture, fnt_Vector2D *pos, const char *fmt, ...)
 {
     va_list vArgs;
     char str[FNT_TEXT_BUFFER_SIZE];
@@ -339,6 +339,7 @@ void fnt_drawText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, cons
     const char *c_ptr = str;
     int i;
     
+    SDL_SetRenderTarget(renderer, targetTexture);
     while(*c_ptr){
         switch(*c_ptr){
             default:
@@ -410,6 +411,8 @@ void fnt_drawText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, cons
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
         SDL_RenderDrawRect(renderer, &textDestRect);
     }
+
+    SDL_SetRenderTarget(renderer, NULL);
 }
 
 void fnt_destroyFont(fnt_Font *fnt)

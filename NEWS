@@ -1,2 +1,4 @@
-Added the fnt (fonts) module. It took longer to develop that mmgr (MenuManager)...
-    (Note) Still buggy af, will need a lot of fixing
+Fixed the po_PressableObj always being `down` when force-released
+Fonts now support rendering text to a target texture, instead of just the renderer
+Added proper error handling in main.c
+Added a few macros for ansi escape sequences in ansi-esc-sequences.h

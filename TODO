@@ -4,7 +4,7 @@ Refactor the modules so that they resemble actual APIs, not the garbage that the
 Add documentation in header files
 
 (Near future) Add popup menus
-(Future) Add clicking sound in buttons, work with SDL_audio
+(Future) Add clicking sound in buttons, do NOT work with SDL_audio
 (Future) implement switch menu animations
 
 (Future) Add the goddamn editor

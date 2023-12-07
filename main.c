@@ -1,4 +1,5 @@
 #include <SDL2/SDL_blendmode.h>
+#include <SDL2/SDL_error.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_pixels.h>
@@ -7,12 +8,29 @@
 #include <SDL2/SDL_video.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <string.h>
 #include "gui/menu-mgr.h"
 #include "user-input/keyboard.h"
 #include "user-input/mouse.h"
 #include "util.h"
 #include "config.h"
 #include "gui/fonts.h"
+#include "ansi-esc-sequences.h"
+
+enum EXIT_CODES {
+    EXIT_OK                         = EXIT_SUCCESS,
+    ERR_OTHER                       = EXIT_FAILURE,
+    ERR_INIT_SDL                    = 2,
+    ERR_CREATE_WINDOW               = 3,
+    ERR_CREATE_RENDERER             = 4,
+    ERR_SET_RENDERER_BLENDMODE      = 5,
+    ERR_INIT_KEYBOARD               = 6,
+    ERR_INIT_MOUSE                  = 7,
+    ERR_INIT_MENU_MANAGER           = 8,
+    ERR_INIT_FONT                   = 9,
+    ERR_MAX
+};
+enum EXIT_CODES EXIT_CODE;
 
 /* bool running = true (moved to config.h) */
 mmgr_MenuManager *MenuManager;
@@ -29,17 +47,53 @@ int WinMain(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
-    SDL_Init(SDL_INIT_VIDEO);
+    /* SDL initialization section */
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+        EXIT_CODE = ERR_INIT_SDL;
+        goto err;
+    }
 
     window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
+    if (window == NULL) {
+        EXIT_CODE = ERR_CREATE_WINDOW;
+        goto err;
+    }
+
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    if (renderer == NULL) {
+        EXIT_CODE = ERR_CREATE_RENDERER;
+        goto err;
+    }
+
+    if ( SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
+        EXIT_CODE = ERR_SET_RENDERER_BLENDMODE;
+        goto err;
+    }
 
     keyboard = kb_initKeyboard();
+    if (keyboard == NULL) {
+        EXIT_CODE = ERR_INIT_KEYBOARD;
+        goto err;
+    }
+
     mouse = ms_initMouse();
+    if (mouse == NULL) {
+        EXIT_CODE = ERR_INIT_MOUSE;
+        goto err;
+    }
 
     MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
+    if (MenuManager == NULL) {
+        EXIT_CODE = ERR_INIT_MENU_MANAGER;
+        goto err;
+    }
+
     sourceCodeProFont = fnt_initFont("assets/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
+    if (sourceCodeProFont == NULL) {
+        EXIT_CODE = ERR_INIT_FONT;
+        goto err;
+    }
+    fnt_setTextColor(sourceCodeProFont, 0, 0, 0, 255);
 
     while(running)
     {
@@ -78,9 +132,6 @@ int main(int argc, char **argv)
 
             mmgr_drawMenuManager(MenuManager, renderer, displayButtonHitboxOutlines);
 
-            fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
-            fnt_setTextColor(sourceCodeProFont, 0, 0, 0, 255);
-
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1)->up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_TEXT_RECTS;
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2)->up)
@@ -88,7 +139,13 @@ int main(int argc, char **argv)
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3)->up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_CHAR_RECTS;
 
-            fnt_drawText(sourceCodeProFont, renderer,  &textPos, "Working text!\nsourceCodeProFont->flags:\v%i%i%i", (sourceCodeProFont->flags & 4) >> 2, (sourceCodeProFont->flags & 2) >> 1, sourceCodeProFont->flags & 1);
+            fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
+
+            fnt_renderText(sourceCodeProFont, renderer, NULL,  &textPos, 
+                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i", 
+                        (sourceCodeProFont->flags & 4) >> 2,
+                        (sourceCodeProFont->flags & 2) >> 1,
+                         sourceCodeProFont->flags & 1);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
@@ -112,5 +169,46 @@ int main(int argc, char **argv)
     SDL_Quit();
 
     return EXIT_SUCCESS;
+
+err:
+    /* Make sure to print the error message BEFORE attempting any shenanigans with freeing the resources */
+    ;
+    const char *errorMessages[ERR_MAX] = {
+        [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err' label is used. The developer is an idiot",
+        [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)\n",
+        [ERR_INIT_SDL]                  = "Failed to initialize SDL. Details: ",
+        [ERR_CREATE_WINDOW]             = "Failed to create window. Details: ",
+        [ERR_CREATE_RENDERER]           = "Failed to create rendering context. Details: ",
+        [ERR_SET_RENDERER_BLENDMODE]    = "Failed to enable texture blending in the rendering context. Details: ",
+        [ERR_INIT_KEYBOARD]             = "Failed to init the keyboard",
+        [ERR_INIT_MOUSE]                = "Failed to init the mouse",
+        [ERR_INIT_MENU_MANAGER]         = "Failed to initialize the menu manager. Good luck finding out why..",
+        [ERR_INIT_FONT]                 = "Failed to init the font",
+    };
+    if (EXIT_CODE >= EXIT_OK && EXIT_CODE < ERR_MAX) {
+        u_error(ESC CSI RED BOLD COLOR_TER "ERROR" ESC CSI COLOR_RESET COLOR_TER ": %s %s.\n",
+                errorMessages[EXIT_CODE], SDL_GetError());
+    } else {
+        u_error(errorMessages[ERR_OTHER]);
+    }
+
+    /* Utilize fall-through behaviour free, based on the exit code, the resources that had been allocated up to when the error occured */
+    switch (EXIT_CODE) {
+		case ERR_INIT_FONT: mmgr_destroyMenuManager(MenuManager);
+		case ERR_INIT_MENU_MANAGER: ms_destroyMouse(mouse);
+		case ERR_INIT_MOUSE: kb_destroyKeyboard(keyboard);
+		case ERR_INIT_KEYBOARD:
+        case ERR_SET_RENDERER_BLENDMODE: SDL_DestroyRenderer(renderer);
+        case ERR_CREATE_RENDERER: SDL_DestroyWindow(window);
+		case ERR_CREATE_WINDOW: SDL_Quit();
+        case ERR_INIT_SDL:
+            break;
+        default: case ERR_OTHER: case ERR_MAX:
+            break;
+        case EXIT_OK:
+            break;
+    }
+
+    exit(EXIT_CODE);
 }
 
