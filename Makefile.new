@@ -19,7 +19,7 @@ custom_CFLAGS+=$(custom_INCLUDE_DIRS)
 custom_LIBS+=$(custom_STATIC_LIB_LINKARGS) $(custom_SHARED_LIB_LINKARGS)
 
 # System lib dependencies
-pkgconf_DEPS?=sdl2 libpng
+pkgconf_DEPS?=sdl2 libpng freetype2
 pkgconf_LIBS=$(shell pkgconf --libs $(pkgconf_DEPS)) 
 pkgconf_CFLAGS=$(shell pkgconf --cflags $(pkgconf_DEPS)) 
 

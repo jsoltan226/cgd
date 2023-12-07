@@ -5,17 +5,14 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
-#include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
-#include <math.h>
 #include "gui/menu-mgr.h"
-#include "gui/menu.h"
 #include "user-input/keyboard.h"
 #include "user-input/mouse.h"
 #include "util.h"
 #include "config.h"
+#include "gui/fonts.h"
 
 /* bool running = true (moved to config.h) */
 mmgr_MenuManager *MenuManager;
@@ -23,6 +20,7 @@ SDL_Window *window;
 SDL_Renderer *renderer;
 kb_Keyboard *keyboard;
 ms_Mouse *mouse;
+fnt_Font *sourceCodeProFont;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
 #ifdef _WIN32
@@ -41,6 +39,7 @@ int main(int argc, char **argv)
     mouse = ms_initMouse();
 
     MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
+    sourceCodeProFont = fnt_initFont("assets/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
 
     while(running)
     {
@@ -79,9 +78,20 @@ int main(int argc, char **argv)
 
             mmgr_drawMenuManager(MenuManager, renderer, displayButtonHitboxOutlines);
 
+            fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
+            fnt_setTextColor(sourceCodeProFont, 0, 0, 0, 255);
+
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1)->up)
+                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_TEXT_RECTS;
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2)->up)
+                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_GLYPH_RECTS;
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3)->up)
+                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_CHAR_RECTS;
+
+            fnt_drawText(sourceCodeProFont, renderer,  &textPos, "Working text!\nsourceCodeProFont->flags:\v%i%i%i", (sourceCodeProFont->flags & 4) >> 2, (sourceCodeProFont->flags & 2) >> 1, sourceCodeProFont->flags & 1);
+
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
-
 
             SDL_RenderPresent(renderer);
 
@@ -92,6 +102,7 @@ int main(int argc, char **argv)
         }
     }
 
+    fnt_destroyFont(sourceCodeProFont);
     mmgr_destroyMenuManager(MenuManager);
     kb_destroyKeyboard(keyboard);
     ms_destroyMouse(mouse);

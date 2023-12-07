@@ -1,1 +1,2 @@
-currently working on a font loader, will take a while
+Added the fnt (fonts) module. It took longer to develop that mmgr (MenuManager)...
+    (Note) Still buggy af, will need a lot of fixing

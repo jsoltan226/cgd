@@ -1,5 +1,7 @@
 Add clicking animations in buttons
 Implement lazy loading of menus in menu-mgr
+Refactor the modules so that they resemble actual APIs, not the garbage that they currently are
+Add documentation in header files
 
 (Near future) Add popup menus
 (Future) Add clicking sound in buttons, work with SDL_audio
