@@ -30,14 +30,7 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *ke
             (mn->buttons.ptrArray != NULL || mn->buttons.count == 0) &&
             (mn->eventListeners.ptrArray != NULL || mn->eventListeners.count == 0)
           );
-    
-    /* Copy-over-data section */
-    mn->sprites.count = cfg->spriteInfo.count;
-    mn->buttons.count = cfg->buttonInfo.count;
-    mn->eventListeners.count = cfg->eventListenerInfo.count;
-    mn->switchTo = MN_ID_NULL;
-    mn->ID = cfg->id;
-    mn->statusFlags = MN_STATUS_NONE;
+
 
     /* Initialization section */
     evl_Target tempEvlTargetObj = {
@@ -124,7 +117,7 @@ void mn_destroyMenu(mn_Menu* mn)
 void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *oeCfg, mn_Menu *optionalMenuPtr)
 {
     /* =====> Do not bother reading this, see explanations in the menu.h header file  <===== */
-    memset(oeObj->argv, 0, sizeof(void*) * OE_ARGV_SIZE);
+    memset(oeObj->argv, OE_ARGV_SIZE, sizeof(void*));
     switch(oeCfg->onEventType){
         default:
         case MN_ONEVENT_NONE:

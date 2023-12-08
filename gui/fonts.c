@@ -149,7 +149,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
             currentGlyph->scaleY = (float)m->height / (float)((int)lineH << 6);
 
         if(m->horiAdvance != 0)
-            currentGlyph->offsetX = (float)m->horiBearingX / m->horiAdvance * currentGlyph->scaleX;
+            currentGlyph->offsetX = (float)m->horiBearingX / m->horiAdvance;
 
         /* It took me 5 days to come up with this one line, 
          * so I don't think you should bother trying to understand it yourself.

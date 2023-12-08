@@ -70,6 +70,7 @@ int main(int argc, char **argv)
         goto err;
     }
 
+    /* Initialize the engine structs */
     keyboard = kb_initKeyboard();
     if (keyboard == NULL) {
         EXIT_CODE = ERR_INIT_KEYBOARD;
@@ -93,15 +94,17 @@ int main(int argc, char **argv)
         EXIT_CODE = ERR_INIT_FONT;
         goto err;
     }
-    fnt_setTextColor(sourceCodeProFont, 0, 0, 0, 255);
+    fnt_setTextColor(sourceCodeProFont, 150, 150, 150, 255);
 
+    /* MAIN LOOP */
     while(running)
     {
         Uint32 startTime = SDL_GetTicks();
 
         /* EVENT/INPUT HANDLING SECTION */
 
-        /* The keyboard and mouse structs need updating every game tick. They use SDL_Get(..)State, not SDL_PollEvent. */
+        /* The keyboard and mouse structs need updating every game tick. 
+         * They use SDL_Get(..)State, not SDL_PollEvent. */
         kb_updateKeyboard(keyboard);
         ms_updateMouse(mouse);
 
@@ -124,6 +127,7 @@ int main(int argc, char **argv)
 
         /* UPDATE SECTION */
         mmgr_updateMenuManager(MenuManager, keyboard, mouse, paused);
+
         if(!paused){
 
         /* RENDER SECTION */
@@ -142,10 +146,11 @@ int main(int argc, char **argv)
             fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
 
             fnt_renderText(sourceCodeProFont, renderer, NULL,  &textPos, 
-                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i", 
+                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)", 
                         (sourceCodeProFont->flags & 4) >> 2,
                         (sourceCodeProFont->flags & 2) >> 1,
-                         sourceCodeProFont->flags & 1);
+                         sourceCodeProFont->flags & 1,
+                         sourceCodeProFont->flags);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
@@ -159,6 +164,7 @@ int main(int argc, char **argv)
         }
     }
 
+    /* Cleanup section */
     fnt_destroyFont(sourceCodeProFont);
     mmgr_destroyMenuManager(MenuManager);
     kb_destroyKeyboard(keyboard);
@@ -192,7 +198,7 @@ err:
         u_error(errorMessages[ERR_OTHER]);
     }
 
-    /* Utilize fall-through behaviour free, based on the exit code, the resources that had been allocated up to when the error occured */
+    /* Utilize fall-through behaviour to free, based on the exit code, the resources that had been allocated up to the point when the error occured */
     switch (EXIT_CODE) {
 		case ERR_INIT_FONT: mmgr_destroyMenuManager(MenuManager);
 		case ERR_INIT_MENU_MANAGER: ms_destroyMouse(mouse);

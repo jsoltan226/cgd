@@ -2,3 +2,4 @@ Fixed the po_PressableObj always being `down` when force-released
 Fonts now support rendering text to a target texture, instead of just the renderer
 Added proper error handling in main.c
 Added a few macros for ansi escape sequences in ansi-esc-sequences.h
+Yet another fonts.c fix (this time it's the horizontal offset of glyphs being 0)

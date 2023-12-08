@@ -1,9 +1,11 @@
-Add clicking animations in buttons
-Implement lazy loading of menus in menu-mgr
 Refactor the modules so that they resemble actual APIs, not the garbage that they currently are
 Add documentation in header files
+Add a fnt_renderText cache
+Implement lazy loading of menus in menu-mgr
+Add clicking animations in buttons
 
 (Near future) Add popup menus
+(Near future) Add hot code reloading with dlopen()
 (Future) Add clicking sound in buttons, do NOT work with SDL_audio
 (Future) implement switch menu animations
 
