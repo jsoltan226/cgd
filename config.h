@@ -59,11 +59,11 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
         {
             .bgConfig = {
                 .layerImageFilePaths = (const char**)(const char*[]){
-                    "assets/gui/background/layer_01.png",
-                    "assets/gui/background/layer_02.png",
-                    "assets/gui/background/layer_03.png",
-                    "assets/gui/background/layer_04.png",
-                    "assets/gui/background/layer_05.png",
+                    "/gui/background/layer_01.png",
+                    "/gui/background/layer_02.png",
+                    "/gui/background/layer_03.png",
+                    "/gui/background/layer_04.png",
+                    "/gui/background/layer_05.png",
                 },
                 .layerSpeeds = (int*)(int[]){ 1, 2, 4, 16, 16 },
                 .layerCount = 5,
@@ -91,7 +91,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                             /* DESTINATION RECT */
                             .destRect = { 20, 20, 200, 200 },
 
-                            .textureFilePath = "assets/gui/buttons/testButton.png"
+                            .textureFilePath = "/gui/buttons/testButton.png"
                         },
                         .onClickCfg = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,
@@ -133,7 +133,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                             .destRect = { 100 + 20, 150 + 20, 200, 200 },
 
                             /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
-                            .textureFilePath = "assets/gui/buttons/testButton.png"
+                            .textureFilePath = "/gui/buttons/testButton.png"
                         },
                         .onClickCfg = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,

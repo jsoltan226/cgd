@@ -1,5 +1,6 @@
 #include "fonts.h"
 #include "freetype/freetype.h"
+#include "../util.h"
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 
@@ -40,9 +41,10 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
         EXIT_OK                     = 0,
         ERR_ALLOC_FNT_STRUCT        = 1,
         ERR_INIT_FREETYPE           = 2,
-        ERR_INIT_FT_FACE            = 3,
-        ERR_FT_SET_PIXEL_SIZES      = 4,
-        ERR_ALLOC_FNT_GLYPHS        = 5,
+        ERR_GET_FILEPATH            = 3,
+        ERR_INIT_FT_FACE            = 4,
+        ERR_FT_SET_PIXEL_SIZES      = 5,
+        ERR_ALLOC_FNT_GLYPHS        = 6,
         ERR_FT_LOAD_CHAR            = 7,
         ERR_CREATE_CHAR_SURFACE     = 8,
         ERR_CREATE_FINAL_SURFACE    = 9,
@@ -66,8 +68,17 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
         errCode = ERR_INIT_FREETYPE;
         goto err;
     }
+
+    char fullFilePath[u_BUF_SIZE] = { 0 };
+    if (strncpy(fullFilePath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL ||
+        strncat(fullFilePath, filePath, u_BUF_SIZE - strlen(fullFilePath) - 1) == NULL 
+    ) {
+        errCode = ERR_INIT_FT_FACE;
+        goto err;
+    };
+
     FT_Face face;
-    FreeType_errCode = FT_New_Face(ft, filePath, 0, &face);
+    FreeType_errCode = FT_New_Face(ft, fullFilePath, 0, &face);
     if(FreeType_errCode){
         errCode = ERR_INIT_FT_FACE;
         goto err;
@@ -272,6 +283,11 @@ err:
                 FT_Error_String(FreeType_errCode)
             );
             break;
+        case ERR_GET_FILEPATH:
+	        fprintf(stderr, 
+	        	"[fnt_loadFont]: Failed to get the full path to the font.\n."
+	        );
+            break;
     	case ERR_INIT_FT_FACE:
 	        fprintf(stderr, 
 	        	"[fnt_loadFont]: Failed to create a FreeType face. Reason: %s.\n",
@@ -311,7 +327,7 @@ err:
     if(errCode >= ERR_FT_SET_PIXEL_SIZES){
         FT_Done_Face(face);
     }
-    if(errCode >= ERR_INIT_FT_FACE){
+    if(errCode >= ERR_GET_FILEPATH){
         FT_Done_FreeType(ft);
     }
     if(errCode >= ERR_INIT_FREETYPE){

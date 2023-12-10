@@ -11,3 +11,4 @@ Add clicking animations in buttons
 
 (Future) Add the goddamn editor
 (Future) Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time)
+(Far future) Move to OpenGL in favor of SDL2

@@ -24,7 +24,7 @@ bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
         bg_Layer* item = &bg->layers[i];
         
         /* Load the texture and enable alpha blending */
-        item->texture = u_loadPNG(renderer, cfg->layerImageFilePaths[i]);
+        item->texture = u_loadPNG(cfg->layerImageFilePaths[i], renderer);
         SDL_SetTextureBlendMode(item->texture, SDL_BLENDMODE_BLEND);
 
         /* Set all other members to the appropriate values */

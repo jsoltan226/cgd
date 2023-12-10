@@ -20,14 +20,15 @@
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
     ERR_OTHER                       = EXIT_FAILURE,
-    ERR_INIT_SDL                    = 2,
-    ERR_CREATE_WINDOW               = 3,
-    ERR_CREATE_RENDERER             = 4,
-    ERR_SET_RENDERER_BLENDMODE      = 5,
-    ERR_INIT_KEYBOARD               = 6,
-    ERR_INIT_MOUSE                  = 7,
-    ERR_INIT_MENU_MANAGER           = 8,
-    ERR_INIT_FONT                   = 9,
+    ERR_GET_BIN_DIR                 = 2,
+    ERR_INIT_SDL                    = 3,
+    ERR_CREATE_WINDOW               = 4,
+    ERR_CREATE_RENDERER             = 5,
+    ERR_SET_RENDERER_BLENDMODE      = 6,
+    ERR_INIT_KEYBOARD               = 7,
+    ERR_INIT_MOUSE                  = 8,
+    ERR_INIT_MENU_MANAGER           = 9,
+    ERR_INIT_FONT                   = 10,
     ERR_MAX
 };
 enum EXIT_CODES EXIT_CODE;
@@ -89,7 +90,7 @@ int main(int argc, char **argv)
         goto err;
     }
 
-    sourceCodeProFont = fnt_initFont("assets/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
+    sourceCodeProFont = fnt_initFont("/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
     if (sourceCodeProFont == NULL) {
         EXIT_CODE = ERR_INIT_FONT;
         goto err;
@@ -182,6 +183,7 @@ err:
     const char *errorMessages[ERR_MAX] = {
         [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err' label is used. The developer is an idiot",
         [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)\n",
+        [ERR_GET_BIN_DIR]               = "Failed to get the directory in which the executable is located.",
         [ERR_INIT_SDL]                  = "Failed to initialize SDL. Details: ",
         [ERR_CREATE_WINDOW]             = "Failed to create window. Details: ",
         [ERR_CREATE_RENDERER]           = "Failed to create rendering context. Details: ",
@@ -208,6 +210,7 @@ err:
         case ERR_CREATE_RENDERER: SDL_DestroyWindow(window);
 		case ERR_CREATE_WINDOW: SDL_Quit();
         case ERR_INIT_SDL:
+        case ERR_GET_BIN_DIR:
             break;
         default: case ERR_OTHER: case ERR_MAX:
             break;

@@ -3,14 +3,39 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_surface.h>
 #include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 
-SDL_Texture* u_loadPNG(SDL_Renderer* renderer, const char* restrict filePath)
+const char *u_getAssetPath()
 {
+    if (_cgd_util_internal_binDirBuffer[0] != '/') {
+        if (u_getBinDir(_cgd_util_internal_binDirBuffer, u_BUF_SIZE)) return NULL;
+    }
+    if (_cgd_util_internal_assetsDirBuffer[0] != '/') {
+        if (strncpy(_cgd_util_internal_assetsDirBuffer, _cgd_util_internal_binDirBuffer, u_BUF_SIZE - 1) == NULL) return NULL;
+        if (strncat(_cgd_util_internal_assetsDirBuffer, u_PATH_FROM_BIN_TO_ASSETS, u_BUF_SIZE - strlen(_cgd_util_internal_assetsDirBuffer) - 1) == NULL) return NULL;
+    }
+
+    return _cgd_util_internal_assetsDirBuffer;
+}
+
+SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
+{
+    /* Get the real path to the asset */
+    char realPath[u_BUF_SIZE] = { 0 };
+    if (strncpy(realPath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL ||
+        strncat(realPath, filePath, u_BUF_SIZE - strlen(realPath) - 1) == NULL )
+    {
+        fprintf(stderr, "[u_loadPNG] Error: Failed to get the real path of the given (%s) asset.\n", filePath);
+        return NULL;
+    }
+
+
     /* (Try to) Open the given file */
-    FILE *file = fopen(filePath, "rb");
+    FILE *file = fopen(realPath, "rb");
     if (!file) {
-        fprintf(stderr, "[u_loadPNG] Error: File '%s' could not be opened for reading.\n", filePath);
+        fprintf(stderr, "[u_loadPNG] Error: File '%s' could not be opened for reading.\n", realPath);
         return NULL;
     }
 
@@ -145,4 +170,34 @@ void u_error(const char *fmt, ...)
     va_start(vaList, fmt);
     vfprintf(stderr, fmt, vaList);
     va_end(vaList);
+}
+
+int u_getBinDir(char *buf, size_t buf_size)
+{
+    if (buf == NULL) {
+        fprintf(stderr, "[getBinDir]: ERROR: The provided string is a null pointer.\n");
+        return EXIT_FAILURE;
+    }
+    memset(buf, 0, buf_size);
+
+    char fullPathBuf[buf_size];
+    fullPathBuf[buf_size - 1] = '\0';
+
+    if (!readlink("/proc/self/exe", fullPathBuf, buf_size - 1)) {
+        fprintf(stderr, "[getBinDir]: ERROR: Readlink for /proc/self/exe failed.\n");
+        return EXIT_FAILURE;
+    }
+
+    int i = 0;
+    int binDirLen  = 0;
+    do {
+        if(fullPathBuf[i] == '/') binDirLen = i + 1; /* We want the trailing '/' */
+    } while (fullPathBuf[i++]);
+
+    if (strncpy(buf, fullPathBuf, binDirLen) == NULL) {
+        fprintf(stderr, "[getBinDir]: ERROR: Failed to copy the bin dir path into the provided buffer.\n");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

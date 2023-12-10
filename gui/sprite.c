@@ -15,7 +15,7 @@ spr_Sprite* spr_initSprite(spr_SpriteConfig* cfg, SDL_Renderer* renderer)
     spr->hitbox = cfg->hitbox;
 
     /* Load the texture from an image stored in cfg->textureFilePath */
-    spr->texture = u_loadPNG(renderer, cfg->textureFilePath);
+    spr->texture = u_loadPNG(cfg->textureFilePath, renderer);
     assert(spr->texture != NULL);
 
     return spr;
