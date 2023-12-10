@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <SDL2/SDL.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
 
@@ -12,6 +13,10 @@ typedef struct {
     SDL_Rect srcRect, destRect, hitbox;
     SDL_Texture* texture;
 } u_Sprite;
+
+typedef struct {
+    uint8_t r, g, b, a;
+} u_Color;
 
 __attribute_maybe_unused__ static char _cgd_util_internal_binDirBuffer[u_BUF_SIZE];
 __attribute_maybe_unused__ static char _cgd_util_internal_assetsDirBuffer[u_BUF_SIZE];

@@ -1,6 +1,3 @@
-Fixed the po_PressableObj always being `down` when force-released
-Fonts now support rendering text to a target texture, instead of just the renderer
-Added proper error handling in main.c
-Added a few macros for ansi escape sequences in ansi-esc-sequences.h
 Yet another fonts.c fix (this time it's the horizontal offset of glyphs being 0)
 Changed the way assets are loaded so that the 'main' executable may be invoked from anywhere in the filesystem
+Rewrote the u_loadPNG function due to numerous bugs with loading just about every image except the ones i used in the test assets

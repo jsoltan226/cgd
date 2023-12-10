@@ -1,8 +1,15 @@
 #include "util.h"
+#include "ansi-esc-sequences.h"
+#include <SDL2/SDL_error.h>
+#include <SDL2/SDL_pixels.h>
+#include <SDL2/SDL_stdinc.h>
 #include <png.h>
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_surface.h>
+#include <pngconf.h>
+#include <setjmp.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -22,115 +29,240 @@ const char *u_getAssetPath()
 
 SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
 {
+    /* Error handling stuff */
+    char _ERR_STR[u_BUF_SIZE] = { 0 };
+    enum EXIT_CODES {
+        EXIT_OK,
+        ERR_OTHER,
+        ERR_GET_REAL_PATH,
+        ERR_OPEN_FILE,
+        ERR_NOT_PNG,
+        ERR_INIT_PNG_STRUCT,
+        ERR_INIT_PNG_INFO,
+        ERR_SETJMP,
+        ERR_ALLOC_PIXELDATA,
+        ERR_CREATE_SURFACE,
+        ERR_CREATE_TEXTURE,
+        ERR_MAX,
+    };
+    enum EXIT_CODES EXIT_CODE;
+
+    /* A little shortcut for calling the error label */
+#define jmpErrorLabel(exit_code, errStr)    \
+    strncpy(_ERR_STR, errStr, u_BUF_SIZE - 1); \
+    _ERR_STR[u_BUF_SIZE - 1] = '\0'; \
+    EXIT_CODE = exit_code; \
+    goto err_l;
+
+    /* Constants used throughout the function */
+#define N_PNG_SIG_BYTES         8
+
+#define N_CHANNELS              4
+#define N_BITS_PER_CHANNEL      8
+#define PIXEL_FORMAT            SDL_PIXELFORMAT_RGBA32
+
+    /* Declarations of variables used throughout the function.
+     * Needed here for the 'err_l' label to work properly */
+    png_byte header[N_PNG_SIG_BYTES];
+    SDL_Surface *tmpSurface = NULL;
+    png_bytep *rowPtrs = NULL;
+    int imageW = 0, imageH = 0;
+
     /* Get the real path to the asset */
     char realPath[u_BUF_SIZE] = { 0 };
     if (strncpy(realPath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL ||
         strncat(realPath, filePath, u_BUF_SIZE - strlen(realPath) - 1) == NULL )
     {
-        fprintf(stderr, "[u_loadPNG] Error: Failed to get the real path of the given (%s) asset.\n", filePath);
-        return NULL;
+        jmpErrorLabel(ERR_GET_REAL_PATH, filePath);
     }
 
 
-    /* (Try to) Open the given file */
+    /* (Try to) Open the given file in binary read mode */
     FILE *file = fopen(realPath, "rb");
-    if (!file) {
-        fprintf(stderr, "[u_loadPNG] Error: File '%s' could not be opened for reading.\n", realPath);
-        return NULL;
+    if (file == NULL) {
+        jmpErrorLabel(ERR_OPEN_FILE, realPath);
     }
 
-    /* Read PNG header */
-    png_byte header[8];
-    fread(header, 1, 8, file);
-    if (png_sig_cmp(header, 0, 8)) {
-        fprintf(stderr, "[u_loadPNG] Error: %s is not a valid PNG file.\n", filePath);
-        fclose(file);
-        return NULL;
+    /* Read PNG header to check whether the given file contains a valid PNG signature */
+    fread(header, 1, N_PNG_SIG_BYTES, file);
+    if (png_sig_cmp(header, 0, N_PNG_SIG_BYTES)) {
+        jmpErrorLabel(ERR_NOT_PNG, realPath); 
     }
 
     /* Initialize libpng structures */
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png) {
-        fclose(file);
-        return NULL;
+    png_structp pngStruct = png_create_read_struct(PNG_LIBPNG_VER_STRING, 
+        NULL, NULL, NULL
+    );
+    if (pngStruct == NULL) {
+        jmpErrorLabel(ERR_INIT_PNG_STRUCT, "");
     }
 
-    png_infop info = png_create_info_struct(png);
-    if (!info) {
-        png_destroy_read_struct(&png, NULL, NULL);
-        fclose(file);
-        return NULL;
+    /* Initialize png info struct */
+    png_infop pngInfo = png_create_info_struct(pngStruct);
+    if (pngInfo == NULL) {
+        jmpErrorLabel(ERR_INIT_PNG_INFO, "");
     }
 
-    if (setjmp(png_jmpbuf(png))) {
-        png_destroy_read_struct(&png, &info, NULL);
-        fclose(file);
-        return NULL;
+    /* From the libpng manual:
+     * "When libpng encounters an error, it expects to longjmp back
+to your routine.  Therefore, you will need to call setjmp and pass
+your png_jmpbuf(png_ptr)."
+    */
+    if (setjmp(png_jmpbuf(pngStruct))) {
+        jmpErrorLabel(ERR_SETJMP, "");
     }
 
-    /* Set up libpng to read from file */
-    png_init_io(png, file);
-    png_set_sig_bytes(png, 8);
+    /* Set up the PNG input code */
+    png_init_io(pngStruct, file);
 
-    /* Read PNG information */
-    png_read_info(png, info);
+    /* Inform libpng that we have read the signature bytes */
+    png_set_sig_bytes(pngStruct, N_PNG_SIG_BYTES);
 
-    int width = png_get_image_width(png, info);
-    int height = png_get_image_height(png, info);
-    png_byte colorType = png_get_color_type(png, info);
-    png_byte bitDepth = png_get_bit_depth(png, info);
+    /* Retrieve all needed png metadata */
+    png_read_info(pngStruct, pngInfo);
 
-    /* Set transformations if needed (e.g., expand palette images to RGB) */
-    if (colorType == PNG_COLOR_TYPE_PALETTE) {
-        png_set_palette_to_rgb(png);
+    imageW = png_get_image_width(pngStruct, pngInfo);
+    imageH = png_get_image_height(pngStruct, pngInfo);
+    png_byte colorType = png_get_color_type(pngStruct, pngInfo);
+    png_byte bitDepth = png_get_bit_depth(pngStruct, pngInfo);
+
+    /* Based on the metadata, set various libpng stuff to what it needs to be */
+    /* And yes, any other self-respecting library would do that automatically for you... */
+    if (bitDepth == 16)
+        png_set_strip_16(pngStruct);
+
+    if (colorType == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(pngStruct);
+
+    if (png_get_valid(pngStruct, pngInfo, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(pngStruct);
+
+    if (colorType == PNG_COLOR_TYPE_RGB ||
+        colorType == PNG_COLOR_TYPE_GRAY ||
+        colorType == PNG_COLOR_TYPE_PALETTE)
+    {
+        png_set_filler(pngStruct, 0xFF, PNG_FILLER_AFTER);
     }
 
-    if (bitDepth == 16) {
-        png_set_strip_16(png);
+    if (colorType == PNG_COLOR_TYPE_GRAY || colorType == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(pngStruct);
+
+    if (colorType == PNG_COLOR_TYPE_GRAY)
+        png_set_expand_gray_1_2_4_to_8(pngStruct);
+
+    /* Update the info struct with all the random changes that were made */
+    png_read_update_info(pngStruct, pngInfo);
+
+    /* Allocate memory for the pixel data */
+    rowPtrs = malloc(imageH * sizeof(png_bytep));
+    if(rowPtrs == NULL) {
+        jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
+    }
+    for (int i = 0; i < imageH; i++) {
+        rowPtrs[i] = malloc(png_get_rowbytes(pngStruct, pngInfo));
+        if(rowPtrs[i] == NULL){
+            jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
+        }
     }
 
-    if (png_get_valid(png, info, PNG_INFO_tRNS)) {
-        png_set_tRNS_to_alpha(png);
+    /* And now, read the pixel data!!! FINALLY!!! */
+    png_read_image(pngStruct, rowPtrs);
+
+    /* Copy over the pixels to an SDL_Surface */
+    /* We use 32 as the pixel format, becasuse each of our pixels has 4 channels 8 bits each, so 4 * 8 = 32 */
+    tmpSurface = SDL_CreateRGBSurfaceWithFormat(0, imageW, imageH, N_CHANNELS * N_BITS_PER_CHANNEL, SDL_PIXELFORMAT_RGBA32);
+    if (tmpSurface == NULL) {
+        jmpErrorLabel(ERR_CREATE_SURFACE, SDL_GetError());
     }
 
-    if (colorType == PNG_COLOR_TYPE_GRAY || colorType == PNG_COLOR_TYPE_GRAY_ALPHA) {
-        png_set_gray_to_rgb(png);
+    /* Now go through each pixel CHANNEL and copy its data to the SDL_Surface equivalent.
+     * This cannot just be done with memcpy, because it will cause issues with the pitch and whatnot */
+    SDL_LockSurface(tmpSurface);
+    for (int y = 0; y < imageH; y++) {
+        for (int x = 0; x < imageW; x++) {
+            Uint8 *pixelPtr = (Uint8*)tmpSurface->pixels + y*tmpSurface->pitch + x*4;
+            for (int i = 0; i < N_CHANNELS; i++) {
+                *(pixelPtr + i) = rowPtrs[y][x*N_CHANNELS + i];
+            }
+        }
     }
+    SDL_UnlockSurface(tmpSurface);
 
-    /* Update PNG information after transformations */
-    png_read_update_info(png, info);
-
-    /* Allocate memory for image data */
-    png_bytep *rowPointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
-    for (int y = 0; y < height; y++) {
-        rowPointers[y] = (png_byte *)malloc(png_get_rowbytes(png, info));
-    }
-
-    /* Read PNG image data */
-    png_read_image(png, rowPointers);
-
-    /* Create SDL_Surface and copy image data */
-    SDL_Surface *tmpSurface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-    if (!tmpSurface) {
-        fclose(file);
-        return NULL;
-    }
-
-    for (int y = 0; y < height; y++) {
-        memcpy(tmpSurface->pixels + y * tmpSurface->pitch, rowPointers[y], tmpSurface->pitch);
-        /* The value in rowPointers[y] will no longer be needed, so free it */
-        free(rowPointers[y]);
-    }
-
-    /* We are done with libpng, so free all the unneeded png structures */
-    free(rowPointers);
-    fclose(file);
-    png_destroy_read_struct(&png, &info, NULL); 
-
-    /* Finally, create a texture from the temporary surface and return it */
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, tmpSurface);
+    if (texture == NULL) {
+        jmpErrorLabel(ERR_CREATE_TEXTURE, SDL_GetError());
+    }
+
+    /* Do the cleanup. There's a surprisingly small amount of it to do considering how many png_something functions we've called... */
     SDL_FreeSurface(tmpSurface);
+
+    for (int i = 0; i < imageH; i++) {
+        free(rowPtrs[i]);
+        rowPtrs[i] = NULL;
+    }
+    free(rowPtrs);
+    rowPtrs = NULL;
+
+    png_destroy_read_struct(&pngStruct, &pngInfo, NULL);
+    fclose(file);
+
     return texture;
+
+err_l:
+    /* Make sure to print the error message BEFORE attempting any shenanigans with freeing the resources */
+    ;
+    const char *errorMessages[ERR_MAX] = {
+        [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err' label is used. The developer is an idiot",
+        [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)",
+        [ERR_GET_REAL_PATH]             = "Failed to get the real path of the given asset. Given path (relative): ",
+        [ERR_OPEN_FILE]                 = "Failed to open the asset file. Given path (converted): ",
+        [ERR_NOT_PNG]                   = "The given file does not contain a valid PNG signature. File path: ",
+        [ERR_INIT_PNG_STRUCT]           = "Failed to initialize PNG structures.",
+        [ERR_INIT_PNG_INFO]             = "Failed to initialize PNG info struct.",
+        [ERR_SETJMP]                    = "Failed to set up the far jump required by png_error",
+        [ERR_ALLOC_PIXELDATA]           = "Failed to allocate memory for the pixel data",
+        [ERR_CREATE_SURFACE]            = "Failed to create the temporary SDL_Surface. Details: ",
+        [ERR_CREATE_TEXTURE]            = "Failed to create the final texture. Details: ", 
+    };
+    if (EXIT_CODE >= EXIT_OK && EXIT_CODE < ERR_MAX) {
+        u_error("[u_loadPNG]: "ESC CSI RED BOLD COLOR_TER "ERROR" ESC CSI COLOR_RESET COLOR_TER ": %s%s.\n",
+                errorMessages[EXIT_CODE], _ERR_STR);
+    } else {
+        u_error(errorMessages[ERR_OTHER]);
+    }
+
+    /* Utilize fall-through behaviour to free, based on the exit code, the resources that had been allocated up to the point when the error occured */
+    switch (EXIT_CODE) {
+        case ERR_CREATE_TEXTURE: SDL_FreeSurface(tmpSurface);
+        case ERR_CREATE_SURFACE:
+            for (int i = 0; i < imageH; i++) {
+                free(rowPtrs[i]);
+                rowPtrs[i] = NULL;
+            }
+            free(rowPtrs);
+            rowPtrs = NULL;
+        case ERR_ALLOC_PIXELDATA:
+        case ERR_SETJMP:
+        case ERR_GET_REAL_PATH: png_destroy_info_struct(pngStruct, &pngInfo);
+        case ERR_INIT_PNG_INFO: png_destroy_read_struct(&pngStruct, NULL, NULL);
+        case ERR_INIT_PNG_STRUCT: 
+        case ERR_NOT_PNG: fclose(file);
+        case ERR_OPEN_FILE:
+            break;
+        default: case ERR_OTHER: case ERR_MAX:
+            break;
+        case EXIT_OK:
+            break;
+    }
+
+    return NULL;
+#undef setErrStr
+#undef jmpErrorLabel
+
+#undef N_PNG_SIG_BYTES
+#undef N_CHANNELS
+#undef N_BITS_PER_CHANNEL
+#undef PIXEL_FORMAT
 }
 
 /* You already know what this does */
