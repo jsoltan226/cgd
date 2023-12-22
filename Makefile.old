@@ -1,9 +1,9 @@
 CC?=cc
-COMMON_CFLAGS=-Wall -fPIC
+COMMON_CFLAGS=-Wall -fPIC -I. $(shell pkg-config --cflags freetype2)
 DEPFLAGS?=-MMD -MP
 CCLD?=$(CC)
 LDFLAGS?=-pie
-LIBS?=-lSDL2 -lpng
+LIBS?=-lSDL2 -lpng -lfreetype
 STRIP?=strip
 STRIPFLAGS?=-g -s
 

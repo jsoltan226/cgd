@@ -194,7 +194,7 @@ err:
         [ERR_INIT_FONT]                 = "Failed to init the font",
     };
     if (EXIT_CODE >= EXIT_OK && EXIT_CODE < ERR_MAX) {
-        u_error(ESC CSI RED BOLD COLOR_TER "ERROR" ESC CSI COLOR_RESET COLOR_TER ": %s %s.\n",
+        u_error(es_BOLD es_RED "ERROR" es_COLOR_RESET ": %s %s.\n",
                 errorMessages[EXIT_CODE], SDL_GetError());
     } else {
         u_error(errorMessages[ERR_OTHER]);

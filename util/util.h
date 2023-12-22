@@ -7,6 +7,7 @@
 #include <sys/cdefs.h>
 
 #define u_BUF_SIZE  1024
+#define u_PATH_FROM_BIN_TO_ASSETS "../assets"
 
 typedef struct {
     SDL_Rect srcRect, destRect, hitbox;

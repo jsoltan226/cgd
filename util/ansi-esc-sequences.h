@@ -1,7 +1,7 @@
 #ifndef _U_ANSI_ESC_SEQ_H
 #define _U_ANSI_ESC_SEQ_H
 
-/* single byte (special characters, not asequences) */
+/* single byte (special characters, not sequences) */
 #define es_BELL     "\07"
 #define es_BACKSPACE "\08"
 #define es_TAB      "\09"

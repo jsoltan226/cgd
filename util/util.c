@@ -18,27 +18,21 @@
 const char *u_getAssetPath()
 {
     if (_cgd_util_internal.binDirBuffer[0] != '/') {
-        if (
-            u_getBinDir(_cgd_util_internal.binDirBuffer, u_BUF_SIZE)
-        ) return NULL;
+        if (u_getBinDir(_cgd_util_internal.binDirBuffer, u_BUF_SIZE)) return NULL;
     }
 
     if (_cgd_util_internal.assetsDirBuffer[0] != '/') {
-        if (
-            strncpy(
-                _cgd_util_internal.assetsDirBuffer,
-                _cgd_util_internal.binDirBuffer,
-                u_BUF_SIZE - 1
-            ) 
-        == NULL) return NULL;
+        if (strncpy( _cgd_util_internal.assetsDirBuffer, _cgd_util_internal.binDirBuffer, u_BUF_SIZE) == NULL)
+            return NULL;
+        _cgd_util_internal.assetsDirBuffer[u_BUF_SIZE - 1] = '\0';
 
-        if (
-            strncat(
+        if (strncat(
                 _cgd_util_internal.assetsDirBuffer,
                 u_PATH_FROM_BIN_TO_ASSETS, 
                 u_BUF_SIZE - strlen(_cgd_util_internal.assetsDirBuffer) - 1
-            )
-        == NULL) return NULL;
+        ) == NULL)
+            return NULL;
+        _cgd_util_internal.assetsDirBuffer[u_BUF_SIZE - 1] = '\0';
     }
 
     return _cgd_util_internal.assetsDirBuffer;
@@ -94,12 +88,13 @@ SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
 
     /* Get the real path to the asset */
     char realPath[u_BUF_SIZE] = { 0 };
-    if (strncpy(realPath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL ||
-        strncat(realPath, filePath, u_BUF_SIZE - strlen(realPath) - 1) == NULL )
-    {
+    if(strncpy(realPath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL) 
         jmpErrorLabel(ERR_GET_REAL_PATH, filePath);
-    }
+    realPath[u_BUF_SIZE - 1] = '\0';
 
+    if( strncat(realPath, filePath, u_BUF_SIZE - strlen(realPath) - 1) == NULL)
+        jmpErrorLabel(ERR_GET_REAL_PATH, filePath);
+    realPath[u_BUF_SIZE - 1] = '\0';
 
     /* (Try to) Open the given file in binary read mode */
     FILE *file = fopen(realPath, "rb");
@@ -221,7 +216,7 @@ err_l:
     const char *errorMessages[ERR_MAX] = {
         [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err_l' label is used. The developer is an idiot",
         [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)",
-        [ERR_GET_REAL_PATH]             = "Failed to get the real path of the given asset. Given path (relative): ",
+        [ERR_GET_REAL_PATH]             = "Failed to get the real path of the given asset. Given path (relative to assets directory): ",
         [ERR_OPEN_FILE]                 = "Failed to open the asset file. Given path (converted): ",
         [ERR_NOT_PNG]                   = "The given file does not contain a valid PNG signature. File path: ",
         [ERR_INIT_PNG_STRUCT]           = "Failed to initialize PNG structures.",
@@ -232,7 +227,7 @@ err_l:
         [ERR_CREATE_TEXTURE]            = "Failed to create the final texture. Details: ", 
     };
     if (EXIT_CODE >= EXIT_OK && EXIT_CODE < ERR_MAX) {
-        u_error("[u_loadPNG]: "ESC CSI RED BOLD COLOR_TER "ERROR" ESC CSI COLOR_RESET COLOR_TER ": %s%s.\n",
+        u_error("[u_loadPNG]: " es_BOLD es_RED "ERROR" es_COLOR_RESET ": %s%s.\n",
                 errorMessages[EXIT_CODE], _ERR_STR);
     } else {
         u_error(errorMessages[ERR_OTHER]);
@@ -249,10 +244,10 @@ err_l:
             free(rowPtrs);
             rowPtrs = NULL;
         case ERR_ALLOC_PIXELDATA:
-        case ERR_SETJMP:
-        case ERR_GET_REAL_PATH: png_destroy_info_struct(pngStruct, &pngInfo);
+        case ERR_SETJMP: png_destroy_info_struct(pngStruct, &pngInfo);
         case ERR_INIT_PNG_INFO: png_destroy_read_struct(&pngStruct, NULL, NULL);
         case ERR_INIT_PNG_STRUCT: 
+        case ERR_GET_REAL_PATH: 
         case ERR_NOT_PNG: fclose(file);
         case ERR_OPEN_FILE:
             break;

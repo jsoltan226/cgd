@@ -1,3 +1,13 @@
-Yet another fonts.c fix (this time it's the horizontal offset of glyphs being 0)
-Changed the way assets are loaded so that the 'main' executable may be invoked from anywhere in the filesystem
-Rewrote the u_loadPNG function due to numerous bugs with loading just about every image except the ones i used in the test assets
+Added a util/ directory, to which everything containing utility functions/macros will be moved. This also enables a splitup of the util.c file, which will be done in the future
+
+Actually added some useful ANSI escape sequences to [util/]ansi-escape-sequences.h
+
+Enabled the use of internal (inaccessible to the user of the library) structures and functions in util/*
+
+Changed the way header files of this project are included in the source files 
+    (example - file 'gui/buttons.c' including 'user-input/keyboard.h'):
+        previously: #include "../user-input/mouse.h"
+        now: #include <cgd/user-input/mouse.h>
+This way is much more reliable and clean. All the required compiler flags were obviously added to the Makefile.
+
+Minor bug fixes and improvements in util/util.*

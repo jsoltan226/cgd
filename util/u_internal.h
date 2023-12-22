@@ -3,8 +3,6 @@
 
 #include "util.h"
 
-#define u_PATH_FROM_BIN_TO_ASSETS "../assets"
-
 static struct {
     char binDirBuffer[u_BUF_SIZE];
     char assetsDirBuffer[u_BUF_SIZE];
