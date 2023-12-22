@@ -1,11 +1,11 @@
 #ifndef MENU_H
 #define MENU_H
 
-#include "buttons.h"
-#include "event-listener.h"
-#include "sprite.h"
-#include "parallax-bg.h"
-#include "../user-input/mouse.h"
+#include <cgd/gui/buttons.h>
+#include <cgd/gui/event-listener.h>
+#include <cgd/gui/sprite.h>
+#include <cgd/gui/parallax-bg.h>
+#include <cgd/user-input/mouse.h>
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -24,7 +24,9 @@ typedef enum {
     MN_ONEVENT_GOBACK,
     MN_ONEVENT_PRINTMESSAGE,
     MN_ONEVENT_QUIT,
+#ifndef CGD_BUILDTYPE_RELEASE
     MN_ONEVENT_EXECUTE_OTHER,
+#endif /* CGD_BUILDTYPE_RELEASE */
 } mn_OnEventType;
 
 typedef enum {

@@ -1,4 +1,3 @@
-#pragma once
 #ifndef PARALLAXBG_H
 #define PARALLAXBG_H
 

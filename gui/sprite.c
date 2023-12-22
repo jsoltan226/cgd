@@ -1,5 +1,5 @@
 #include "sprite.h"
-#include "../util.h"
+#include <cgd/util/util.h>
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 

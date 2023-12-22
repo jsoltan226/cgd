@@ -1,8 +1,8 @@
 #ifndef MENUMGR_H
 #define MENUMGR_H
 
-#include "event-listener.h"
-#include "menu.h"
+#include <cgd/gui/event-listener.h>
+#include <cgd/gui/menu.h>
 #include <SDL2/SDL_render.h>
 #include <stdbool.h>
 

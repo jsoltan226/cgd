@@ -2,9 +2,9 @@
 #define EVENT_LISTENER_H
 
 #include <stdbool.h>
-#include "../user-input/mouse.h"
-#include "../user-input/keyboard.h"
-#include "on-event.h"
+#include <cgd/user-input/keyboard.h>
+#include <cgd/user-input/mouse.h>
+#include <cgd/gui/on-event.h>
 
 typedef enum {
     EVL_EVENT_KEYBOARD_KEYPRESS,

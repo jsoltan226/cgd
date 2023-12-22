@@ -1,7 +1,7 @@
-#include "menu-mgr.h"
-#include "event-listener.h"
-#include "menu.h"
-#include "on-event.h"
+#include <cgd/gui/menu-mgr.h>
+#include <cgd/gui/event-listener.h>
+#include <cgd/gui/menu.h>
+#include <cgd/gui/on-event.h>
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <assert.h>

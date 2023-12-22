@@ -1,13 +1,12 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef _UTIL_H
+#define _UTIL_H
 
 #include <SDL2/SDL.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
 
-#define u_BUF_SIZE    1024
-#define u_PATH_FROM_BIN_TO_ASSETS "../assets"
+#define u_BUF_SIZE  1024
 
 typedef struct {
     SDL_Rect srcRect, destRect, hitbox;
@@ -18,9 +17,6 @@ typedef struct {
     uint8_t r, g, b, a;
 } u_Color;
 
-__attribute_maybe_unused__ static char _cgd_util_internal_binDirBuffer[u_BUF_SIZE];
-__attribute_maybe_unused__ static char _cgd_util_internal_assetsDirBuffer[u_BUF_SIZE];
-
 const char *u_getAssetPath();
 SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer);
 int u_max(int a, int b);
@@ -29,4 +25,4 @@ bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2);
 void u_error(const char *fmt, ...);
 int u_getBinDir(char *buf, size_t buf_size);
 
-#endif
+#endif /* _UTIL_H */

@@ -1,5 +1,5 @@
 #include "mouse.h"
-#include "pressable-obj.h"
+#include <cgd/user-input/pressable-obj.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_mouse.h>
 #include <assert.h>

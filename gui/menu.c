@@ -1,12 +1,11 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include "event-listener.h"
 #include "menu.h"
-#include "buttons.h"
-#include "on-event.h"
-#include "parallax-bg.h"
-#include "sprite.h"
+#include <cgd/gui/buttons.h>
+#include <cgd/gui/on-event.h>
+#include <cgd/gui/parallax-bg.h>
+#include <cgd/gui/sprite.h>
 
 /* Here are the declarations of internal mn_OnEvent interface functions. Please see the definitions at the end of this file for detailed explanations of what they do */
 static int mn_memCopy(int argc, void **argv);
@@ -14,7 +13,9 @@ static int mn_switchMenu(int argc, void **argv);
 static int mn_goBack(int argc, void **argv);
 static int mn_printMessage(int argc, void **argv);
 static int mn_flipBool(int argc, void **argv);
+#ifndef CGD_BUILDTYPE_RELEASE
 static int mn_executeOther(int argc, void **argv);
+#endif /* CGD_BUILDTYPE_RELEASE */
 
 mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
 {
@@ -264,6 +265,7 @@ static int mn_flipBool(int argc, void **argv)
     return EXIT_SUCCESS;
 }
 
+#ifndef CGD_BUILDDTYPE_RELEASE
 static int mn_executeOther(int argc, void **argv)
 {
     /* =====> THIS IS A VERY UNSAFE FUNCTION, USED FOR TESTING PURPOSES ONLY! DO NOT USE IT IN PRODUCTION CODE!!! <===== */
@@ -276,15 +278,17 @@ static int mn_executeOther(int argc, void **argv)
         return EXIT_FAILURE;
 
     /* Execute the function that argv[0] points to */
-    ((void(*)())argv[0]) ();
+    ( ( void(*)() )argv[0] ) ();
 
     /*
      * Argv[0] contains the pointer to the function we want to execute
-     * So first, we cast argv[0] to the function pointer type that we need - no arguments, returs void ( void(*)() )
-     *     here =>  ((void(*)())argv[0]) <=  .......
+     * So first, we cast argv[0] to the function pointer type that we need - no arguments, returns nothing
+     * ( `void(*)()` )
+     *     here =>  ( ( void(*)() )argv[0] ) <=  .......
      *
      * Then we execute the casted argv[0] as if it were a normal function
      *    (cast argv[0] ...) => () <= here
     */
     return EXIT_FAILURE;
 }
+#endif /* CGD_BUILDTYPE_RELEASE */

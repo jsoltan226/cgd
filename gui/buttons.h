@@ -2,14 +2,14 @@
 #ifndef BUTTONS_H
 #define BUTTONS_H
 
-#include "on-event.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include "../user-input/keyboard.h"
-#include "../user-input/mouse.h"
-#include "sprite.h"
+#include <cgd/user-input/mouse.h>
+#include <cgd/user-input/keyboard.h>
+#include <cgd/gui/on-event.h>
+#include <cgd/gui/sprite.h>
 
 typedef struct {
     spr_Sprite *sprite;

@@ -25,7 +25,7 @@ pkgconf_CFLAGS=$(shell pkgconf --cflags $(pkgconf_DEPS))
 
 CC?=cc
 CXX?=c++
-COMMON_CFLAGS=-Wall -fPIC $(pkgconf_CFLAGS) $(custom_CFLAGS)
+COMMON_CFLAGS=-Wall -fPIC $(pkgconf_CFLAGS) $(custom_CFLAGS) -I.
 COMMON_CXXFLAGS=$(COMMON_CFLAGS)
 DEPFLAGS?=-MMD -MP
 LD=$(CXX)

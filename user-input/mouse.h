@@ -4,7 +4,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include "pressable-obj.h"
+#include <cgd/user-input/pressable-obj.h>
 
 typedef enum {
     MS_LEFTBUTTONMASK = 1,

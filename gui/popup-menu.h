@@ -1,9 +1,9 @@
 #ifndef POPUP_MENU_H
 #define POPUP_MENU_H
 
-#include "buttons.h"
-#include "event-listener.h"
-#include "sprite.h"
+#include <cgd/gui/buttons.h>
+#include <cgd/gui/event-listener.h>
+#include <cgd/gui/sprite.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
 

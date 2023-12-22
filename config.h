@@ -1,14 +1,14 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "gui/event-listener.h"
-#include "gui/menu.h"
-#include "gui/menu-mgr.h"
-#include "gui/on-event.h"
-#include "gui/parallax-bg.h"
-#include "gui/sprite.h"
-#include "gui/buttons.h"
-#include "user-input/keyboard.h"
+#include <cgd/gui/event-listener.h>
+#include <cgd/gui/menu.h>
+#include <cgd/gui/menu-mgr.h>
+#include <cgd/gui/on-event.h>
+#include <cgd/gui/parallax-bg.h>
+#include <cgd/gui/sprite.h>
+#include <cgd/gui/buttons.h>
+#include <cgd/user-input/keyboard.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>

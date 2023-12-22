@@ -1,6 +1,7 @@
 #include "fonts.h"
-#include "freetype/freetype.h"
-#include "../util.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <cgd/util/util.h>
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 

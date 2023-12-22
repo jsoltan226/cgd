@@ -2,7 +2,7 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-#include "pressable-obj.h"
+#include <cgd/user-input/pressable-obj.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_render.h>

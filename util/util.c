@@ -1,5 +1,6 @@
 #include "util.h"
-#include "ansi-esc-sequences.h"
+#include "u_internal.h"
+#include <cgd/util/ansi-esc-sequences.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_stdinc.h>
@@ -16,15 +17,31 @@
 
 const char *u_getAssetPath()
 {
-    if (_cgd_util_internal_binDirBuffer[0] != '/') {
-        if (u_getBinDir(_cgd_util_internal_binDirBuffer, u_BUF_SIZE)) return NULL;
-    }
-    if (_cgd_util_internal_assetsDirBuffer[0] != '/') {
-        if (strncpy(_cgd_util_internal_assetsDirBuffer, _cgd_util_internal_binDirBuffer, u_BUF_SIZE - 1) == NULL) return NULL;
-        if (strncat(_cgd_util_internal_assetsDirBuffer, u_PATH_FROM_BIN_TO_ASSETS, u_BUF_SIZE - strlen(_cgd_util_internal_assetsDirBuffer) - 1) == NULL) return NULL;
+    if (_cgd_util_internal.binDirBuffer[0] != '/') {
+        if (
+            u_getBinDir(_cgd_util_internal.binDirBuffer, u_BUF_SIZE)
+        ) return NULL;
     }
 
-    return _cgd_util_internal_assetsDirBuffer;
+    if (_cgd_util_internal.assetsDirBuffer[0] != '/') {
+        if (
+            strncpy(
+                _cgd_util_internal.assetsDirBuffer,
+                _cgd_util_internal.binDirBuffer,
+                u_BUF_SIZE - 1
+            ) 
+        == NULL) return NULL;
+
+        if (
+            strncat(
+                _cgd_util_internal.assetsDirBuffer,
+                u_PATH_FROM_BIN_TO_ASSETS, 
+                u_BUF_SIZE - strlen(_cgd_util_internal.assetsDirBuffer) - 1
+            )
+        == NULL) return NULL;
+    }
+
+    return _cgd_util_internal.assetsDirBuffer;
 }
 
 SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
@@ -49,10 +66,17 @@ SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
 
     /* A little shortcut for calling the error label */
 #define jmpErrorLabel(exit_code, errStr)    \
-    strncpy(_ERR_STR, errStr, u_BUF_SIZE - 1); \
-    _ERR_STR[u_BUF_SIZE - 1] = '\0'; \
-    EXIT_CODE = exit_code; \
-    goto err_l;
+    do { \
+        if(strlen(errStr) < u_BUF_SIZE - 1) { \
+            strncpy(_ERR_STR, errStr, u_BUF_SIZE - 1); \
+        } else { \
+            strncpy(_ERR_STR, errStr, u_BUF_SIZE - 2); \
+            _ERR_STR[u_BUF_SIZE - 2] = '.'; \
+        } \
+        _ERR_STR[u_BUF_SIZE - 1] = '\0'; \
+        EXIT_CODE = exit_code; \
+        goto err_l; \
+    } while(0);
 
     /* Constants used throughout the function */
 #define N_PNG_SIG_BYTES         8
@@ -79,38 +103,28 @@ SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer)
 
     /* (Try to) Open the given file in binary read mode */
     FILE *file = fopen(realPath, "rb");
-    if (file == NULL) {
-        jmpErrorLabel(ERR_OPEN_FILE, realPath);
-    }
+    if (file == NULL) jmpErrorLabel(ERR_OPEN_FILE, realPath);
 
     /* Read PNG header to check whether the given file contains a valid PNG signature */
     fread(header, 1, N_PNG_SIG_BYTES, file);
-    if (png_sig_cmp(header, 0, N_PNG_SIG_BYTES)) {
-        jmpErrorLabel(ERR_NOT_PNG, realPath); 
-    }
+    if (png_sig_cmp(header, 0, N_PNG_SIG_BYTES)) jmpErrorLabel(ERR_NOT_PNG, realPath); 
 
     /* Initialize libpng structures */
     png_structp pngStruct = png_create_read_struct(PNG_LIBPNG_VER_STRING, 
         NULL, NULL, NULL
     );
-    if (pngStruct == NULL) {
-        jmpErrorLabel(ERR_INIT_PNG_STRUCT, "");
-    }
+    if (pngStruct == NULL) jmpErrorLabel(ERR_INIT_PNG_STRUCT, "");
 
     /* Initialize png info struct */
     png_infop pngInfo = png_create_info_struct(pngStruct);
-    if (pngInfo == NULL) {
-        jmpErrorLabel(ERR_INIT_PNG_INFO, "");
-    }
+    if (pngInfo == NULL) jmpErrorLabel(ERR_INIT_PNG_INFO, "");
 
     /* From the libpng manual:
      * "When libpng encounters an error, it expects to longjmp back
 to your routine.  Therefore, you will need to call setjmp and pass
 your png_jmpbuf(png_ptr)."
     */
-    if (setjmp(png_jmpbuf(pngStruct))) {
-        jmpErrorLabel(ERR_SETJMP, "");
-    }
+    if (setjmp(png_jmpbuf(pngStruct))) jmpErrorLabel(ERR_SETJMP, "");
 
     /* Set up the PNG input code */
     png_init_io(pngStruct, file);
@@ -155,14 +169,11 @@ your png_jmpbuf(png_ptr)."
 
     /* Allocate memory for the pixel data */
     rowPtrs = malloc(imageH * sizeof(png_bytep));
-    if(rowPtrs == NULL) {
-        jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
-    }
+    if(rowPtrs == NULL) jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
+
     for (int i = 0; i < imageH; i++) {
         rowPtrs[i] = malloc(png_get_rowbytes(pngStruct, pngInfo));
-        if(rowPtrs[i] == NULL){
-            jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
-        }
+        if(rowPtrs[i] == NULL) jmpErrorLabel(ERR_ALLOC_PIXELDATA, "");
     }
 
     /* And now, read the pixel data!!! FINALLY!!! */
@@ -171,9 +182,7 @@ your png_jmpbuf(png_ptr)."
     /* Copy over the pixels to an SDL_Surface */
     /* We use 32 as the pixel format, becasuse each of our pixels has 4 channels 8 bits each, so 4 * 8 = 32 */
     tmpSurface = SDL_CreateRGBSurfaceWithFormat(0, imageW, imageH, N_CHANNELS * N_BITS_PER_CHANNEL, SDL_PIXELFORMAT_RGBA32);
-    if (tmpSurface == NULL) {
-        jmpErrorLabel(ERR_CREATE_SURFACE, SDL_GetError());
-    }
+    if (tmpSurface == NULL) jmpErrorLabel(ERR_CREATE_SURFACE, SDL_GetError());
 
     /* Now go through each pixel CHANNEL and copy its data to the SDL_Surface equivalent.
      * This cannot just be done with memcpy, because it will cause issues with the pitch and whatnot */
@@ -189,9 +198,7 @@ your png_jmpbuf(png_ptr)."
     SDL_UnlockSurface(tmpSurface);
 
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, tmpSurface);
-    if (texture == NULL) {
-        jmpErrorLabel(ERR_CREATE_TEXTURE, SDL_GetError());
-    }
+    if (texture == NULL) jmpErrorLabel(ERR_CREATE_TEXTURE, SDL_GetError());
 
     /* Do the cleanup. There's a surprisingly small amount of it to do considering how many png_something functions we've called... */
     SDL_FreeSurface(tmpSurface);
@@ -212,7 +219,7 @@ err_l:
     /* Make sure to print the error message BEFORE attempting any shenanigans with freeing the resources */
     ;
     const char *errorMessages[ERR_MAX] = {
-        [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err' label is used. The developer is an idiot",
+        [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err_l' label is used. The developer is an idiot",
         [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)",
         [ERR_GET_REAL_PATH]             = "Failed to get the real path of the given asset. Given path (relative): ",
         [ERR_OPEN_FILE]                 = "Failed to open the asset file. Given path (converted): ",

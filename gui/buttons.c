@@ -1,7 +1,7 @@
 #include "buttons.h"
-#include "../util.h"
-#include "on-event.h"
-#include "sprite.h"
+#include <cgd/util/util.h>
+#include <cgd/gui/on-event.h>
+#include <cgd/gui/sprite.h>
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 #include <stdio.h>

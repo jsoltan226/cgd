@@ -1,10 +1,11 @@
 #include "parallax-bg.h"
-#include "../util.h"
+#include <cgd/util/util.h>
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/types.h>
 
 bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
 {

@@ -6,16 +6,16 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
-#include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <stdlib.h>
 #include <string.h>
-#include "gui/menu-mgr.h"
-#include "user-input/keyboard.h"
-#include "user-input/mouse.h"
-#include "util.h"
+#include <cgd/util/util.h>
+#include <cgd/util/ansi-esc-sequences.h>
+#include <cgd/user-input/keyboard.h>
+#include <cgd/user-input/mouse.h>
+#include <cgd/gui/fonts.h>
+#include <cgd/gui/menu-mgr.h>
 #include "config.h"
-#include "gui/fonts.h"
-#include "ansi-esc-sequences.h"
 
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,

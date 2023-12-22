@@ -1,6 +1,6 @@
 #include "event-listener.h"
-#include "../user-input/pressable-obj.h"
-#include "on-event.h"
+#include <cgd/user-input/pressable-obj.h>
+#include <cgd/gui/on-event.h>
 #include <stdio.h>
 #include <assert.h>
 
