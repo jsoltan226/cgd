@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 
             fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
 
-            fnt_renderText(sourceCodeProFont, renderer, NULL,  &textPos, 
+            fnt_renderText(sourceCodeProFont, renderer,  &textPos, 
                     "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)", 
                         (sourceCodeProFont->flags & 4) >> 2,
                         (sourceCodeProFont->flags & 2) >> 1,

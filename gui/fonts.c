@@ -1,5 +1,8 @@
 #include "fonts.h"
+#include "util/hashtable.h"
+#include <SDL2/SDL_blendmode.h>
 #include <ft2build.h>
+#include <string.h>
 #include FT_FREETYPE_H
 #include <cgd/util/util.h>
 #include <SDL2/SDL_render.h>
@@ -99,6 +102,10 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     newFont->charset = charset;
     newFont->tabWidth = FNT_DEFAULT_TAB_WIDTH;
     newFont->flags = flags;
+
+    newFont->cache.textureTable = ht_createTable(100);
+    newFont->cache.cachedStrings = NULL;
+    newFont->cache.n_cachedStrings = 0;
 
     int firstVisibleChar = 0, lastVisibleChar = 0, totalVisibleChars = 0;
     switch ( charset ) {
@@ -339,7 +346,7 @@ err:
     return NULL;
 }
 
-void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTexture, fnt_Vector2D *pos, const char *fmt, ...)
+SDL_Texture *fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...)
 {
     va_list vArgs;
     char str[FNT_TEXT_BUFFER_SIZE];
@@ -355,8 +362,60 @@ void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTe
 
     const char *c_ptr = str;
     int i;
-    
-    SDL_SetRenderTarget(renderer, targetTexture);
+
+    while(*c_ptr){
+        switch(*c_ptr){
+            default: case ' ':
+                penX += fnt->charW;
+                break;
+            case '\r': /* Carriage return */
+                penX = 0;
+                break;
+            case '\t':
+                /* Advance to the next multiple of tabWidth (times the character width) */
+                if(fnt->charW != 0)
+                    penX += (fnt->tabWidth -((int)(penX / fnt->charW) % fnt->tabWidth)) * fnt->charW;
+                break;
+            case '\n':
+                maxPenX = max(penX, maxPenX);
+                penX = 0;
+                penY += fnt->lineHeight;
+                break;
+            case '\f': /* Form feed character, just treat it as two newline characters */
+                penX = 0;
+                penY += fnt->lineHeight * 2;
+                break;
+            case '\v': /* Vertical tab (newline + tab) */
+                penY += fnt->lineHeight;
+                maxPenX = max(penX, maxPenX);
+                penX = fnt->tabWidth * fnt->charW;
+                break;
+        }
+        c_ptr++;
+    }
+
+    int textW = max(penX, maxPenX);
+    int textH = penY + fnt->lineHeight;
+
+    fnt_CacheEntry *cacheEntry = ht_lookupValue(fnt->cache.textureTable, str);
+    if (cacheEntry == NULL) {
+        cacheEntry = malloc(sizeof(fnt_CacheEntry));
+        if (cacheEntry == NULL) return NULL;
+
+        cacheEntry->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, textW, textH);
+        if (cacheEntry == NULL) return NULL;
+
+        SDL_SetRenderTarget(renderer, cacheEntry->texture);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+        SDL_RenderClear(renderer);
+        SDL_SetTextureBlendMode(cacheEntry->texture, SDL_BLENDMODE_BLEND);
+    } else {
+        SDL_Rect destRect = { .x = pos->x, .y = pos->y, .w = textW, .h = textH };
+        SDL_RenderCopy(renderer, cacheEntry->texture, NULL, &destRect);
+        return cacheEntry->texture;
+    }
+
+    c_ptr = str;
     while(*c_ptr){
         switch(*c_ptr){
             default:
@@ -365,8 +424,8 @@ void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTe
                     fnt_GlyphData *currentGlyph = &fnt->glyphs[i];
 
                     SDL_Rect glyphDestRect = { 
-                        .x = pos->x + penX + (currentGlyph->offsetX * fnt->charW),
-                        .y = pos->y + penY + (currentGlyph->offsetY * fnt->lineHeight),
+                        .x = penX + (currentGlyph->offsetX * fnt->charW),
+                        .y = penY + (currentGlyph->offsetY * fnt->lineHeight),
                         .w = (int)(fnt->charW * currentGlyph->scaleX),
                         .h = (int)(fnt->lineHeight * currentGlyph->scaleY),
                     };
@@ -418,18 +477,17 @@ void fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, SDL_Texture *targetTe
         }
         c_ptr++;
     }
-    if(fnt->flags & FNT_FLAG_DISPLAY_TEXT_RECTS){
-        SDL_Rect textDestRect = {
-            .x = pos->x,
-            .y = pos->y,
-            .w = max(penX, maxPenX),
-            .h = penY + fnt->lineHeight,
-        };
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-        SDL_RenderDrawRect(renderer, &textDestRect);
-    }
 
     SDL_SetRenderTarget(renderer, NULL);
+    SDL_Rect destRect = { .x = pos->x, .y = pos->y, .w = textW, .h = textH };
+    SDL_RenderCopy(renderer, cacheEntry->texture, NULL, &destRect);
+    ht_insert(fnt->cache.textureTable, str, cacheEntry);
+    fnt->cache.n_cachedStrings++;
+    fnt->cache.cachedStrings = realloc(fnt->cache.cachedStrings, fnt->cache.n_cachedStrings * FNT_TEXT_BUFFER_SIZE);
+    strncpy(fnt->cache.cachedStrings[fnt->cache.n_cachedStrings - 1], str, FNT_TEXT_BUFFER_SIZE);
+    fnt->cache.cachedStrings[fnt->cache.n_cachedStrings - 1][FNT_TEXT_BUFFER_SIZE - 1] = '\0';
+
+    return cacheEntry->texture;
 }
 
 void fnt_destroyFont(fnt_Font *fnt)
@@ -438,6 +496,14 @@ void fnt_destroyFont(fnt_Font *fnt)
     fnt->glyphs = NULL;
 
     SDL_DestroyTexture(fnt->texture);
+
+    for(int i = 0; i < fnt->cache.n_cachedStrings; i++) {
+        fnt_CacheEntry *currentEntry = (fnt_CacheEntry*)ht_lookupValue(fnt->cache.textureTable, (void*)fnt->cache.cachedStrings[i]);
+        SDL_DestroyTexture(currentEntry->texture);
+        free(currentEntry);
+    }
+    ht_destroyTable(fnt->cache.textureTable);
+    free(fnt->cache.cachedStrings);
 
     free(fnt);
     fnt = NULL;

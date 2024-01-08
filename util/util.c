@@ -1,6 +1,6 @@
 #include "util.h"
 #include "u_internal.h"
-#include <cgd/util/ansi-esc-sequences.h>
+#include "ansi-esc-sequences.h"
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_stdinc.h>
