@@ -1,3 +1,2 @@
-Added lls_LinkedList module in util/
-Added ht_HashTable module in util/ (very early version, likely buggy)
-Started working on font rendering cache (currently barely, but functional)
+Restrucured the project, added some platform code, which basically broke the way I was detecting source files in MAKE.
+    And yes, that means that there is currently no automatic way of building the project.

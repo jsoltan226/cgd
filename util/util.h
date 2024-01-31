@@ -19,7 +19,6 @@ typedef struct {
 } u_Color;
 
 const char *u_getAssetPath();
-SDL_Texture* u_loadPNG(const char* filePath, SDL_Renderer* renderer);
 int u_max(int a, int b);
 int u_min(int a, int b);
 bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2);

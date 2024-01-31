@@ -1,5 +1,5 @@
 #include "sprite.h"
-#include <cgd/util/util.h>
+#include <cgd/asset-loader/images.h>
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 

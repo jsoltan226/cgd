@@ -1,5 +1,5 @@
 #include "fonts.h"
-#include "util/hashtable.h"
+#include <cgd/util/datastruct/hashtable.h>
 #include <SDL2/SDL_blendmode.h>
 #include <ft2build.h>
 #include <string.h>

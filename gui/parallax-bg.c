@@ -1,5 +1,5 @@
 #include "parallax-bg.h"
-#include <cgd/util/util.h>
+#include <cgd/asset-loader/images.h>
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
