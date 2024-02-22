@@ -1,5 +1,5 @@
-#include "../util.h"
-#include "../ansi-esc-sequences.h"
+#include <util/util.h>
+#include <util/ansi-esc-sequences.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_render.h>

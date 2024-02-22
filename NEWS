@@ -1,2 +1,1 @@
-Restrucured the project, added some platform code, which basically broke the way I was detecting source files in MAKE.
-    And yes, that means that there is currently no automatic way of building the project.
+Rewrote the entire Makefile and now it works even with the platform code!
