@@ -13,7 +13,7 @@
 #define KB_KEYBOARD_LENGTH                41
 
 typedef struct {
-    po_PressableObj *key;
+    po_PressableObj key;
     SDL_Keycode SDLKeycode;
 } kb_Key;
 typedef kb_Key kb_Keyboard[KB_KEYBOARD_LENGTH];

@@ -7,19 +7,16 @@
 #include <cgd/user-input/pressable-obj.h>
 
 typedef enum {
-    MS_LEFTBUTTONMASK = 1,
-    MS_RIGHTBUTTONMASK = 2,
-    MS_MIDDLEBUTTONMASK = 4,
+    MS_LEFTBUTTONMASK   = 1 << 0,
+    MS_RIGHTBUTTONMASK  = 1 << 1,
+    MS_MIDDLEBUTTONMASK = 1 << 2,
 } ms_Mouse_ButtonMask;
 
 #define MS_EVERYBUTTONMASK (MS_LEFTBUTTONMASK | MS_RIGHTBUTTONMASK | MS_MIDDLEBUTTONMASK)
 
 typedef struct {
-    po_PressableObj *buttonLeft;
-    po_PressableObj *buttonRight;
-    po_PressableObj *buttonMiddle;
-    int x;
-    int y;
+    po_PressableObj buttonLeft, buttonRight, buttonMiddle;
+    int x, y;
 } ms_Mouse;
 
 ms_Mouse* ms_initMouse();

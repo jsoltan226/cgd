@@ -36,7 +36,8 @@ _SRCS+=$(wildcard *.c)
 
 ifeq ($(PLATFORM), gnu_linux)
 _SRCS+=$(shell find ./platform/linux -type f -name "*.c")
-else ifeq ($(PLATFORM), windows)
+endif
+ifeq ($(PLATFORM), windows)
 _SRCS+=$(shell find ./platform/windows -type f -name "*.c")
 endif
 
@@ -60,7 +61,7 @@ _max_printf_strlen=$(shell if [ -f $(FIND_MAX_STRLEN_EXE) ]; then $(FIND_MAX_STR
 
 all: $(BINDIR) $(OBJDIR) $(FIND_MAX_STRLEN_EXE) $(EXE)
 
-.NOTPARALLEL: $(FIND_MAX_STRLEN_EXE)
+.NOTPARALLEL: $(FIND_MAX_STRLEN_EXE) br
 $(FIND_MAX_STRLEN_EXE):
 	@$(PRINTF) "HOSTCC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$(FIND_MAX_STRLEN_EXE)" "<= find-max-strlen.c"
 	@$(HOSTCC) -fPIC -O3 -pipe -o $(FIND_MAX_STRLEN_EXE) find-max-strlen.c
@@ -68,6 +69,18 @@ $(FIND_MAX_STRLEN_EXE):
 $(EXE): $(OBJS)
 	@$(PRINTF) "CCLD 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
+
+ifeq ($(PLATFORM), gnu_linux)
+$(OBJDIR)/%.c.o: platform/linux/%.c Makefile
+	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+else ifeq ($(PLATFORM), windows)
+$(OBJDIR)/%.c.o: platform/windows/%.c Makefile
+	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+endif
 
 $(OBJDIR)/%.c.o: %.c
 	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
@@ -84,18 +97,6 @@ $(OBJDIR)/%.c.o: */*/%.c
 $(OBJDIR)/%.c.o: */*/*/%.c
 	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-ifeq ($(PLATFORM), gnu_linux)
-$(OBJDIR)/%.c.o: platform/linux/%.c Makefile
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-else ifeq ($(PLATFORM), windows)
-$(OBJDIR)/%.c.o: platform/windows/%.c Makefile
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-endif
 
 $(OBJDIR):
 	@$(PRINTF) "MKDIR 	%-$(_max_printf_strlen)s\n" "$(OBJDIR)"
@@ -116,5 +117,7 @@ mostlyclean:
 run:
 	@$(PRINTF) "EXEC 	%-$(_max_printf_strlen)s\n" "$(EXE)"
 	@$(EXEC) $(EXE)
+
+br: all run
 
 -include $(DEPS)

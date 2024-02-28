@@ -53,5 +53,4 @@ void po_destroyPressableObj(po_PressableObj *po)
 {
     /* Free the memory occupied by the now not needed pressable object struct */
     free(po);
-    po = NULL;
 }

@@ -53,16 +53,6 @@ typedef struct {
 } fnt_GlyphData;
 
 typedef struct {
-    SDL_Texture *texture;
-} fnt_CacheEntry;
-
-typedef struct {
-    ht_HashTable *textureTable;
-    char (*cachedStrings)[FNT_TEXT_BUFFER_SIZE];
-    int n_cachedStrings;
-} fnt_Cache;
-
-typedef struct {
     /* Used internally, not modifiable */
     SDL_Texture *texture;
 
@@ -73,8 +63,6 @@ typedef struct {
         fnt_uInt32 total;
     } visibleChars;
     fnt_Charset charset;
-
-    fnt_Cache cache;
 
     /* User-modifiable at runtime */
     fnt_float lineHeight;
@@ -87,7 +75,7 @@ typedef struct {
 fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float charW, fnt_float charH, 
         fnt_Charset charset, fnt_uInt16 flags);
 
-SDL_Texture *fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...);
+int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...);
 
 void fnt_destroyFont(fnt_Font *fnt);
 

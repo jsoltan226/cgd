@@ -107,13 +107,14 @@ int main(int argc, char **argv)
         /* The keyboard and mouse structs need updating every game tick. 
          * They use SDL_Get(..)State, not SDL_PollEvent. */
         kb_updateKeyboard(keyboard);
-        ms_updateMouse(mouse);
 
         /* Check for input events */
         SDL_Event event;
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_MOUSEMOTION || event.type == SDL_MOUSEBUTTONUP || event.type == SDL_MOUSEBUTTONDOWN){
 
+                ms_updateMouse(mouse);
+                
                 /* Reset mouse when it gets out of the window */
                 SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
                 SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
@@ -137,11 +138,11 @@ int main(int argc, char **argv)
 
             mmgr_drawMenuManager(MenuManager, renderer, displayButtonHitboxOutlines);
 
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1)->up)
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1).up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_TEXT_RECTS;
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2)->up)
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2).up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_GLYPH_RECTS;
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3)->up)
+            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3).up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_CHAR_RECTS;
 
             fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };

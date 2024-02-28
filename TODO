@@ -1,8 +1,9 @@
+Fix mouse and keyboard event handling
+
 Get rid of the dependency on libpng
 Restructurize the project
 Refactor the modules so that they resemble actual APIs, not the garbage that they currently are
 Add documentation in header files
-Add a fnt_renderText cache
 Implement lazy loading of menus in menu-mgr
 Add clicking animations in buttons
 

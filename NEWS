@@ -1,1 +1,1 @@
-Rewrote the entire Makefile and now it works even with the platform code!
+Removed the fnt_Cache as it was buggy and provided minimal performace gains.
