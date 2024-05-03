@@ -4,11 +4,9 @@
 
 po_PressableObj* po_createPressableObj()
 {
-    /* Allocate space on the heap... */
     po_PressableObj *po = malloc(sizeof(po_PressableObj));
     assert(po != NULL);
 
-    /* ...And populate it with the default values for all the members */
     po->up = false;
     po->down = false;
     po->pressed = false;
@@ -20,14 +18,14 @@ po_PressableObj* po_createPressableObj()
 
 void po_updatePressableObj(po_PressableObj* po, bool state)
 {
-    /* Down should only be true if on the current tick the object is pressed, but wasn't pressed on the previous one */
+    /* Down is active if on the current tick the object is pressed, but wasn't pressed on the previous one */
     po->down = (state && !po->pressed && !po->forceReleased);
 
-    /* Down is active only when the object WAS pressed, and now is not. */
+    /* Up is active immidiately after object was released. */
     po->up = (!state && po->pressed && !po->forceReleased);
 
     /* Update the po->pressed member only if the object isn't force released */
-    po->pressed = state & !po->forceReleased;
+    po->pressed = state && !po->forceReleased;
 
     /* Time pressed should always be incremented when the object is pressed */
     if(state) {
@@ -51,6 +49,5 @@ void po_forceReleasePressableObj(po_PressableObj *po)
 
 void po_destroyPressableObj(po_PressableObj *po)
 {
-    /* Free the memory occupied by the now not needed pressable object struct */
     free(po);
 }

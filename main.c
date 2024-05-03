@@ -16,6 +16,7 @@
 #include <cgd/gui/fonts.h>
 #include <cgd/gui/menu-mgr.h>
 #include "config.h"
+#include "util/function-arg-macros.h"
 
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
@@ -37,8 +38,8 @@ enum EXIT_CODES EXIT_CODE;
 mmgr_MenuManager *MenuManager;
 SDL_Window *window;
 SDL_Renderer *renderer;
-kb_Keyboard *keyboard;
 ms_Mouse *mouse;
+kb_Keyboard *keyboard;
 fnt_Font *sourceCodeProFont;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
@@ -106,23 +107,14 @@ int main(int argc, char **argv)
 
         /* The keyboard and mouse structs need updating every game tick. 
          * They use SDL_Get(..)State, not SDL_PollEvent. */
+        /* TODO: Fix polling mouse and keyboard state on every game tick, even when they aren't updated */
         kb_updateKeyboard(keyboard);
+        ms_updateMouse(mouse);
 
         /* Check for input events */
         SDL_Event event;
         while(SDL_PollEvent(&event)){
-            if(event.type == SDL_MOUSEMOTION || event.type == SDL_MOUSEBUTTONUP || event.type == SDL_MOUSEBUTTONDOWN){
-
-                ms_updateMouse(mouse);
-                
-                /* Reset mouse when it gets out of the window */
-                SDL_Rect windowRect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
-                SDL_Rect mouseRect = { mouse->x, mouse->y, 0, 0 };
-
-                if(!u_collision(&windowRect, &mouseRect))
-                    ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
-
-            } else if(event.type == SDL_QUIT){
+            if(event.type == SDL_QUIT){
                 running = false; 
             }
         }
@@ -133,11 +125,12 @@ int main(int argc, char **argv)
         if(!paused){
 
         /* RENDER SECTION */
-            SDL_SetRenderDrawColor(renderer, rendererBg.r, rendererBg.g, rendererBg.b, rendererBg.a);
+            SDL_SetRenderDrawColor(renderer, u_color_arg_expand(rendererBg));
             SDL_RenderClear(renderer);
 
-            mmgr_drawMenuManager(MenuManager, renderer, displayButtonHitboxOutlines);
+            mmgr_drawMenuManager(MenuManager, renderer);
 
+            /*
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1).up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_TEXT_RECTS;
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2).up)
@@ -156,6 +149,17 @@ int main(int argc, char **argv)
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
             SDL_RenderDrawRect(renderer, &gameRect);
+            */
+
+            /*
+            SDL_Rect mouse_rect = { mouse->x - 10, mouse->y - 10, 20, 20 };
+            if (mouse->buttons[MS_BUTTON_LEFT].pressed)
+                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            else
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+
+            SDL_RenderFillRect(renderer, &mouse_rect);
+            */
 
             SDL_RenderPresent(renderer);
 

@@ -81,11 +81,11 @@ void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mo
     }
 }
 
-void mmgr_drawMenuManager(mmgr_MenuManager* mmgr, SDL_Renderer* renderer, bool displayButtonHitboxes)
+void mmgr_drawMenuManager(mmgr_MenuManager* mmgr, SDL_Renderer* renderer)
 {
     /* Event listeners don't need drawing */
 
-    mn_drawMenu(mmgr->currentMenu, renderer, displayButtonHitboxes);
+    mn_drawMenu(mmgr->currentMenu, renderer);
 }
 
 void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr)

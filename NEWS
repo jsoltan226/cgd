@@ -1,1 +1,2 @@
-Removed the fnt_Cache as it was buggy and provided minimal performace gains.
+made the buttons (btn_Button, gui/buttons.c) functional
+cleaned up the code a little bit

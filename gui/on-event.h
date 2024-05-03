@@ -12,6 +12,9 @@ typedef struct {
     void* argv[4];
 } oe_OnEvent;
 
-#define oe_executeOnEventfn(oeObj)      oeObj.fn(oeObj.argc, oeObj.argv)
+#define oe_executeOnEventfn(oeObj)      do { \
+    if (oeObj.fn != NULL) \
+        oeObj.fn(oeObj.argc, oeObj.argv); \
+} while (0);
 
 #endif

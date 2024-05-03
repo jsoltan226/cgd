@@ -60,7 +60,12 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *ke
     for(int i = 0; i < cfg->buttonInfo.count; i++){
         oe_OnEvent onClickObj;
         mn_initOnEventObj(&onClickObj, &cfg->buttonInfo.cfgs[i].onClickCfg, mn);
-        mn->buttons.ptrArray[i] = btn_initButton(&cfg->buttonInfo.cfgs[i].spriteCfg, &onClickObj, renderer);
+        mn->buttons.ptrArray[i] = btn_initButton(
+            &cfg->buttonInfo.cfgs[i].spriteCfg,
+            &onClickObj,
+            cfg->buttonInfo.cfgs[i].flags,
+            renderer
+        );
     }
 
     mn->bg = bg_initBG(&cfg->bgConfig, renderer);
@@ -83,7 +88,7 @@ void mn_updateMenu(mn_Menu* mn, ms_Mouse *mouse)
     bg_updateBG(mn->bg);
 }
 
-void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes)
+void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer)
 {
     /* Draw background below everything else */
     bg_drawBG(mn->bg, renderer);
@@ -93,7 +98,7 @@ void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer, bool displayButtonHitboxes
     }
 
     for(int i = 0; i < mn->buttons.count; i++){
-        btn_drawButton(mn->buttons.ptrArray[i], renderer, displayButtonHitboxes);
+        btn_drawButton(mn->buttons.ptrArray[i], renderer);
     }
 
     /* Event listeners do not need drawing because they are invisible */

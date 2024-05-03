@@ -6,14 +6,12 @@
 
 evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *onEventObj, evl_Target *t)
 {
-    /* Allocate space for the event listener struct */
     evl_EventListener *evl = malloc(sizeof(evl_EventListener));
     assert(evl != NULL);
 
-    /* Copy over the info from the 'onEventObj' argument */
     evl->onEvent.fn = onEventObj->fn;
     evl->onEvent.argc = onEventObj->argc;
-    assert( memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*)) );
+    memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*));
 
     /* Copy other info given in configuration */
     evl->type = cfg->type;
@@ -31,45 +29,13 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
             evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).up);
         	break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
-            switch(cfg->targetInfo.buttonMask){
-                default:
-                case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonLeft.pressed);
-                    break;
-                case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonRight.pressed);
-                    break;
-                case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonMiddle.pressed);
-                    break;
-            }
+            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].pressed;
             break;
         case EVL_EVENT_MOUSE_BUTTONDOWN:
-            switch(cfg->targetInfo.buttonMask){
-                default:
-                case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonLeft.down);
-                    break;
-                case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonRight.down);
-                    break;
-                case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonMiddle.down);
-                    break;
-            }
+            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].down;
+            break;
         case EVL_EVENT_MOUSE_BUTTONUP:
-            switch(cfg->targetInfo.buttonMask){
-                default:
-                case MS_LEFTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonLeft.up);
-                    break;
-                case MS_RIGHTBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonRight.up);
-                    break;
-                case MS_MIDDLEBUTTONMASK:
-                    evl->objectPtr = &(t->mouse->buttonMiddle.up);
-                    break;
-            }
+            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].up;
         	break;
     }
 
@@ -80,10 +46,9 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
 
 void evl_updateEventListener(evl_EventListener *evl)
 {
-    /* Update the event listener. It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
+    /* It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
     evl->detected = *evl->objectPtr;
     
-    /* If the button is pressed and the onClick function pointer is valid, execute the onClick function */
     if(evl->detected && evl->onEvent.fn)
         oe_executeOnEventfn(evl->onEvent);
 }

@@ -1,4 +1,5 @@
 PLATFORM?=gnu_linux
+PREFIX?=/usr
 
 PRINTF?=printf
 MKDIR?=mkdir -p
@@ -8,7 +9,7 @@ EXEC=exec
 
 HOSTCC?=cc
 CC?=cc
-CFLAGS?=-I. -I.. -I/usr/include/freetype2 -pipe -fPIC
+CFLAGS?=-I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC
 CXX?=c++
 CXXFLAGS?=$(CFLAGS)
 CCLD?=$(CC)

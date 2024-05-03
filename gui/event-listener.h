@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
     evl_EventType type;
     union {
-        ms_Mouse_ButtonMask buttonMask;
+        enum ms_Mouse_Button button_type;
         kb_KeyCode keycode;
     } targetInfo;
 } evl_EventListenerConfig;

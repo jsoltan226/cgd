@@ -1,4 +1,3 @@
-#pragma once
 #ifndef BUTTONS_H
 #define BUTTONS_H
 
@@ -10,21 +9,32 @@
 #include <cgd/user-input/keyboard.h>
 #include <cgd/gui/on-event.h>
 #include <cgd/gui/sprite.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+enum btn_flags {
+    BTN_DISPLAY_HITBOX_OUTLINE  = 1 << 0,
+    BTN_DISPLAY_HOVER_TINT      = 1 << 1,
+};
+#define BTN_DEFAULT_FLAGS (BTN_DISPLAY_HOVER_TINT)
 
 typedef struct {
     spr_Sprite *sprite;
-    po_PressableObj *button;
+
+    po_PressableObj *button; 
+    bool is_being_clicked; /* Whether the button was clicked and the mouse is still being held */
+    bool hovering;
+
     oe_OnEvent onClick;
+    
+    uint32_t flags;
 } btn_Button;
 
-typedef spr_SpriteConfig btn_SpriteConfig;
-
-btn_Button *btn_initButton(btn_SpriteConfig *spriteCfg, oe_OnEvent *onClick, SDL_Renderer *renderer);
+btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, uint32_t flags, SDL_Renderer *renderer);
 void btn_updateButton(btn_Button *btn, ms_Mouse *mouse);
-void btn_drawButton(btn_Button *btn, SDL_Renderer *r, bool displayHitboxButton);
-void btn_destroyButton(btn_Button *btn);
 
-static const SDL_Color btn_hitboxOutlineColorNormal = { 255, 0, 0, 255 };
-static const SDL_Color btn_hitboxOutlineColorPressed = { 0, 255, 0, 255 };
+void btn_drawButton(btn_Button *btn, SDL_Renderer *r);
+
+void btn_destroyButton(btn_Button *btn);
 
 #endif

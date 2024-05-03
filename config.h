@@ -99,6 +99,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                                 .switchDestMenuID = SUB_MENU,
                             }, 
                         },
+                        .flags = BTN_DEFAULT_FLAGS
                     },
                 },
             },
@@ -139,6 +140,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,
                             .onEventArgs = { .switchDestMenuID = MAIN_MENU },
                         },
+                        .flags = BTN_DISPLAY_HOVER_TINT | BTN_DISPLAY_HITBOX_OUTLINE,
                     }
                 },
             },

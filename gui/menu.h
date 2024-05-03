@@ -60,8 +60,9 @@ typedef struct {
 typedef bg_BGConfig mn_BGConfig;
 typedef spr_SpriteConfig mn_SpriteConfig;
 typedef struct {
-    btn_SpriteConfig spriteCfg;
+    spr_SpriteConfig spriteCfg;
     mn_OnEventConfig onClickCfg;
+    uint32_t flags;
 } mn_ButtonConfig;
 typedef struct {
     evl_EventListenerConfig eventListenerCfg;
@@ -114,7 +115,7 @@ typedef struct {
 
 mn_Menu* mn_initMenu(mn_MenuConfig *cfg, SDL_Renderer *r, kb_Keyboard *keyboard, ms_Mouse *mouse);
 void mn_updateMenu(mn_Menu *menu, ms_Mouse *mouse);
-void mn_drawMenu(mn_Menu *menu, SDL_Renderer *r, bool displayButtonHitboxes);
+void mn_drawMenu(mn_Menu *menu, SDL_Renderer *r);
 void mn_destroyMenu(mn_Menu *menu);
 void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *cfg, mn_Menu *optionalMenuPtr);
 
