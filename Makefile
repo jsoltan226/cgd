@@ -58,9 +58,12 @@ FIND_MAX_STRLEN_EXE=$(BINDIR)/$(EXEPREFIX)find-max-strlen$(EXESUFFIX)
 # and if not it will use a slower alternative made out of standard unix commands.
 _max_printf_strlen=$(shell if [ -f $(FIND_MAX_STRLEN_EXE) ]; then $(FIND_MAX_STRLEN_EXE) $(OBJS) $(FIND_MAX_STRLEN_EXE); else MAX_STRLEN=0; for i in $(OBJS) $(FIND_MAX_STRLEN_EXE); do strlen=$$(echo $$i | wc -m); [ $$strlen -gt $$MAX_STRLEN ] && MAX_STRLEN=$$strlen; done; echo $$((MAX_STRLEN - 1)); fi)
 
-.PHONY: all
+.PHONY: all release
 
 all: $(BINDIR) $(OBJDIR) $(FIND_MAX_STRLEN_EXE) $(EXE)
+
+release: CFLAGS+=-O3 -Wall -Werror
+release: all
 
 .NOTPARALLEL: $(FIND_MAX_STRLEN_EXE) br
 $(FIND_MAX_STRLEN_EXE):

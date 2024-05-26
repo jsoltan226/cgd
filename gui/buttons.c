@@ -2,15 +2,17 @@
 #include "user-input/mouse.h"
 #include "user-input/pressable-obj.h"
 #include <cgd/util/util.h>
+#include <cgd/util/shapes.h>
+#include <cgd/util/int.h>
+#include <cgd/util/function-arg-macros.h>
 #include <cgd/gui/on-event.h>
 #include <cgd/gui/sprite.h>
-#include <cgd/util/function-arg-macros.h>
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, uint32_t flags, SDL_Renderer *renderer)
+btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32 flags, SDL_Renderer *renderer)
 {
     btn_Button *btn = calloc(1, sizeof(btn_Button));
     assert(btn != NULL);
@@ -33,7 +35,7 @@ btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, uin
 void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
 {
     btn->hovering = u_collision(
-        &(SDL_Rect) { mouse->x, mouse->y, 0, 0 },
+        &(rect_t) { mouse->x, mouse->y, 0, 0 },
         &btn->sprite->hitbox
     );
 
@@ -56,24 +58,24 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
 
     /* Draw the hitbox outline */
     if(btn->flags & BTN_DISPLAY_HITBOX_OUTLINE){
-        static const SDL_Color outline_normal = { 255, 0, 0, 255 };
-        static const SDL_Color outline_pressed = { 0, 255, 0, 255 };
+        static const color_RGBA32_t outline_normal = { 255, 0, 0, 255 };
+        static const color_RGBA32_t outline_pressed = { 0, 255, 0, 255 };
 
-        SDL_Color outline_color = btn->is_being_clicked ? outline_pressed : outline_normal;
+        color_RGBA32_t outline_color = btn->is_being_clicked ? outline_pressed : outline_normal;
 
         SDL_SetRenderDrawColor(renderer, u_color_arg_expand(outline_color));
-        SDL_RenderDrawRect(renderer, &btn->sprite->hitbox);
+        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
     }
     if (btn->flags & BTN_DISPLAY_HOVER_TINT) {
-        static const SDL_Color hover_tint = { 30, 30, 30, 100 };
-        static const SDL_Color click_tint = { 20, 20, 20, 128 };
+        static const color_RGBA32_t hover_tint = { 30, 30, 30, 100 };
+        static const color_RGBA32_t click_tint = { 20, 20, 20, 128 };
 
         if (btn->is_being_clicked) {
             SDL_SetRenderDrawColor(renderer, u_color_arg_expand(click_tint));
-            SDL_RenderFillRect(renderer, &btn->sprite->hitbox);
+            SDL_RenderFillRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
         } else if (btn->hovering) {
             SDL_SetRenderDrawColor(renderer, u_color_arg_expand(hover_tint));
-            SDL_RenderFillRect(renderer, &btn->sprite->hitbox);
+            SDL_RenderFillRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
         }
     }
 }

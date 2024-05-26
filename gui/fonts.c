@@ -8,28 +8,28 @@
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 
-int max(int a, int b)
+static i64 max(i64 a, i64 b)
 {
     if(a > b)
         return a;
     else
         return b;
 };
-int min(int a, int b)
+i64 min(i64 a, i64 b)
 {
     if(a < b)
         return a;
     else
         return b;
 };
-double fmax(double a, double b)
+f64 fmax(f64 a, f64 b)
 {
     if(a > b)
         return a;
     else
         return b;
 };
-double fmin(double a, double b)
+f64 fmin(f64 a, f64 b)
 {
     if(a < b)
         return a;
@@ -37,8 +37,8 @@ double fmin(double a, double b)
         return b;
 };
 
-fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float charW, fnt_float lineH, 
-        fnt_Charset charset, fnt_uInt16 flags)
+fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 lineH, 
+        fnt_Charset charset, u16 flags)
 {
     /* The exit error codes used by the 'err' label */
     enum EXIT_CODES {
@@ -54,8 +54,8 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
         ERR_CREATE_FINAL_SURFACE    = 9,
         ERR_CREATE_FNT_TEXTURE      = 10,
     };
-    int errCode = EXIT_OK;
-    int FreeType_errCode = 0;
+    i32 errCode = EXIT_OK;
+    i32 FreeType_errCode = 0;
 
     char c = 0; /* Used later, but the declaration must be here, as it's needed by the 'err' label */
 
@@ -74,7 +74,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     }
 
     char fullFilePath[u_BUF_SIZE] = { 0 };
-    if (strncpy(fullFilePath, u_getAssetPath(), u_BUF_SIZE - 1) == NULL ||
+    if (strncpy(fullFilePath, u_get_asset_dir(), u_BUF_SIZE - 1) == NULL ||
         strncat(fullFilePath, filePath, u_BUF_SIZE - strlen(fullFilePath) - 1) == NULL 
     ) {
         errCode = ERR_INIT_FT_FACE;
@@ -103,7 +103,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     newFont->tabWidth = FNT_DEFAULT_TAB_WIDTH;
     newFont->flags = flags;
 
-    int firstVisibleChar = 0, lastVisibleChar = 0, totalVisibleChars = 0;
+    u32 firstVisibleChar = 0, lastVisibleChar = 0, totalVisibleChars = 0;
     switch ( charset ) {
         default: case FNT_CHARSET_ASCII:
             firstVisibleChar = FNT_ASCII_FIRST_VISIBLE_CHAR;
@@ -130,9 +130,9 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     /* Prepare the temporary surfaces and the total width and height, 
      * used later to create the final surface with the appropriate dimensions */
     SDL_Surface** tmpSurfaces = malloc(sizeof(SDL_Surface*) * totalVisibleChars);
-    int totalWidth = 0, totalHeight = 0;
+    u32 totalWidth = 0, totalHeight = 0;
 
-    for(int i = 0; i < totalVisibleChars; i++){
+    for(u32 i = 0; i < totalVisibleChars; i++){
         fnt_GlyphData *currentGlyph = &newFont->glyphs[i];
 
         /* char */ c = (char)(i + firstVisibleChar);
@@ -145,7 +145,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
         /* Set the glyph's source rect to based on the metadata from the FT_GlyphSlot struct
          * and the current total width (which also happens to be where our 'pen' is on the X axis)
          */
-        currentGlyph->srcRect = (SDL_Rect){
+        currentGlyph->srcRect = (rect_t){
             .x = totalWidth,
             .y = 0,
             .w = glyphSlot->bitmap.width,
@@ -158,19 +158,19 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
 
         FT_Glyph_Metrics *m = &glyphSlot->metrics;
         if(m->horiAdvance != 0)
-            currentGlyph->scaleX = (float)m->width / m->horiAdvance;
+            currentGlyph->scaleX = (f32)m->width / m->horiAdvance;
 
-        if((float)((int)lineH << 6) != 0)
-            currentGlyph->scaleY = (float)m->height / (float)((int)lineH << 6);
+        if((f32)((i32)lineH << 6) != 0)
+            currentGlyph->scaleY = (f32)m->height / (f32)((i32)lineH << 6);
 
         if(m->horiAdvance != 0)
-            currentGlyph->offsetX = (float)m->horiBearingX / m->horiAdvance;
+            currentGlyph->offsetX = (f32)m->horiBearingX / m->horiAdvance;
 
         /* It took me 5 days to come up with this one line, 
          * so I don't think you should bother trying to understand it yourself.
          * You (probably) have the luxury to only need to know, WHAT this does, not HOW... */
         if(lineH != 0)
-            currentGlyph->offsetY = 1.f - ((float)m->horiBearingY - face->descender) / (float)((int)lineH << 6);
+            currentGlyph->offsetY = 1.f - ((f32)m->horiBearingY - face->descender) / (f32)((i32)lineH << 6);
 
         /* The font's texture will be a long (horizontal) line
          * with all the character placed one after the other,
@@ -195,10 +195,10 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
 
         /* Go through all the pixels one by one, 
          * and map them over onto the current glyph's temp surface */
-        for (int y = 0; y < glyphSlot->bitmap.rows; ++y) {
-            for (int x = 0; x < glyphSlot->bitmap.width; ++x) {
-                Uint8 pixel = glyphSlot->bitmap.buffer[y * glyphSlot->bitmap.width + x];
-                Uint32* target_pixel = (Uint32*)((Uint8*)currentSurface->pixels + y * currentSurface->pitch + x * sizeof(Uint32));
+        for (u32 y = 0; y < glyphSlot->bitmap.rows; ++y) {
+            for (u32 x = 0; x < glyphSlot->bitmap.width; ++x) {
+                u8 pixel = glyphSlot->bitmap.buffer[y * glyphSlot->bitmap.width + x];
+                u32* target_pixel = (u32*)((u8*)currentSurface->pixels + y * currentSurface->pitch + x * sizeof(u32));
                 *target_pixel = SDL_MapRGBA(currentSurface->format, pixel, pixel, pixel, pixel);
             }
         }
@@ -209,8 +209,8 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     FT_Done_FreeType(ft);
 
     SDL_Surface *finalSurface = SDL_CreateRGBSurfaceWithFormat(
-            0, totalWidth, totalHeight, 32, SDL_PIXELFORMAT_RGBA32
-        );
+        0, totalWidth, totalHeight, 32, SDL_PIXELFORMAT_RGBA32
+    );
     if(finalSurface == NULL){
         errCode = ERR_CREATE_FINAL_SURFACE;
         goto err;
@@ -218,8 +218,8 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float c
     
     /* Iterate through the temporary surfaces and draw each of them, 
      * one by one, onto the final surface */
-    for(int i = 0; i < totalVisibleChars; i++){
-        SDL_BlitSurface(tmpSurfaces[i], NULL, finalSurface, &newFont->glyphs[i].srcRect);
+    for(u32 i = 0; i < totalVisibleChars; i++){
+        SDL_BlitSurface(tmpSurfaces[i], NULL, finalSurface, (SDL_Rect *)&newFont->glyphs[i].srcRect);
 
         SDL_FreeSurface(tmpSurfaces[i]);
         tmpSurfaces[i] = NULL;
@@ -319,7 +319,7 @@ err:
         finalSurface = NULL;
     }
     if(errCode >= ERR_CREATE_FINAL_SURFACE){
-        for(int i = 0; i < totalVisibleChars; i++){
+        for(u32 i = 0; i < totalVisibleChars; i++){
             SDL_FreeSurface(tmpSurfaces[i]);
             tmpSurfaces[i] = NULL;
         }
@@ -342,7 +342,7 @@ err:
     return NULL;
 }
 
-int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...)
+i32 fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const char *fmt, ...)
 {
     va_list vArgs;
     char str[FNT_TEXT_BUFFER_SIZE];
@@ -353,35 +353,38 @@ int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, con
     str[FNT_TEXT_BUFFER_SIZE - 1] = '\0';
 
     /* penX and penY are relative to the given baseline coorinates */
-    int penX = 0, penY = 0;
-    int maxPenX = 0, maxCharH = 0;
+    i32 penX = 0, penY = 0;
+    i32 maxPenX = 0, maxCharH = 0;
 
     const char *c_ptr = str;
-    int i;
+    u32 i;
 
     c_ptr = str;
     while(*c_ptr){
         switch(*c_ptr){
             default:
-                i = (int)(*c_ptr) - fnt->visibleChars.first;
+                i = (u32)(*c_ptr) - fnt->visibleChars.first;
                 if(i < fnt->visibleChars.total && i >= 0){
                     fnt_GlyphData *currentGlyph = &fnt->glyphs[i];
 
-                    SDL_Rect glyphDestRect = { 
+                    rect_t glyphDestRect = { 
                         .x = pos->x + penX + (currentGlyph->offsetX * fnt->charW),
                         .y = pos->y + penY + (currentGlyph->offsetY * fnt->lineHeight),
-                        .w = (int)(fnt->charW * currentGlyph->scaleX),
-                        .h = (int)(fnt->lineHeight * currentGlyph->scaleY),
+                        .w = (i32)(fnt->charW * currentGlyph->scaleX),
+                        .h = (i32)(fnt->lineHeight * currentGlyph->scaleY),
                     };
-                    maxCharH = max(maxCharH, glyphDestRect.h | (int)fnt->lineHeight);
+                    maxCharH = max(maxCharH, glyphDestRect.h | (i64)fnt->lineHeight);
 
-                    SDL_RenderCopy(renderer, fnt->texture, &fnt->glyphs[i].srcRect, &glyphDestRect);
+                    SDL_RenderCopy(renderer, fnt->texture,
+                        (const SDL_Rect *)&fnt->glyphs[i].srcRect,
+                        (const SDL_Rect *)&glyphDestRect
+                    );
                     if(fnt->flags & FNT_FLAG_DISPLAY_GLYPH_RECTS){
                         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-                        SDL_RenderDrawRect(renderer, &glyphDestRect);
+                        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&glyphDestRect);
                     }
 
-                    SDL_Rect charDestRect = (SDL_Rect){
+                    rect_t charDestRect = (rect_t){
                         .x = pos->x + penX, 
                         .y = pos->y + penY,
                         .w = fnt->charW,
@@ -389,7 +392,7 @@ int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, con
                     };
                     if(fnt->flags & FNT_FLAG_DISPLAY_CHAR_RECTS){
                         SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-                        SDL_RenderDrawRect(renderer, &charDestRect);
+                        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&charDestRect);
                     }
 
                     penX += fnt->charW;
@@ -404,7 +407,7 @@ int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, con
             case '\t':
                 /* Advance to the next multiple of tabWidth (times the character width) */
                 if(fnt->charW != 0)
-                    penX += (fnt->tabWidth -((int)(penX / fnt->charW) % fnt->tabWidth)) * fnt->charW;
+                    penX += (fnt->tabWidth -((i32)(penX / fnt->charW) % fnt->tabWidth)) * fnt->charW;
                 break;
             case '\n':
                 maxPenX = max(penX, maxPenX);
@@ -449,7 +452,7 @@ void fnt_destroyFont(fnt_Font *fnt)
     fnt = NULL;
 }
 
-void fnt_setTextColor(fnt_Font *fnt, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+void fnt_setTextColor(fnt_Font *fnt, u8 r, u8 g, u8 b, u8 a)
 {
     SDL_SetTextureColorMod(fnt->texture, r, g, b);
     SDL_SetTextureAlphaMod(fnt->texture, a);

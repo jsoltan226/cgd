@@ -2,6 +2,7 @@
 #define FONTS_H
 
 #include <cgd/util/datastruct/hashtable.h>
+#include <cgd/util/shapes.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
@@ -16,29 +17,18 @@
 #include <sys/types.h>
 #include FT_FREETYPE_H
 
-#define FNT_ASCII_FIRST_VISIBLE_CHAR        (((int)' ') + 1)
+#define FNT_ASCII_FIRST_VISIBLE_CHAR        (((u32)' ') + 1)
 #define FNT_ASCII_LAST_VISIBLE_CHAR         127
 #define FNT_ASCII_TOTAL_VISIBLE_CHARS       (FNT_ASCII_LAST_VISIBLE_CHAR - FNT_ASCII_FIRST_VISIBLE_CHAR + 1)
 
 #define FNT_DEFAULT_TAB_WIDTH       4
-#define FNT_DEFAULT_TEXT_COLOR      (SDL_Color){ 0, 0, 0, 255 }
+#define FNT_DEFAULT_TEXT_COLOR      (color_RGBA32_t){ 0, 0, 0, 255 }
 #define FNT_TEXT_BUFFER_SIZE        1024
-
-typedef uint64_t fnt_uInt64;
-typedef uint32_t fnt_uInt32;
-typedef uint16_t fnt_uInt16;
-typedef uint8_t fnt_uInt8;
-typedef float_t fnt_float;
-typedef double_t fnt_double;
 
 typedef enum {
     FNT_CHARSET_ASCII,
     FNT_CHARSET_UTF8,
 } fnt_Charset;
-
-typedef struct {
-    fnt_float x, y;
-} fnt_Vector2D;
 
 typedef enum {
     FNT_FLAG_DISPLAY_CHAR_RECTS     = 1,
@@ -47,9 +37,9 @@ typedef enum {
 } fnt_Flag;
 
 typedef struct {
-    SDL_Rect srcRect;
-    fnt_float offsetX, offsetY;
-    fnt_float scaleX, scaleY;
+    rect_t srcRect;
+    f32 offsetX, offsetY;
+    f32 scaleX, scaleY;
 } fnt_GlyphData;
 
 typedef struct {
@@ -58,28 +48,26 @@ typedef struct {
 
     fnt_GlyphData *glyphs;
     struct {
-        fnt_uInt32 first;
-        fnt_uInt32 last;
-        fnt_uInt32 total;
+        u32 first; u32 last; u32 total; 
     } visibleChars;
     fnt_Charset charset;
 
     /* User-modifiable at runtime */
-    fnt_float lineHeight;
-    fnt_float charW;
-    fnt_uInt16 tabWidth;
+    f32 lineHeight;
+    f32 charW;
+    u16 tabWidth;
 
-    fnt_uInt16 flags;
+    u16 flags;
 } fnt_Font;
 
-fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, fnt_float charW, fnt_float charH, 
-        fnt_Charset charset, fnt_uInt16 flags);
+fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 charH, 
+        fnt_Charset charset, u16 flags);
 
-int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, fnt_Vector2D *pos, const char *fmt, ...);
+int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const char *fmt, ...);
 
 void fnt_destroyFont(fnt_Font *fnt);
 
 /* Sets the font's texture color- and blend mode */
-void fnt_setTextColor(fnt_Font *fnt, fnt_uInt8 r, fnt_uInt8 g, fnt_uInt8 b, fnt_uInt8 a);
+void fnt_setTextColor(fnt_Font *fnt, u8 r, u8 g, u8 b, u8 a);
 
 #endif /* FONTS_H */

@@ -4,7 +4,8 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include <cgd/user-input/pressable-obj.h>
+#include "pressable-obj.h"
+#include <cgd/util/int.h>
 
 enum ms_Mouse_Button {
     MS_BUTTON_LEFT,
@@ -23,12 +24,12 @@ enum ms_Mouse_ButtonMask {
 
 typedef struct {
     po_PressableObj buttons[MS_N_BUTTONS];
-    int x, y;
+    i32 x, y;
 } ms_Mouse;
 
 ms_Mouse* ms_initMouse();
 void ms_updateMouse(ms_Mouse *mouse);
-void ms_forceReleaseMouse(ms_Mouse *mouse, int button_masks);
+void ms_forceReleaseMouse(ms_Mouse *mouse, u32 button_masks);
 void ms_destroyMouse(ms_Mouse *mouse);
 
 #endif

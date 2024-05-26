@@ -1,5 +1,5 @@
 #include "parallax-bg.h"
-#include <cgd/asset-loader/images.h>
+#include <cgd/asset-loader/asset.h>
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
@@ -25,11 +25,11 @@ bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
         bg_Layer* item = &bg->layers[i];
         
         /* Load the texture and enable alpha blending */
-        item->texture = u_loadPNG(cfg->layerImageFilePaths[i], renderer);
-        SDL_SetTextureBlendMode(item->texture, SDL_BLENDMODE_BLEND);
+        item->asset = asset_load(cfg->layerImageFilePaths[i], renderer);
+        SDL_SetTextureBlendMode(item->asset->texture, SDL_BLENDMODE_BLEND);
 
         /* Set all other members to the appropriate values */
-        SDL_QueryTexture(item->texture, NULL, NULL, &item->w, &item->h);
+        SDL_QueryTexture(item->asset->texture, NULL, NULL, &item->w, &item->h);
         item->x = 0;
         item->speed = cfg->layerSpeeds[i];
     }
@@ -54,7 +54,7 @@ void bg_drawBG(bg_ParallaxBG* bg, SDL_Renderer* renderer)
     for(int i = 0; i < bg->layerCount; i++)
     {
         SDL_Rect rect = { bg->layers[i].x, 0, bg->layers[i].w / 2, bg->layers[i].h };
-        SDL_RenderCopy(renderer, bg->layers[i].texture, &rect, NULL);
+        SDL_RenderCopy(renderer, bg->layers[i].asset->texture, &rect, NULL);
     }
 }
 
@@ -62,7 +62,7 @@ void bg_destroyBG(bg_ParallaxBG* bg)
 {
     /* Destroy the layers' textures, and then the whole bg->layers array */
     for(int i = 0; i < bg->layerCount; i++)
-        SDL_DestroyTexture(bg->layers[i].texture);
+        asset_destroy(bg->layers[i].asset);
         
     free(bg->layers);
     bg->layers = NULL;

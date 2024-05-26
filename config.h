@@ -9,6 +9,8 @@
 #include <cgd/gui/sprite.h>
 #include <cgd/gui/buttons.h>
 #include <cgd/user-input/keyboard.h>
+#include <cgd/util/int.h>
+#include <cgd/util/shapes.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
@@ -34,8 +36,8 @@ static bool running = true;
 static bool displayButtonHitboxOutlines = false;
 static bool paused = false;
 
-const SDL_Color rendererBg = { 30, 30, 30, 100 };
-const SDL_Rect gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
+static const color_RGBA32_t rendererBg = { 30, 30, 30, 100 };
+static const rect_t gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
 
 /* tb is test button */
 #define tb_SrcWidth 780.f

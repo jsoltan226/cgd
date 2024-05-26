@@ -1,4 +1,8 @@
-Fix keyboard and mouse events being polled on every tick
+Test the new memcpy() solution in `pixel_data_2_sdl_tex()`
+Intgrate the asset system properly
+Refactor the old ugly code from e.g. parallax-bg.c
+The fucking Makefile
+
 (Almost done?) Add clicking animations in buttons
 
 Get rid of the dependency on libpng

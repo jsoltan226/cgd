@@ -2,10 +2,11 @@
 #define PRESSABLEOBJ_H
 
 #include <stdbool.h>
+#include <cgd/util/int.h>
 
 typedef struct {
     bool up, down, pressed, forceReleased;
-    int time;
+    i32 time;
 } po_PressableObj;
 
 po_PressableObj* po_createPressableObj();

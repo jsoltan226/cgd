@@ -1,35 +1,40 @@
 #include "util.h"
-#include "u_internal.h"
+#include "int.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <cgd/platform/exe-info.h>
 
-const char *u_getAssetPath()
+static char bin_dir_buf[u_BUF_SIZE] = { 0 };
+static char asset_dir_buf[u_BUF_SIZE] = { 0 };
+
+const char *u_get_asset_dir()
 {
-    if (_cgd_util_internal.binDirBuffer[0] != '/') {
-        if (u_getBinDir(_cgd_util_internal.binDirBuffer, u_BUF_SIZE)) return NULL;
+    if (bin_dir_buf[0] != '/') {
+        if (u_get_bin_dir(bin_dir_buf, u_BUF_SIZE)) return NULL;
     }
 
-    if (_cgd_util_internal.assetsDirBuffer[0] != '/') {
-        if (strncpy( _cgd_util_internal.assetsDirBuffer, _cgd_util_internal.binDirBuffer, u_BUF_SIZE) == NULL)
+    if (asset_dir_buf[0] != '/') {
+        if (strncpy( asset_dir_buf, bin_dir_buf, u_BUF_SIZE) == NULL)
             return NULL;
-        _cgd_util_internal.assetsDirBuffer[u_BUF_SIZE - 1] = '\0';
+        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
 
-        if (strncat(
-                _cgd_util_internal.assetsDirBuffer,
+        if (
+            strncat(
+                asset_dir_buf,
                 u_PATH_FROM_BIN_TO_ASSETS, 
-                u_BUF_SIZE - strlen(_cgd_util_internal.assetsDirBuffer) - 1
-        ) == NULL)
-            return NULL;
-        _cgd_util_internal.assetsDirBuffer[u_BUF_SIZE - 1] = '\0';
+                u_BUF_SIZE - strlen(asset_dir_buf) - 1
+            ) == NULL
+        ) return NULL;
+
+        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
     }
 
-    return _cgd_util_internal.assetsDirBuffer;
+    return asset_dir_buf;
 }
 
 /* You already know what this does */
-int u_max(int a, int b)
+i64 u_max(i64 a, i64 b)
 {
     if(a > b)
         return a;
@@ -38,7 +43,7 @@ int u_max(int a, int b)
 }
 
 /* Same here */
-int u_min(int a, int b)
+i64 u_min(i64 a, i64 b)
 {
     if(a < b)
         return a;
@@ -49,7 +54,7 @@ int u_min(int a, int b)
 /* The simplest collision checking implementation;
  * returns true if 2 rectangles overlap 
  */
-bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2)
+bool u_collision(const rect_t *r1, const rect_t *r2)
 {
     return (
             r1->x + r1->w >= r2->x &&
@@ -67,7 +72,7 @@ void u_error(const char *fmt, ...)
     va_end(vaList);
 }
 
-int u_getBinDir(char *buf, size_t buf_size)
+i32 u_get_bin_dir(char *buf, u32 buf_size)
 {
     if (buf == NULL) {
         fprintf(stderr, "[getBinDir]: ERROR: The provided string is a null pointer.\n");
@@ -83,7 +88,7 @@ int u_getBinDir(char *buf, size_t buf_size)
     }
 
     /* Cut off the string after the last '/' */
-    int i = buf_size - 1;
+    u32 i = buf_size - 1;
     while (buf[--i] != '/' && i >= 0);
     buf[i + 1] = '\0';
 

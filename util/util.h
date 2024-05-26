@@ -4,25 +4,26 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/cdefs.h>
+#include "int.h"
+#include "shapes.h"
 
 #define u_BUF_SIZE  1024
 #define u_PATH_FROM_BIN_TO_ASSETS "../assets"
 
 typedef struct {
-    SDL_Rect srcRect, destRect, hitbox;
+    rect_t srcRect, destRect, hitbox;
     SDL_Texture* texture;
 } u_Sprite;
 
 typedef struct {
-    uint8_t r, g, b, a;
+    u8 r, g, b, a;
 } u_Color;
 
-const char *u_getAssetPath();
-int u_max(int a, int b);
-int u_min(int a, int b);
-bool u_collision(const SDL_Rect *r1, const SDL_Rect *r2);
+const char *u_get_asset_dir();
+i64 u_max(i64 a, i64 b);
+i64 u_min(i64 a, i64 b);
+bool u_collision(const rect_t *r1, const rect_t *r2);
 void u_error(const char *fmt, ...);
-int u_getBinDir(char *buf, size_t buf_size);
+i32 u_get_bin_dir(char *buf, u32 buf_size);
 
 #endif /* _UTIL_H */

@@ -1,6 +1,6 @@
 #include "keyboard.h"
 #include "pressable-obj.h"
-#include <cgd/user-input/keyboard.h>
+#include <cgd/util/int.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_keycode.h>
@@ -14,7 +14,7 @@ kb_Keyboard* kb_initKeyboard()
     assert(kb != NULL);
 
     /* Initialize all the keys */
-    for(int i = 0; i < KB_KEYBOARD_LENGTH; i++)
+    for(u32 i = 0; i < KB_KEYBOARD_LENGTH; i++)
     {
         (*kb)[i].key = (po_PressableObj) { 0 };
         (*kb)[i].SDLKeycode = kb_correspondingSDLKeycodes[i];

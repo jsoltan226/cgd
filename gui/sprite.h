@@ -4,15 +4,17 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
+#include <cgd/util/shapes.h>
+#include <cgd/asset-loader/asset.h>
 
 typedef struct {
-    SDL_Rect hitbox;
-    SDL_Rect srcRect, destRect;
-    SDL_Texture* texture;
+    rect_t hitbox;
+    rect_t srcRect, destRect;
+    struct asset *asset;
 } spr_Sprite;
 
 typedef struct {
-    SDL_Rect hitbox, srcRect, destRect;
+    rect_t hitbox, srcRect, destRect;
     const char* textureFilePath;
 } spr_SpriteConfig;
 

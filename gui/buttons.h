@@ -9,6 +9,7 @@
 #include <cgd/user-input/keyboard.h>
 #include <cgd/gui/on-event.h>
 #include <cgd/gui/sprite.h>
+#include <cgd/util/int.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -27,10 +28,10 @@ typedef struct {
 
     oe_OnEvent onClick;
     
-    uint32_t flags;
+    u32 flags;
 } btn_Button;
 
-btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, uint32_t flags, SDL_Renderer *renderer);
+btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32 flags, SDL_Renderer *renderer);
 void btn_updateButton(btn_Button *btn, ms_Mouse *mouse);
 
 void btn_drawButton(btn_Button *btn, SDL_Renderer *r);
