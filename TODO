@@ -1,21 +1,16 @@
 Test the new memcpy() solution in `pixel_data_2_sdl_tex()`
-Intgrate the asset system properly
+ADD PROPER LOGGING
+Integrate the asset system properly
 Refactor the old ugly code from e.g. parallax-bg.c
-The fucking Makefile
 
-(Almost done?) Add clicking animations in buttons
-
-Get rid of the dependency on libpng
-Restructurize the project
-Refactor the modules so that they resemble actual APIs, not the garbage that they currently are
-Add documentation in header files
-Implement lazy loading of menus in menu-mgr
-
-(Near future) Add popup menus
-(Near future) Add hot code reloading with dlopen()
-(Future) Add clicking sound in buttons, do NOT work with SDL_audio
-(Future) implement switch menu animations
+(Future) Implement lazy loading of menus in menu-mgr
+(Future) Add popup menus
+(Future) Add hot code reloading with dlopen()
+(Future) Add clicking sound in buttons
+(Future) Add switch menu animations
 
 (Future) Add the goddamn editor
 (Future) Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time)
-(Far future) Move to OpenGL in favor of SDL2
+(Far future) Switch to OpenGL for graphics, make a proper renderer
+
+(Future) make the makefile less of a mess

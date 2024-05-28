@@ -1,127 +1,170 @@
 PLATFORM?=gnu_linux
 PREFIX?=/usr
 
-PRINTF?=printf
-MKDIR?=mkdir -p
-STRIP?=strip
-RM?=rm -rf
-EXEC=exec
-
-HOSTCC?=cc
 CC?=cc
-CFLAGS?=-I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC
-CXX?=c++
-CXXFLAGS?=$(CFLAGS)
-CCLD?=$(CC)
-CXXLD?=$(CXX)
-LDFLAGS?=
-LIBS?=-lSDL2 -lpng -lfreetype
+AR?=ar
+CCLD?=cc
+COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC
+DEPFLAGS?=-MMD -MP
+LDFLAGS?=-pie
+ARFLAGS=rcs
+LIBS?=-lpng -lSDL2 -lfreetype
+STRIP?=strip
+DEBUGSTRIP?=strip -d
+STRIPFLAGS?=-g -s
 
-OBJDIR?=obj
-BINDIR?=bin
+ECHO=echo
+PRINTF=printf
+RM=rm -f
+TOUCH=touch -c
+EXEC=exec
+MKDIR=mkdir -p
+RMRF=rm -rf
 
-EXEPREFIX?=
-EXESUFFIX?=
-EXE?=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
+EXEPREFIX =
+EXESUFFIX =
+OBJDIR = obj
+BINDIR = bin
 
-DEP_CFLAGS?=-MP -MMD
-COMMON_CFLAGS?=$(CFLAGS) $(DEP_CFLAGS)
-DEBUG_CFLAGS?=-O0 -ggdb -Wall -DDEBUG -URELEASE
-RELEASE_CFLAGS?=-O3 -Wall -Werror -UDEBUG -DRELEASE
+TEST_SRC_DIR = ./tests
+TEST_SRCS=$(wildcard $(TEST_SRC_DIR)/*.c)
+TEST_EXE_DIR=$(TEST_SRC_DIR)/$(BINDIR)
+TEST_EXES=$(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
+TEST_LOGFILE=$(TEST_SRC_DIR)/testlog.txt
 
-exceptional_srcdirs=./platform ./.git .
-exceptional_srcs=test.c tmp.c find-max-strlen.c
-srcdirs=$(filter-out $(exceptional_srcdirs), $(shell find . -maxdepth 1 -type d))
-_SRCS=$(shell find $(srcdirs) -type f -name "*.c")
-_SRCS+=$(wildcard *.c)
+PLATFORM_SRCDIR=./platform
+_platform_all_srcs=$(shell find $(PLATFORM_SRCDIR))
+
+SRCS=$(filter-out $(TEST_SRCS) $(_platform_all_srcs),$(shell find . -type f -name "*.c" ))
 
 ifeq ($(PLATFORM), gnu_linux)
-_SRCS+=$(shell find ./platform/linux -type f -name "*.c")
+SRCS+=$(shell find $(PLATFORM_SRCDIR)/linux -type f -name "*.c")
 endif
 ifeq ($(PLATFORM), windows)
-_SRCS+=$(shell find ./platform/windows -type f -name "*.c")
+SRCS+=$(shell find $(PLATFORM_SRCDIR)/windows -type f -name "*.c")
 endif
-
-SRCS=$(filter-out $(exceptional_srcs),$(_SRCS))
 
 OBJS=$(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
 DEPS=$(patsubst %.o,%.d,$(OBJS))
+STRIP_OBJS=$(OBJDIR)/log.o
 
-FIND_MAX_STRLEN_EXE=$(BINDIR)/$(EXEPREFIX)find-max-strlen$(EXESUFFIX)
-# Don't bother reading; this will just get the length of the longest string
-# possible in the middle column of most output lines
-# CC	obj/menu.c.o		<= gui/menu.c
-#            ^
-# (this one) ^
-#
-# If the compiled C program meant for this exists it will use it,
-# and if not it will use a slower alternative made out of standard unix commands.
-_max_printf_strlen=$(shell if [ -f $(FIND_MAX_STRLEN_EXE) ]; then $(FIND_MAX_STRLEN_EXE) $(OBJS) $(FIND_MAX_STRLEN_EXE); else MAX_STRLEN=0; for i in $(OBJS) $(FIND_MAX_STRLEN_EXE); do strlen=$$(echo $$i | wc -m); [ $$strlen -gt $$MAX_STRLEN ] && MAX_STRLEN=$$strlen; done; echo $$((MAX_STRLEN - 1)); fi)
+EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
+#TEST_LIB=$(BINDIR)/libmain_test.a
+EXEARGS=
 
-.PHONY: all release
 
-all: $(BINDIR) $(OBJDIR) $(FIND_MAX_STRLEN_EXE) $(EXE)
+#RED=[31;1m
+#GREEN=[32;1m
+#COL_RESET=[0m
+RED=
+GREEN=
+COL_RESET=
 
-release: CFLAGS+=-O3 -Wall -Werror
-release: all
+.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests
+.NOTPARALLEL: all release br
 
-.NOTPARALLEL: $(FIND_MAX_STRLEN_EXE) br
-$(FIND_MAX_STRLEN_EXE):
-	@$(PRINTF) "HOSTCC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$(FIND_MAX_STRLEN_EXE)" "<= find-max-strlen.c"
-	@$(HOSTCC) -fPIC -O3 -pipe -o $(FIND_MAX_STRLEN_EXE) find-max-strlen.c
+all: CFLAGS = -ggdb -O0 -Wall
+all: $(OBJDIR) $(BINDIR) $(EXE)
+
+release: CFLAGS = -O3 -Wall -Werror
+release: clean $(OBJDIR) $(BINDIR) $(EXE) mostlyclean strip
+
+br: all run
 
 $(EXE): $(OBJS)
-	@$(PRINTF) "CCLD 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$(EXE)" "<= $^"
+#	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
+	@$(PRINTF) "CCLD 	%-25s %-20s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
-ifeq ($(PLATFORM), gnu_linux)
-$(OBJDIR)/%.c.o: platform/linux/%.c Makefile
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-else ifeq ($(PLATFORM), windows)
-$(OBJDIR)/%.c.o: platform/windows/%.c Makefile
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-endif
-
-$(OBJDIR)/%.c.o: %.c
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-$(OBJDIR)/%.c.o: */%.c
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-$(OBJDIR)/%.c.o: */*/%.c
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) -c -o $@ $<
-
-$(OBJDIR)/%.c.o: */*/*/%.c
-	@$(PRINTF) "CC 	%-$(_max_printf_strlen)s %-$(_max_printf_strlen)s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) -c -o $@ $<
+$(TEST_LIB): $(OBJS) $(BINDIR)
+	@$(PRINTF) "AR 	%-20s %-20s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
+	@$(AR) $(ARFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) >/dev/null
 
 $(OBJDIR):
-	@$(PRINTF) "MKDIR 	%-$(_max_printf_strlen)s\n" "$(OBJDIR)"
+	@$(ECHO) "MKDIR	$(OBJDIR)"
 	@$(MKDIR) $(OBJDIR)
 
 $(BINDIR):
-	@$(PRINTF) "MKDIR 	%-$(_max_printf_strlen)s\n" "$(BINDIR)"
+	@$(ECHO) "MKDIR	$(BINDIR)"
 	@$(MKDIR) $(BINDIR)
 
-clean:
-	@$(PRINTF) "RM 	%-$(_max_printf_strlen)s\n" "$(OBJS) $(DEPS) $(EXE) $(FIND_MAX_STRLEN_EXE)"
-	@$(RM) $(OBJS) $(DEPS) $(EXE) $(FIND_MAX_STRLEN_EXE)
+$(TEST_EXE_DIR):
+	@$(ECHO) "MKDIR	$(TEST_EXE_DIR)"
+	@$(MKDIR) $(TEST_EXE_DIR)
+
+$(OBJDIR)/%.c.o: ./%.c Makefile
+	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.c.o: */%.c Makefile
+	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.c.o: */*/%.c Makefile
+	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.c.o: */*/*/%.c Makefile
+	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+tests: CFLAGS = -ggdb -O0 -Wall
+tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests
+	@n_passed=0; \
+	$(ECHO) -n > $(TEST_LOGFILE); \
+	for i in $(TEST_EXES); do \
+		$(PRINTF) "EXEC	%-30s " "$$i"; \
+		$(ECHO) "TEST $$i" >> $(TEST_LOGFILE); \
+		if $$i >> $(TEST_LOGFILE) 2>&1; then \
+			$(PRINTF) "$(GREEN)OK$(COL_RESET)\n"; \
+			n_passed="$$((n_passed + 1))"; \
+		else \
+			$(PRINTF) "$(RED)FAIL$(COL_RESET)\n"; \
+		fi; \
+		$(ECHO) "END TEST $$i" >> "$(TEST_LOGFILE)"; \
+	done; \
+	n_total=$$(echo $(TEST_EXES) | wc -w); \
+	if test "$$n_passed" -lt "$$n_total"; then \
+		$(PRINTF) "$(RED)"; \
+	else \
+		$(PRINTF) "$(GREEN)"; \
+	fi; \
+	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
+
+build-tests: $(TEST_EXE_DIR) compile-tests
+
+compile-tests: $(TEST_EXES)
+
+run-tests: tests
+
+$(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c $(TEST_LIB) Makefile
+	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
+	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(TEST_LIB)
+
+strip:
+	@$(ECHO) "STRIP	$(EXE)"
+	@$(STRIP) $(STRIPFLAGS) $(EXE)
 
 mostlyclean:
-	@$(PRINTF) "RM 	%-$(_max_printf_strlen)s\n" "$(OBJS) $(DEPS)"
+#	@$(ECHO) "RM	$(OBJS) $(DEPS) $(TEST_LOGFILE)"
+#	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
+	@$(ECHO) "RM	$(OBJS) $(DEPS)"
 	@$(RM) $(OBJS) $(DEPS)
 
-run:
-	@$(PRINTF) "EXEC 	%-$(_max_printf_strlen)s\n" "$(EXE)"
-	@$(EXEC) $(EXE)
+clean:
+#	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE) out.png"
+#	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE)
+#	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(BINDIR) $(OBJDIR)"
+	@$(RM) $(OBJS) $(DEPS) $(EXE)
+	@$(RMRF) $(OBJDIR) $(BINDIR)
 
-br: all run
+update:
+	@$(ECHO) "TOUCH	$(SRCS)"
+	@$(TOUCH) $(SRCS)
+
+run:
+	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
+	@$(EXEC) $(EXE) $(EXEARGS)
 
 -include $(DEPS)
