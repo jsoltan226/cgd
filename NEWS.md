@@ -6,8 +6,13 @@
 
 ## NEWS for Tue 28.05.2024
 
-* Commit "Added support for tests in the Makefile"
-    * The Makefile now supports tests. It's a total mess now, please don't attempt reading it...
+* Commit "Added support for tests in the Makefile" <jsoltan226@github.com>
+    * The Makefile now supports tests. It's a total mess, please don't attempt reading it...
     * Rewrote the TODO list a bit
     * Got rid of the `find-max-strlen.c` file as the new Makefile doesn't need it
     * Removed `.gitignore` from `.gitignore`
+
+## NEWS for Thu 30.05.2024
+
+* Commit "Added log.c and log.h"
+    * Finally, huh?
