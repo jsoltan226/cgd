@@ -15,20 +15,20 @@ typedef enum {
 void s_log(s_log_level type, const char *module_name, const char *fmt, ...);
 
 #ifndef NDEBUG
-#define s_log_debug(module_name, fmt, ...) \
-    s_log(LOG_DEBUG,   module_name, fmt, __VA_ARGS__)
+#define s_log_debug(module_name, fmt...) \
+    s_log(LOG_DEBUG, module_name, fmt)
 #else
-#define s_log_debug(module_name, fmt, ...)
+#define s_log_debug(module_name, fmt...)
 #endif /* NDEBUG */
 
-#define s_log_info(module_name, fmt, ...) \
-    s_log(LOG_INFO,   module_name, fmt, __VA_ARGS__)
+#define s_log_info(module_name, fmt...) \
+    s_log(LOG_INFO, module_name, fmt)
 
-#define s_log_warn(module_name, fmt, ...) \
-    s_log(LOG_WARNING,  module_name, fmt, __VA_ARGS__)
+#define s_log_warn(module_name, fmt...) \
+    s_log(LOG_WARNING, module_name, fmt)
 
-#define s_log_error(module_name, fmt, ...) \
-    s_log(LOG_ERROR,    module_name, fmt, __VA_ARGS__)
+#define s_log_error(module_name, fmt...) \
+    s_log(LOG_ERROR, module_name, fmt)
 
 void s_set_log_level(s_log_level new_log_level);
 s_log_level s_get_log_level();
@@ -49,7 +49,5 @@ i32 s_set_log_err_filep(FILE *fp);
 #define NO_USER_FAULT   false
 void s_set_user_fault(bool is_user_fault);
 bool s_get_user_fault();
-
-void s_print_usage(bool error, const char *program_name);
 
 #endif /* LOG_H_ */

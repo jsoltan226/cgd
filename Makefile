@@ -49,7 +49,7 @@ DEPS=$(patsubst %.o,%.d,$(OBJS))
 STRIP_OBJS=$(OBJDIR)/log.o
 
 EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-#TEST_LIB=$(BINDIR)/libmain_test.a
+TEST_LIB=$(BINDIR)/libmain_test.a
 EXEARGS=
 
 
@@ -139,25 +139,21 @@ run-tests: tests
 
 $(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c $(TEST_LIB) Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
-	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(TEST_LIB)
+	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)
 
 strip:
 	@$(ECHO) "STRIP	$(EXE)"
 	@$(STRIP) $(STRIPFLAGS) $(EXE)
 
 mostlyclean:
-#	@$(ECHO) "RM	$(OBJS) $(DEPS) $(TEST_LOGFILE)"
-#	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
-	@$(ECHO) "RM	$(OBJS) $(DEPS)"
-	@$(RM) $(OBJS) $(DEPS)
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(TEST_LOGFILE)"
+	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
+
 
 clean:
-#	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE) out.png"
-#	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE)
-#	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
-	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(BINDIR) $(OBJDIR)"
-	@$(RM) $(OBJS) $(DEPS) $(EXE)
-	@$(RMRF) $(OBJDIR) $(BINDIR)
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE) out.png"
+	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE)
+	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
 
 update:
 	@$(ECHO) "TOUCH	$(SRCS)"
@@ -166,5 +162,9 @@ update:
 run:
 	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
 	@$(EXEC) $(EXE) $(EXEARGS)
+
+debug-run:
+	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
+	@$(EXEC) -a debug $(EXE) $(EXEARGS)
 
 -include $(DEPS)

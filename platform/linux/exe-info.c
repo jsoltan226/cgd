@@ -1,4 +1,4 @@
-#include "exe-info.h"
+#include "../exe-info.h"
 #include <unistd.h>
 #include <stdio.h>
 

@@ -27,7 +27,7 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...)
     }
 
     FILE *fp = level >= LOG_WARNING ? err_log_file : out_log_file;
-    
+
     if (level == LOG_WARNING) fprintf(fp, "WARNING: ");
     else if (level == LOG_ERROR) fprintf(fp, "ERROR: ");
 
@@ -100,13 +100,5 @@ void s_set_user_fault(bool is_user_fault)
 bool s_get_user_fault()
 {
     return user_fault;
-}
-
-void s_print_usage(bool error, const char *program_name)
-{
-    fprintf(error ? stderr : stdout, 
-            "Usage: %s </path/to/in_image.png> <path/to/out_image.png>\n",
-            program_name
-           );
 }
 

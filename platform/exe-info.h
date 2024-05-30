@@ -1,13 +1,8 @@
-#ifndef EXE_INFO_H
-#define EXE_INFO_H
+#ifndef EXE_INFO_H_
+#define EXE_INFO_H_
 
-#include "platform.h"
+#include <stddef.h>
 
-#if (PLATFORM_NAME == PLATFORM_LINUX)
-#include <cgd/platform/linux/exe-info.h>
+int p_getExePath(char *buf, size_t buf_size);
 
-#elif (PLATFORM_NAME == PLATFORM_WINDOWS)
-#include <cgd/platform/linux/exe-info.h>
-#endif
-
-#endif /* EXE_INFO_H */
+#endif /* EXE_INFO_H_ */

@@ -16,7 +16,8 @@
 #include <cgd/gui/fonts.h>
 #include <cgd/gui/menu-mgr.h>
 #include "config.h"
-#include "util/function-arg-macros.h"
+#include <cgd/util/function-arg-macros.h>
+#include <cgd/util/log.h>
 
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
@@ -32,7 +33,12 @@ enum EXIT_CODES {
     ERR_INIT_FONT                   = 10,
     ERR_MAX
 };
-enum EXIT_CODES EXIT_CODE;
+static enum EXIT_CODES EXIT_CODE;
+#define goto_error(code, message...) do {   \
+    EXIT_CODE = code;                       \
+    s_log_error("main", message);           \
+    goto cleanup;                           \
+} while (0);
 
 /* bool running = true (moved to config.h) */
 mmgr_MenuManager *MenuManager;
@@ -49,55 +55,60 @@ int WinMain(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
+    s_set_log_out_filep(stdout);
+    s_set_log_err_filep(stderr);
+    s_set_user_fault(NO_USER_FAULT);
+    if (!strcmp(argv[0], "debug"))
+        s_set_log_level(LOG_DEBUG);
+    else
+        s_set_log_level(LOG_INFO);
+
+    s_log_info("main", "Initializing SDL");
+
     /* SDL initialization section */
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-        EXIT_CODE = ERR_INIT_SDL;
-        goto err;
-    }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
+        goto_error(ERR_INIT_SDL, "Failed to initialize SDL: %s", SDL_GetError());
 
+    s_log_debug("main", "Creating SDL Window...");
     window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
-    if (window == NULL) {
-        EXIT_CODE = ERR_CREATE_WINDOW;
-        goto err;
-    }
+    if (window == NULL)
+        goto_error(ERR_CREATE_WINDOW, "Failed to create SDL Window: %s", SDL_GetError());
 
+    s_log_debug("main", "Creating SDL Renderer...");
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
-    if (renderer == NULL) {
-        EXIT_CODE = ERR_CREATE_RENDERER;
-        goto err;
-    }
+    if (renderer == NULL)
+        goto_error(ERR_CREATE_RENDERER, "Failed to create SDL Renderer: %s", SDL_GetError());
 
-    if ( SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
-        EXIT_CODE = ERR_SET_RENDERER_BLENDMODE;
-        goto err;
-    }
+    s_log_debug("main", "Setting SDL blend mode to BLEND");
+    if (SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND))
+        goto_error(ERR_SET_RENDERER_BLENDMODE, "Failed to set SDL blend mode to BLEND: %s", SDL_GetError());
 
+    s_log_info("main", "Initializing the keyboard and mouse...");
+
+    s_log_debug("main", "Initializing the mouse");
     /* Initialize the engine structs */
     keyboard = kb_initKeyboard();
-    if (keyboard == NULL) {
-        EXIT_CODE = ERR_INIT_KEYBOARD;
-        goto err;
-    }
+    if (keyboard == NULL)
+        goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the keyboard!");
 
+    s_log_debug("main", "Initializing the mouse");
     mouse = ms_initMouse();
-    if (mouse == NULL) {
-        EXIT_CODE = ERR_INIT_MOUSE;
-        goto err;
-    }
+    if (mouse == NULL)
+        goto_error(ERR_INIT_MOUSE, "Failed to initialize the mouse!");
 
+    s_log_info("main", "Initializing the GUI...");
+    s_log_debug("main", "Initializing the menu manager");
     MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
-    if (MenuManager == NULL) {
-        EXIT_CODE = ERR_INIT_MENU_MANAGER;
-        goto err;
-    }
+    if (MenuManager == NULL)
+        goto_error(ERR_INIT_MENU_MANAGER, "Failed to initialize the menu manager");
 
+    s_log_debug("main", "Initializing the font");
     sourceCodeProFont = fnt_initFont("/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
-    if (sourceCodeProFont == NULL) {
-        EXIT_CODE = ERR_INIT_FONT;
-        goto err;
-    }
+    if (sourceCodeProFont == NULL)
+        goto_error(ERR_INIT_FONT, "Failed to initialize the font");
     fnt_setTextColor(sourceCodeProFont, 150, 150, 150, 255);
 
+    s_log_info("main", "Init OK! Entering main loop...");
     /* MAIN LOOP */
     while(running)
     {
@@ -170,59 +181,19 @@ int main(int argc, char **argv)
         }
     }
 
-    /* Cleanup section */
-    fnt_destroyFont(sourceCodeProFont);
-    mmgr_destroyMenuManager(MenuManager);
-    kb_destroyKeyboard(keyboard);
-    ms_destroyMouse(mouse);
+    s_log_info("main", "Exited from the main loop, starting cleanup...");
+    EXIT_CODE = EXIT_OK;
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+cleanup:
+    if (sourceCodeProFont != NULL) fnt_destroyFont(sourceCodeProFont);
+    if (MenuManager != NULL) mmgr_destroyMenuManager(MenuManager);
+    if (keyboard != NULL) kb_destroyKeyboard(keyboard);
+    if (mouse != NULL) ms_destroyMouse(mouse);
+    if (renderer != NULL) SDL_DestroyRenderer(renderer);
+    if (window != NULL) SDL_DestroyWindow(window);
     SDL_Quit();
 
-    return EXIT_SUCCESS;
-
-err:
-    /* Make sure to print the error message BEFORE attempting any shenanigans with freeing the resources */
-    ;
-    const char *errorMessages[ERR_MAX] = {
-        [EXIT_OK]                       = "Everything is supposed to be OK, and yet the 'err' label is used. The developer is an idiot",
-        [ERR_OTHER]                     = "An unknown error occured. This should never happen (i. e. the developer fucked up)\n",
-        [ERR_GET_BIN_DIR]               = "Failed to get the directory in which the executable is located.",
-        [ERR_INIT_SDL]                  = "Failed to initialize SDL. Details: ",
-        [ERR_CREATE_WINDOW]             = "Failed to create window. Details: ",
-        [ERR_CREATE_RENDERER]           = "Failed to create rendering context. Details: ",
-        [ERR_SET_RENDERER_BLENDMODE]    = "Failed to enable texture blending in the rendering context. Details: ",
-        [ERR_INIT_KEYBOARD]             = "Failed to init the keyboard",
-        [ERR_INIT_MOUSE]                = "Failed to init the mouse",
-        [ERR_INIT_MENU_MANAGER]         = "Failed to initialize the menu manager. Good luck finding out why..",
-        [ERR_INIT_FONT]                 = "Failed to init the font",
-    };
-    if (EXIT_CODE >= EXIT_OK && EXIT_CODE < ERR_MAX) {
-        u_error(es_BOLD es_RED "ERROR" es_COLOR_RESET ": %s %s.\n",
-                errorMessages[EXIT_CODE], SDL_GetError());
-    } else {
-        u_error(errorMessages[ERR_OTHER]);
-    }
-
-    /* Utilize fall-through behaviour to free, based on the exit code, the resources that had been allocated up to the point when the error occured */
-    switch (EXIT_CODE) {
-		case ERR_INIT_FONT: mmgr_destroyMenuManager(MenuManager);
-		case ERR_INIT_MENU_MANAGER: ms_destroyMouse(mouse);
-		case ERR_INIT_MOUSE: kb_destroyKeyboard(keyboard);
-		case ERR_INIT_KEYBOARD:
-        case ERR_SET_RENDERER_BLENDMODE: SDL_DestroyRenderer(renderer);
-        case ERR_CREATE_RENDERER: SDL_DestroyWindow(window);
-		case ERR_CREATE_WINDOW: SDL_Quit();
-        case ERR_INIT_SDL:
-        case ERR_GET_BIN_DIR:
-            break;
-        default: case ERR_OTHER: case ERR_MAX:
-            break;
-        case EXIT_OK:
-            break;
-    }
-
+    s_log_info("main", "Cleanup done, Exiting with code %i.", EXIT_CODE);
     exit(EXIT_CODE);
 }
 

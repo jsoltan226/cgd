@@ -4,3 +4,6 @@
 /tmp.c
 /test.c
 /Makefile.old
+/assets/tests/*.png
+/tests/testlog.txt
+/tests/bin/*
