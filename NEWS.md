@@ -22,3 +22,8 @@
     * Fixed the handling of varargs in the `s_log_debug`, `s_log_info`, `s_log_warn` and `s_log_error` macros
     * Header files in `platform/` are no longer different in each platform (It's just the implementations int the source files that are supposed to differ; the API for them should be the same!)
     * Made the error handling in `main()` cleaner and less insane
+
+* Commit "Implemented logging in the asset loader" <jsoltan226@gmail.com>
+    * Implemented logging in all files in `asset-loader/`
+    * Fixed some trailing '/' issues in `u_get_asset_dir`
+    * Fixed a bug related to unintialized memory usage from `malloc()` in `asset_load()`

@@ -8,7 +8,7 @@
 #include "shapes.h"
 
 #define u_BUF_SIZE  1024
-#define u_PATH_FROM_BIN_TO_ASSETS "../assets"
+#define u_PATH_FROM_BIN_TO_ASSETS "../assets/"
 
 typedef struct {
     rect_t srcRect, destRect, hitbox;

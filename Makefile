@@ -60,8 +60,8 @@ RED=
 GREEN=
 COL_RESET=
 
-.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests
-.NOTPARALLEL: all release br
+.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr
+.NOTPARALLEL: all release br bdr
 
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
@@ -166,5 +166,7 @@ run:
 debug-run:
 	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
 	@$(EXEC) -a debug $(EXE) $(EXEARGS)
+
+bdr: all debug-run
 
 -include $(DEPS)

@@ -1,4 +1,5 @@
 #include "io-PNG.h"
+#include "util/log.h"
 #include <cgd/util/int.h>
 #include <cgd/util/pixel.h>
 #include <err.h>
@@ -42,21 +43,10 @@ enum load_PNG_error_code {
     ERR_SETJMP,
     ERR_ALLOC_PIXELDATA,
 } load_PNG_error_code;
-/*
-static const char * const load_PNG_errormsgs[] = {
-    [ERR_WIDTHP_NULL]       = "The given width variable pointer is NULL",
-    [ERR_HEIGHTP_NULL]      = "The given height variable pointer is NULL",
-    [ERR_OPEN_FILE]         = "Failed to open %s: %s",
-    [ERR_NOT_PNG]           = "%s is not a valid PNG image (magic bytes missing)",
-    [ERR_INIT_PNG_STRUCT]   = "Failed to initialize libPNG PNG struct.",
-    [ERR_INIT_PNG_READ_INFO]     = "Failed to initialize libPNG info struct.",
-    [ERR_INIT_PNG_END]      = "Failed to initialize libPNG end info struct.",
-    [ERR_SETJMP]            = "setjmp() failed while trying to set up libpng error handling.",
-    [ERR_ALLOC_PIXELDATA]   = "Failed to allocate memory for the pixel data: %s.",
-};
-*/
-#define goto_error(code, user_fault, additional_error_info...) do { \
+
+#define goto_error(code, msg...) do { \
     load_PNG_error_code = code; \
+    s_log_error("io-PNG", msg); \
     goto err_cleanup_l; \
 } while (0);
 
@@ -71,30 +61,30 @@ i32 read_PNG(struct pixel_data *pixel_data, FILE *fp)
     struct PNG_Metadata meta;
 
     if (fp == NULL)
-        goto_error(ERR_INPUT_FILEP_NULL, YES_USER_FAULT, file_path, strerror(errno));
+        goto_error(ERR_INPUT_FILEP_NULL, "The in file pointer is NULL");
 
     /* Read the PNG header to check whether the given file contains a valid PNG signature */
     fread(meta.header, 1, N_PNG_SIG_BYTES, fp);
     if (png_sig_cmp(meta.header, 0, N_PNG_SIG_BYTES))
-        goto_error(ERR_NOT_PNG, YES_USER_FAULT, file_path);
+        goto_error(ERR_NOT_PNG, "The file is not a valid PNG (magic bytes missing)!");
 
     /** Initialization and setup of libpng structures **/
-/* Initialize png struct */
+    /* Initialize png struct */
     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
         NULL, NULL, NULL
     );
     if (png_ptr == NULL)
-        goto_error(ERR_INIT_PNG_STRUCT, NO_USER_FAULT, NULL);
+        goto_error(ERR_INIT_PNG_STRUCT, "Failed to create the read PNG struct");
 
     /* Initialize png info struct */
     info_ptr = png_create_info_struct(png_ptr);
     if (info_ptr == NULL)
-        goto_error(ERR_INIT_PNG_READ_INFO, NO_USER_FAULT, NULL);
+        goto_error(ERR_INIT_PNG_READ_INFO, "Failed to create the read PNG info struct");
 
     /* Not creating the end_ptr sometimes caused a weird memory error I don't understand */
     end_ptr = png_create_info_struct(png_ptr);
     if (end_ptr == NULL)
-        goto_error(ERR_INIT_PNG_END, NO_USER_FAULT, NULL);
+        goto_error(ERR_INIT_PNG_END, "Failed to create the read PNG end info struct");
          
     /* Setting up some (as usual) weird and non-standard error handling */
     /* From the libpng manual:
@@ -103,7 +93,7 @@ to your routine.  Therefore, you will need to call setjmp and pass
 your png_jmpbuf(png_ptr)."
     */
     if (setjmp(png_jmpbuf(png_ptr)))
-        goto_error(ERR_SETJMP, NO_USER_FAULT, NULL);
+        goto_error(ERR_SETJMP, "setjmp() failed when trying to set up PNG error handling");
 
     /* Set up the PNG input code */
     png_init_io(png_ptr, fp);
@@ -166,12 +156,12 @@ your png_jmpbuf(png_ptr)."
     /* Allocate memory for the raw pixel data */
     pixel_data->data = malloc(meta.height * sizeof(u8*));
     if(pixel_data == NULL)
-        goto_error(ERR_ALLOC_PIXELDATA, NO_USER_FAULT, NULL);
+        goto_error(ERR_ALLOC_PIXELDATA, "Failed to malloc() pixel_data->data");
 
     for (u32 i = 0; i < meta.height; i++) {
         pixel_data->data[i] = malloc(meta.width * N_CHANNELS);
         if (pixel_data->data[i] == NULL)
-            goto_error(ERR_ALLOC_PIXELDATA, NO_USER_FAULT, NULL);
+            goto_error(ERR_ALLOC_PIXELDATA, "Failed to malloc() pixel_data->data[%u]", i);
     }
 
     /* And now, read the pixel data!!! FINALLY!!! */
@@ -200,18 +190,9 @@ enum write_PNG_error_code {
     ERR_INIT_PNG_WRITE_STRUCT,
     ERR_INIT_PNG_WRITE_INFO,
 } write_PNG_error_code;
-/*
-static const char * const write_PNG_errormsgs[] = {
-    [ERR_OUTPUT_FILEP_NULL]  = "The given file pointer is NULL",
-    [ERR_INVALID_PIXELDATA] = "pixel data is NULL",
-    [ERR_INVALID_WIDTH]     = "pixel_data->w (%u) is invalid.",
-    [ERR_INVALID_HEIGHT]    = "pixel_data->h (%u) is invalid.",
-    [ERR_INIT_PNG_WRITE_STRUCT]   = "Failed to initialize libPNG PNG struct.",
-    [ERR_INIT_PNG_WRITE_INFO]     = "Failed to initialize libPNG info struct.",
-};
-*/
-#define goto_error(code, additional_error_info...) do { \
+#define goto_error(code, msg...) do { \
     write_PNG_error_code = code; \
+    s_log_error("io-PNG", msg); \
     goto err_l; \
 } while (0);
 
@@ -220,21 +201,21 @@ i32 write_PNG(struct pixel_data *pixel_data, FILE *fp)
     png_structp png_ptr = NULL;
     png_infop info_ptr = NULL;
 
-    if (pixel_data == NULL) goto_error(ERR_INVALID_PIXELDATA, NULL);
-    if (pixel_data->w <= 0) goto_error(ERR_INVALID_WIDTH, pixel_data->w);
-    if (pixel_data->h <= 0) goto_error(ERR_INVALID_HEIGHT, pixel_data->h);
+    if (pixel_data == NULL) goto_error(ERR_INVALID_PIXELDATA, "The provided pixel_data is NULL");
+    if (pixel_data->w <= 0) goto_error(ERR_INVALID_WIDTH, "pixel_data->w is invalid (%u)", pixel_data->w);
+    if (pixel_data->h <= 0) goto_error(ERR_INVALID_HEIGHT, "pixel_data->h is invalid (%u)", pixel_data->h);
 
     /* Initialize PNG output structures and file I/O */
     if (fp == NULL)
-        goto_error(ERR_OUTPUT_FILEP_NULL, file_path, strerror(errno));
+        goto_error(ERR_OUTPUT_FILEP_NULL, "The out file pointer is NULL");
 
     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (png_ptr == NULL)
-        goto_error(ERR_INIT_PNG_WRITE_STRUCT, NULL);
+        goto_error(ERR_INIT_PNG_WRITE_STRUCT, "Failed to create the PNG write struct!");
 
     info_ptr = png_create_info_struct(png_ptr);
     if (info_ptr == NULL)
-        goto_error(ERR_INIT_PNG_WRITE_INFO, NULL);
+        goto_error(ERR_INIT_PNG_WRITE_INFO, "Failed to create the PNG write info struct!");
 
     png_init_io(png_ptr, fp);
 

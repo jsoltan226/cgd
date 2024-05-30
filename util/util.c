@@ -1,5 +1,6 @@
 #include "util.h"
 #include "int.h"
+#include "log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,23 +12,23 @@ static char asset_dir_buf[u_BUF_SIZE] = { 0 };
 const char *u_get_asset_dir()
 {
     if (bin_dir_buf[0] != '/') {
-        if (u_get_bin_dir(bin_dir_buf, u_BUF_SIZE)) return NULL;
+        if (u_get_bin_dir(bin_dir_buf, u_BUF_SIZE)) {
+            s_log_error("util", "[u_get_asset_dir] Failed to get the bin dir");
+            return NULL;
+        }
     }
 
     if (asset_dir_buf[0] != '/') {
-        if (strncpy( asset_dir_buf, bin_dir_buf, u_BUF_SIZE) == NULL)
-            return NULL;
+        strncpy(asset_dir_buf, bin_dir_buf, u_BUF_SIZE);
         asset_dir_buf[u_BUF_SIZE - 1] = '\0';
-
-        if (
-            strncat(
-                asset_dir_buf,
-                u_PATH_FROM_BIN_TO_ASSETS, 
-                u_BUF_SIZE - strlen(asset_dir_buf) - 1
-            ) == NULL
-        ) return NULL;
+        strncat(
+            asset_dir_buf,
+            u_PATH_FROM_BIN_TO_ASSETS,
+            u_BUF_SIZE - strlen(asset_dir_buf) - 1
+        );
 
         asset_dir_buf[u_BUF_SIZE - 1] = '\0';
+        s_log_debug("util", "[u_get_asset_dir] The asset dir is \"%s\"", asset_dir_buf);
     }
 
     return asset_dir_buf;
@@ -75,22 +76,23 @@ void u_error(const char *fmt, ...)
 i32 u_get_bin_dir(char *buf, u32 buf_size)
 {
     if (buf == NULL) {
-        fprintf(stderr, "[getBinDir]: ERROR: The provided string is a null pointer.\n");
+        s_log_error("util", "[u_get_bin_dir] The provided buffer is NULL");
         return 1;
     } else if (buf_size == 0) {
-        fprintf(stderr, "[u_getBinDir] ERROR: The provided buffer size is 0\n");
+        s_log_error("util", "[u_get_bin_dir] The provided buffer size is 0\n");
         return 1;
     }
 
     memset(buf, 0, buf_size);
     if (p_getExePath(buf, buf_size)) {
-        fprintf(stderr, "[u_getBinDir] Failed to get the path to the executable.\n");
+        s_log_error("util", "[u_get_bin_dir] Failed to get the path to the executable.\n");
     }
 
     /* Cut off the string after the last '/' */
     u32 i = buf_size - 1;
-    while (buf[--i] != '/' && i >= 0);
+    while (buf[i] != '/' && i-- >= 0);
     buf[i + 1] = '\0';
+    s_log_debug("util", "[u_get_bin_dir] The bin dir is \"%s\"", buf);
 
     return 0;
 }
