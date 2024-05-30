@@ -20,6 +20,7 @@ TOUCH=touch -c
 EXEC=exec
 MKDIR=mkdir -p
 RMRF=rm -rf
+7Z=7z
 
 EXEPREFIX =
 EXESUFFIX =
@@ -46,7 +47,7 @@ endif
 
 OBJS=$(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
 DEPS=$(patsubst %.o,%.d,$(OBJS))
-STRIP_OBJS=$(OBJDIR)/log.o
+STRIP_OBJS=$(OBJDIR)/log.c.o
 
 EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
 TEST_LIB=$(BINDIR)/libmain_test.a
@@ -60,19 +61,19 @@ RED=
 GREEN=
 COL_RESET=
 
-.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr
+.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
 .NOTPARALLEL: all release br bdr
 
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
 
 release: CFLAGS = -O3 -Wall -Werror
-release: clean $(OBJDIR) $(BINDIR) $(EXE) mostlyclean strip
+release: clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run
 
 $(EXE): $(OBJS)
-#	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
+	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
 	@$(PRINTF) "CCLD 	%-25s %-20s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
@@ -108,8 +109,14 @@ $(OBJDIR)/%.c.o: */*/*/%.c Makefile
 	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
+test-hooks: asset-load-test-hook
+
+.PHONY: asset-load-test-hook
+asset-load-test-hook:
+	@test -f assets/tests/rand_9_3_1_0_0_0_0.png || $(ECHO) "7Z	assets/tests/random_pngs.7z" && $(PRINTF) 'Y\nA\n' | $(7Z) e -oassets/tests assets/tests/random_pngs.7z >/dev/null
+
 tests: CFLAGS = -ggdb -O0 -Wall
-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests
+tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
 	for i in $(TEST_EXES); do \
@@ -149,10 +156,9 @@ mostlyclean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS) $(TEST_LOGFILE)"
 	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
 
-
 clean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE) out.png"
-	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE)
+	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/*.png
 	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
 
 update:

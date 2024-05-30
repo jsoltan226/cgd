@@ -27,3 +27,8 @@
     * Implemented logging in all files in `asset-loader/`
     * Fixed some trailing '/' issues in `u_get_asset_dir`
     * Fixed a bug related to unintialized memory usage from `malloc()` in `asset_load()`
+
+* Commit "Added `asset-load-test.c`"
+    * Added a test that fuzzes `asset_load` with random PNG images, present in `assets/tests/random_pngs.7z`
+    * `obj/log.c.o` will now be stripped regardless of build type, for convenience during debugging
+    * Added test hooks in the Makefile (to perform actions that a test depends on, e.g. extract an archive with needed files)

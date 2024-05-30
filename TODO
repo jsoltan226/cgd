@@ -1,4 +1,3 @@
-Test the new memcpy() solution in `pixel_data_2_sdl_tex()`
 INTEGRATE THE LOGGING
 Integrate the asset system properly
 Refactor the old ugly code from e.g. parallax-bg.c
