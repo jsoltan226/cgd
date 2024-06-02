@@ -54,9 +54,9 @@ enum load_PNG_error_code {
 #define N_CHANNELS 4
 i32 read_PNG(struct pixel_data *pixel_data, FILE *fp)
 {
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_infop end_ptr;
+    png_structp png_ptr = NULL;
+    png_infop info_ptr = NULL;
+    png_infop end_ptr = NULL;
 
     struct PNG_Metadata meta;
 

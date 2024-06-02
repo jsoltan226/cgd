@@ -41,3 +41,7 @@
     * Implemented logging in `input/`
     * Renamed `util/` to `core/`
     * Adapted changes made to `input/` in the whole codebase
+
+* Commit "Fixed release build failing when compiling with clang" <jsoltan226@gmail.com>
+    * Fixed uninitialized variables in `asset-loader/io-PNG.c` and `tests/asset-load-test.c`
+    * Fixed `tests/asset-load-test.c` including the wrong file for `struct timeval`
