@@ -1,7 +1,7 @@
 #include "io-PNG.h"
-#include "util/log.h"
-#include <cgd/util/int.h>
-#include <cgd/util/pixel.h>
+#include "core/log.h"
+#include "core/int.h"
+#include "core/pixel.h"
 #include <err.h>
 #include <png.h>
 #include <stdlib.h>

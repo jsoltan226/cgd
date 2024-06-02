@@ -1,8 +1,8 @@
 #ifndef FONTS_H
 #define FONTS_H
 
-#include <cgd/util/datastruct/hashtable.h>
-#include <cgd/util/shapes.h>
+#include <cgd/core/datastruct/hashtable.h>
+#include <cgd/core/shapes.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>

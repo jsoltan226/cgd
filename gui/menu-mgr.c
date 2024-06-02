@@ -1,13 +1,15 @@
-#include <cgd/gui/menu-mgr.h>
-#include <cgd/gui/event-listener.h>
-#include <cgd/gui/menu.h>
-#include <cgd/gui/on-event.h>
+#include "menu-mgr.h"
+#include "event-listener.h"
+#include "menu.h"
+#include "on-event.h"
+#include "input/mouse.h"
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <error.h>
 
-mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
+mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer,
+    struct keyboard *keyboard, struct mouse *mouse)
 {
     /* Allocate space for the menu manager struct */
     mmgr_MenuManager* mmgr = malloc(sizeof(mmgr_MenuManager));
@@ -56,7 +58,8 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     return mmgr;
 }
 
-void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse, bool paused)
+void mmgr_updateMenuManager(mmgr_MenuManager* mmgr,
+    struct keyboard *keyboard, struct mouse *mouse, bool paused)
 {
     /* Update the event listeners first */
     for(int i = 0; i < mmgr->globalEventListenerCount; i++){
@@ -72,7 +75,7 @@ void mmgr_updateMenuManager(mmgr_MenuManager* mmgr, kb_Keyboard *keyboard, ms_Mo
     /* Switch the menu if it has its 'switchTo' member set */
     if(mmgr->currentMenu->switchTo != MN_ID_NULL){
         mmgr_switchMenu(mmgr, mmgr->currentMenu->switchTo);
-        ms_forceReleaseMouse(mouse, MS_EVERYBUTTONMASK);
+        mouse_force_release(mouse, MOUSE_EVERYBUTTONMASK);
     }
     /* Go back 1 menu if the current members' MN_ONEVENT_GOBACK status flag is set */
     if(mmgr->currentMenu->statusFlags & MN_ONEVENT_GOBACK){

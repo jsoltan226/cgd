@@ -1,0 +1,17 @@
+#ifndef PRESSABLEOBJ_H
+#define PRESSABLEOBJ_H
+
+#include <stdbool.h>
+#include "core/int.h"
+
+typedef struct {
+    bool up, down, pressed, forceReleased;
+    i32 time;
+} pressable_obj_t;
+
+pressable_obj_t * pressable_obj_create(void);
+void pressable_obj_update(pressable_obj_t* po, bool state);
+void pressable_obj_force_release(pressable_obj_t *po);
+void pressable_obj_destroy(pressable_obj_t *po);
+
+#endif

@@ -1,9 +1,9 @@
 #include "raw2sdl.h"
-#include <SDL2/SDL_error.h>
-#include <cgd/util/pixel.h>
-#include <cgd/util/int.h>
-#include <cgd/util/log.h>
+#include "core/pixel.h"
+#include "core/int.h"
+#include "core/log.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_error.h>
 #include <SDL2/SDL_render.h>
 #include <string.h>
 
@@ -25,15 +25,6 @@ SDL_Texture * pixel_data_2_sdl_tex(struct pixel_data *pixel_data, SDL_Renderer *
     SDL_LockSurface(tmpSurface);
     for (u32 y = 0; y < pixel_data->h; y++) {
         memcpy(tmpSurface->pixels + y*tmpSurface->pitch, pixel_data->data[y], tmpSurface->pitch);
-        /*
-        for (u32 x = 0; x < pixel_data->h; x++) {
-            u8 *pixel_p = (u8*)tmpSurface->pixels + y*tmpSurface->pitch + x*N_CHANNELS;
-            for (int i = 0; i < N_CHANNELS; i++) {
-                *(pixel_p + i) = pixel_data->data[y][x*N_CHANNELS + i];
-            }
-
-        }
-        */
     }
     SDL_UnlockSurface(tmpSurface);
 

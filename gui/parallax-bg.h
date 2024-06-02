@@ -2,7 +2,7 @@
 #define PARALLAXBG_H
 
 #include <SDL2/SDL.h>
-#include <cgd/util/int.h>
+#include <cgd/core/int.h>
 #include <cgd/asset-loader/asset.h>
 
 typedef struct {

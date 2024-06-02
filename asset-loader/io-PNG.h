@@ -1,7 +1,7 @@
 #ifndef IO_PNG_H_
 #define IO_PNG_H_
 
-#include <cgd/util/pixel.h>
+#include "core/pixel.h"
 #include <stdio.h>
 
 #define PNG_MAGIC_SIZE 8

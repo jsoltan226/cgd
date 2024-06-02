@@ -2,9 +2,9 @@
 #define EVENT_LISTENER_H
 
 #include <stdbool.h>
-#include <cgd/user-input/keyboard.h>
-#include <cgd/user-input/mouse.h>
-#include <cgd/gui/on-event.h>
+#include "input/keyboard.h"
+#include "input/mouse.h"
+#include "on-event.h"
 
 typedef enum {
     EVL_EVENT_KEYBOARD_KEYPRESS,
@@ -25,14 +25,14 @@ typedef struct {
 typedef struct {
     evl_EventType type;
     union {
-        enum ms_Mouse_Button button_type;
-        kb_KeyCode keycode;
+        enum mouse_button button_type;
+        enum keyboard_keycode keycode;
     } targetInfo;
 } evl_EventListenerConfig;
 
 typedef struct {
-    ms_Mouse *mouse;
-    kb_Keyboard *keyboard;
+    struct mouse *mouse;
+    struct keyboard *keyboard;
 } evl_Target;
 
 evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *oeObj, evl_Target *t);

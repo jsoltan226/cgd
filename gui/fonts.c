@@ -1,10 +1,10 @@
 #include "fonts.h"
-#include <cgd/util/datastruct/hashtable.h>
+#include <cgd/core/datastruct/hashtable.h>
 #include <SDL2/SDL_blendmode.h>
 #include <ft2build.h>
 #include <string.h>
 #include FT_FREETYPE_H
-#include <cgd/util/util.h>
+#include <cgd/core/util.h>
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 

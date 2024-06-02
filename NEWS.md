@@ -28,7 +28,16 @@
     * Fixed some trailing '/' issues in `u_get_asset_dir`
     * Fixed a bug related to unintialized memory usage from `malloc()` in `asset_load()`
 
-* Commit "Added `asset-load-test.c`"
+* Commit "Added `asset-load-test.c`" <jsoltan226@github.com>
     * Added a test that fuzzes `asset_load` with random PNG images, present in `assets/tests/random_pngs.7z`
     * `obj/log.c.o` will now be stripped regardless of build type, for convenience during debugging
     * Added test hooks in the Makefile (to perform actions that a test depends on, e.g. extract an archive with needed files)
+
+## NEWS for Sun 02.06.2024
+
+* Commit ""Modernized" everything in `user-input/`" <jsoltan226@github.com>
+    * Renamed `user-input/` to `input/`
+    * Modernized the coding style used in `input/`
+    * Implemented logging in `input/`
+    * Renamed `util/` to `core/`
+    * Adapted changes made to `input/` in the whole codebase

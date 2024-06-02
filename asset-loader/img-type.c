@@ -1,6 +1,6 @@
 #include "img-type.h"
-#include "util/log.h"
-#include <cgd/util/int.h>
+#include "core/log.h"
+#include "core/int.h"
 #include <png.h>
 #include <stdio.h>
 #include <string.h>

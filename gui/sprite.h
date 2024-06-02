@@ -4,7 +4,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include <cgd/util/shapes.h>
+#include <cgd/core/shapes.h>
 #include <cgd/asset-loader/asset.h>
 
 typedef struct {

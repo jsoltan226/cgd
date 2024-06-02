@@ -8,9 +8,9 @@
 #include <cgd/gui/parallax-bg.h>
 #include <cgd/gui/sprite.h>
 #include <cgd/gui/buttons.h>
-#include <cgd/user-input/keyboard.h>
-#include <cgd/util/int.h>
-#include <cgd/util/shapes.h>
+#include <cgd/input/keyboard.h>
+#include <cgd/core/int.h>
+#include <cgd/core/shapes.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>

@@ -1,22 +1,19 @@
 #include "pressable-obj.h"
+#include "core/log.h"
 #include <stdlib.h>
-#include <assert.h>
 
-po_PressableObj* po_createPressableObj()
+pressable_obj_t * pressable_obj_create(void)
 {
-    po_PressableObj *po = malloc(sizeof(po_PressableObj));
-    assert(po != NULL);
-
-    po->up = false;
-    po->down = false;
-    po->pressed = false;
-    po->forceReleased = false;
-    po->time = 0;
+    pressable_obj_t *po = calloc(1, sizeof(pressable_obj_t));
+    if (po == NULL) {
+        s_log_error("pressable-obj", "malloc() for pressable obj failed");
+        return NULL;
+    }
 
     return po;
 }
 
-void po_updatePressableObj(po_PressableObj* po, bool state)
+void pressable_obj_update(pressable_obj_t *po, bool state)
 {
     /* Down is active if on the current tick the object is pressed, but wasn't pressed on the previous one */
     po->down = (state && !po->pressed && !po->forceReleased);
@@ -37,7 +34,7 @@ void po_updatePressableObj(po_PressableObj* po, bool state)
     }
 }
 
-void po_forceReleasePressableObj(po_PressableObj *po)
+void pressable_obj_force_release(pressable_obj_t *po)
 {
     /* The pressed, up and down values as well as the time should be 0 until the forceReleased state is reset */
     po->pressed = false;
@@ -47,7 +44,7 @@ void po_forceReleasePressableObj(po_PressableObj *po)
     po->forceReleased = true;
 }
 
-void po_destroyPressableObj(po_PressableObj *po)
+void pressable_obj_destroy(pressable_obj_t *po)
 {
     free(po);
 }

@@ -2,16 +2,16 @@
 #include "img-type.h"
 #include "io-PNG.h"
 #include "raw2sdl.h"
-#include "util/pixel.h"
+#include "core/pixel.h"
+#include "core/util.h"
+#include "core/log.h"
 #include <SDL2/SDL_render.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cgd/util/util.h>
-#include <cgd/util/log.h>
 #include <string.h>
 
-#define module_name
+#define module_name "asset-load"
 
 #define goto_error(msg...) do {         \
     s_log_error(module_name, msg);     \

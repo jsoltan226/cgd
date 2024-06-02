@@ -17,7 +17,8 @@ static int mn_flipBool(int argc, void **argv);
 static int mn_executeOther(int argc, void **argv);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse)
+mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
+    struct keyboard *keyboard, struct mouse *mouse)
 {
 
     /* Memory allocation section */
@@ -73,7 +74,7 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *ke
     return mn;
 }
 
-void mn_updateMenu(mn_Menu* mn, ms_Mouse *mouse)
+void mn_updateMenu(mn_Menu* mn, struct mouse *mouse)
 {
     /* Sprites do not need updating; they never change */
 

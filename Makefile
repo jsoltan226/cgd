@@ -74,11 +74,11 @@ br: all run
 
 $(EXE): $(OBJS)
 	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
-	@$(PRINTF) "CCLD 	%-25s %-20s\n" "$(EXE)" "<= $^"
+	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
 $(TEST_LIB): $(OBJS) $(BINDIR)
-	@$(PRINTF) "AR 	%-20s %-20s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
+	@$(PRINTF) "AR 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
 	@$(AR) $(ARFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) >/dev/null
 
 $(OBJDIR):
@@ -94,19 +94,19 @@ $(TEST_EXE_DIR):
 	@$(MKDIR) $(TEST_EXE_DIR)
 
 $(OBJDIR)/%.c.o: ./%.c Makefile
-	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.c.o: */%.c Makefile
-	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.c.o: */*/%.c Makefile
-	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.c.o: */*/*/%.c Makefile
-	@$(PRINTF) "CC 	%-25s %-20s\n" "$@" "<= $<"
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
 test-hooks: asset-load-test-hook
@@ -157,7 +157,7 @@ mostlyclean:
 	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
 
 clean:
-	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE) out.png"
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE)"
 	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/*.png
 	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
 

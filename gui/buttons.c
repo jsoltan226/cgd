@@ -1,12 +1,12 @@
 #include "buttons.h"
-#include "user-input/mouse.h"
-#include "user-input/pressable-obj.h"
-#include <cgd/util/util.h>
-#include <cgd/util/shapes.h>
-#include <cgd/util/int.h>
-#include <cgd/util/function-arg-macros.h>
-#include <cgd/gui/on-event.h>
-#include <cgd/gui/sprite.h>
+#include "input/mouse.h"
+#include "input/pressable-obj.h"
+#include "core/util.h"
+#include "core/shapes.h"
+#include "core/int.h"
+#include "core/function-arg-macros.h"
+#include "on-event.h"
+#include "sprite.h"
 #include <SDL2/SDL_render.h>
 #include <assert.h>
 #include <stdio.h>
@@ -20,7 +20,7 @@ btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32
     btn->sprite = spr_initSprite(spriteCfg, renderer);
     assert(btn->sprite != NULL);
 
-    btn->button = po_createPressableObj();
+    btn->button = pressable_obj_create();
     assert(btn->button != NULL);
 
     btn->onClick.fn = onClick->fn;
@@ -32,14 +32,14 @@ btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32
     return btn;
 }
 
-void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
+void btn_updateButton(btn_Button *btn, struct mouse *mouse)
 {
     btn->hovering = u_collision(
         &(rect_t) { mouse->x, mouse->y, 0, 0 },
         &btn->sprite->hitbox
     );
 
-    const po_PressableObj *mouse_button = &mouse->buttons[MS_BUTTON_LEFT];
+    const pressable_obj_t *mouse_button = &mouse->buttons[MOUSE_BUTTON_LEFT];
 
     if (btn->is_being_clicked && (mouse_button->up || mouse_button->forceReleased)) {
         btn->is_being_clicked = false;
@@ -48,7 +48,7 @@ void btn_updateButton(btn_Button *btn, ms_Mouse *mouse)
         btn->is_being_clicked = true;
     }
 
-    po_updatePressableObj(btn->button, btn->is_being_clicked);
+    pressable_obj_update(btn->button, btn->is_being_clicked);
 }
 
 void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
@@ -83,7 +83,7 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
 void btn_destroyButton(btn_Button *btn)
 {
     spr_destroySprite(btn->sprite);
-    po_destroyPressableObj(btn->button);
+    pressable_obj_destroy(btn->button);
 
     free(btn);
     btn = NULL;

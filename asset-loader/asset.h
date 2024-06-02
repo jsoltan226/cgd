@@ -2,8 +2,8 @@
 #define ASSET_H_
 
 #include <SDL2/SDL_render.h>
-#include <cgd/util/int.h>
-#include <cgd/util/pixel.h>
+#include "core/int.h"
+#include "core/pixel.h"
 #include "img-type.h"
 
 struct asset {

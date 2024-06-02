@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
-#include <cgd/util/pixel.h>
+#include "core/pixel.h"
 
 /* Returns NULL on failure */
 SDL_Texture * pixel_data_2_sdl_tex(struct pixel_data *pixel_data, SDL_Renderer *renderer);

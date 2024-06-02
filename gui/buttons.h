@@ -5,11 +5,11 @@
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include <cgd/user-input/mouse.h>
-#include <cgd/user-input/keyboard.h>
-#include <cgd/gui/on-event.h>
-#include <cgd/gui/sprite.h>
-#include <cgd/util/int.h>
+#include "input/mouse.h"
+#include "input/keyboard.h"
+#include "on-event.h"
+#include "sprite.h"
+#include "core/int.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -22,7 +22,7 @@ enum btn_flags {
 typedef struct {
     spr_Sprite *sprite;
 
-    po_PressableObj *button; 
+    pressable_obj_t *button;
     bool is_being_clicked; /* Whether the button was clicked and the mouse is still being held */
     bool hovering;
 
@@ -32,7 +32,7 @@ typedef struct {
 } btn_Button;
 
 btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32 flags, SDL_Renderer *renderer);
-void btn_updateButton(btn_Button *btn, ms_Mouse *mouse);
+void btn_updateButton(btn_Button *btn, struct mouse *mouse);
 
 void btn_drawButton(btn_Button *btn, SDL_Renderer *r);
 

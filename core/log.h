@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <cgd/util/int.h>
+#include "int.h"
 
 typedef enum {
     LOG_DEBUG,
@@ -12,7 +12,7 @@ typedef enum {
     LOG_ERROR
 } s_log_level;
 
-void s_log(s_log_level type, const char *module_name, const char *fmt, ...);
+void s_log(s_log_level level, const char *module_name, const char *fmt, ...);
 
 #ifndef NDEBUG
 #define s_log_debug(module_name, fmt...) \

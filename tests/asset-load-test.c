@@ -1,9 +1,9 @@
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_video.h>
 #include <bits/types/struct_timeval.h>
-#include <cgd/util/int.h>
+#include <cgd/core/int.h>
 #include <cgd/asset-loader/asset.h>
-#include <cgd/util/log.h>
+#include <cgd/core/log.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>

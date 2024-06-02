@@ -1,11 +1,11 @@
 #ifndef MENU_H
 #define MENU_H
 
-#include <cgd/gui/buttons.h>
-#include <cgd/gui/event-listener.h>
-#include <cgd/gui/sprite.h>
-#include <cgd/gui/parallax-bg.h>
-#include <cgd/user-input/mouse.h>
+#include "buttons.h"
+#include "event-listener.h"
+#include "sprite.h"
+#include "parallax-bg.h"
+#include <cgd/input/mouse.h>
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -113,8 +113,10 @@ typedef struct {
     mn_ID id;
 } mn_MenuConfig;
 
-mn_Menu* mn_initMenu(mn_MenuConfig *cfg, SDL_Renderer *r, kb_Keyboard *keyboard, ms_Mouse *mouse);
-void mn_updateMenu(mn_Menu *menu, ms_Mouse *mouse);
+mn_Menu* mn_initMenu(mn_MenuConfig *cfg, SDL_Renderer *r,
+    struct keyboard *keyboard, struct mouse *mouse);
+
+void mn_updateMenu(mn_Menu *menu, struct mouse *mouse);
 void mn_drawMenu(mn_Menu *menu, SDL_Renderer *r);
 void mn_destroyMenu(mn_Menu *menu);
 void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *cfg, mn_Menu *optionalMenuPtr);

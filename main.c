@@ -9,15 +9,15 @@
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cgd/util/util.h>
-#include <cgd/util/ansi-esc-sequences.h>
-#include <cgd/user-input/keyboard.h>
-#include <cgd/user-input/mouse.h>
+#include <cgd/core/util.h>
+#include <cgd/core/ansi-esc-sequences.h>
+#include <cgd/input/keyboard.h>
+#include <cgd/input/mouse.h>
 #include <cgd/gui/fonts.h>
 #include <cgd/gui/menu-mgr.h>
 #include "config.h"
-#include <cgd/util/function-arg-macros.h>
-#include <cgd/util/log.h>
+#include <cgd/core/function-arg-macros.h>
+#include <cgd/core/log.h>
 
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
@@ -44,8 +44,8 @@ static enum EXIT_CODES EXIT_CODE;
 mmgr_MenuManager *MenuManager;
 SDL_Window *window;
 SDL_Renderer *renderer;
-ms_Mouse *mouse;
-kb_Keyboard *keyboard;
+struct mouse *mouse;
+struct keyboard *keyboard;
 fnt_Font *sourceCodeProFont;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
@@ -58,10 +58,14 @@ int main(int argc, char **argv)
     s_set_log_out_filep(stdout);
     s_set_log_err_filep(stderr);
     s_set_user_fault(NO_USER_FAULT);
+#ifndef NDEBUG
     if (!strcmp(argv[0], "debug"))
         s_set_log_level(LOG_DEBUG);
     else
         s_set_log_level(LOG_INFO);
+#else
+    s_set_log_level(LOG_INFO);
+#endif /* NDEBUG */
 
     s_log_info("main", "Initializing SDL");
 
@@ -85,14 +89,14 @@ int main(int argc, char **argv)
 
     s_log_info("main", "Initializing the keyboard and mouse...");
 
-    s_log_debug("main", "Initializing the mouse");
     /* Initialize the engine structs */
-    keyboard = kb_initKeyboard();
+    s_log_debug("main", "Initializing the keyboard");
+    keyboard = keyboard_init();
     if (keyboard == NULL)
         goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the keyboard!");
 
     s_log_debug("main", "Initializing the mouse");
-    mouse = ms_initMouse();
+    mouse = mouse_init();
     if (mouse == NULL)
         goto_error(ERR_INIT_MOUSE, "Failed to initialize the mouse!");
 
@@ -106,6 +110,7 @@ int main(int argc, char **argv)
     sourceCodeProFont = fnt_initFont("/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
     if (sourceCodeProFont == NULL)
         goto_error(ERR_INIT_FONT, "Failed to initialize the font");
+
     fnt_setTextColor(sourceCodeProFont, 150, 150, 150, 255);
 
     s_log_info("main", "Init OK! Entering main loop...");
@@ -116,11 +121,8 @@ int main(int argc, char **argv)
 
         /* EVENT/INPUT HANDLING SECTION */
 
-        /* The keyboard and mouse structs need updating every game tick. 
-         * They use SDL_Get(..)State, not SDL_PollEvent. */
-        /* TODO: Fix polling mouse and keyboard state on every game tick, even when they aren't updated */
-        kb_updateKeyboard(keyboard);
-        ms_updateMouse(mouse);
+        keyboard_update(keyboard);
+        mouse_update(mouse);
 
         /* Check for input events */
         SDL_Event event;
@@ -164,7 +166,7 @@ int main(int argc, char **argv)
 
             /*
             SDL_Rect mouse_rect = { mouse->x - 10, mouse->y - 10, 20, 20 };
-            if (mouse->buttons[MS_BUTTON_LEFT].pressed)
+            if (mouse->buttons[MOUSE_BUTTON_LEFT].pressed)
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
             else
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
@@ -187,8 +189,8 @@ int main(int argc, char **argv)
 cleanup:
     if (sourceCodeProFont != NULL) fnt_destroyFont(sourceCodeProFont);
     if (MenuManager != NULL) mmgr_destroyMenuManager(MenuManager);
-    if (keyboard != NULL) kb_destroyKeyboard(keyboard);
-    if (mouse != NULL) ms_destroyMouse(mouse);
+    if (keyboard != NULL) keyboard_destroy(keyboard);
+    if (mouse != NULL) mouse_destroy(mouse);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     if (window != NULL) SDL_DestroyWindow(window);
     SDL_Quit();

@@ -1,8 +1,8 @@
 #ifndef MENUMGR_H
 #define MENUMGR_H
 
-#include <cgd/gui/event-listener.h>
-#include <cgd/gui/menu.h>
+#include "event-listener.h"
+#include "menu.h"
 #include <SDL2/SDL_render.h>
 #include <stdbool.h>
 
@@ -24,8 +24,13 @@ typedef struct {
     int globalEventListenerCount;
 } mmgr_MenuManagerConfig;
 
-mmgr_MenuManager *mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer, kb_Keyboard *keyboard, ms_Mouse *mouse);
-void mmgr_updateMenuManager(mmgr_MenuManager *mmgr, kb_Keyboard *keyboard, ms_Mouse *mouse, bool paused);
+mmgr_MenuManager *mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer,
+    struct keyboard *keyboard, struct mouse *mouse);
+
+void mmgr_updateMenuManager(mmgr_MenuManager *mmgr,
+    struct keyboard *keyboard, struct mouse *mouse,
+    bool paused);
+
 void mmgr_drawMenuManager(mmgr_MenuManager *mmgr, SDL_Renderer *r);
 void mmgr_destroyMenuManager(mmgr_MenuManager *mmgr);
 void mmgr_switchMenu(mmgr_MenuManager *mmgr, mn_ID switchTo);
