@@ -1,26 +1,31 @@
 #ifndef U_LINKED_LIST_H
 #define U_LINKED_LIST_H
 
-typedef struct lls_Node lls_Node;
-struct lls_Node {
-    lls_Node *next;
-    lls_Node *previous;
+struct ll_node {
+    struct ll_node *next, *prev;
     void *content;
 };
 
-typedef struct {
-    lls_Node *head;
-    lls_Node *tail;
-} lls_LinkedList;
+struct linked_list {
+    struct ll_node *head, *tail;
+};
 
-lls_LinkedList *lls_createLinkedList(void *head_content);
+struct linked_list * linked_list_create(void *head_content);
 
-lls_Node *lls_appendNode(lls_Node *referenceNode, void *content);
-lls_Node *lls_prependNode(lls_Node *referenceNode, void *content);
-#define lls_createNode(content) lls_appendNode(NULL, content)
+/* Creates a node after `at` with content `content`. Returns a pointer to the new node. */
+struct ll_node * linked_list_append(struct ll_node *at, void *content);
 
-void lls_destroyLinkedList(lls_LinkedList *list);
-void lls_destroyNodesRecursively(lls_Node *head);
-void lls_destroyNode(lls_Node *node);
+/* Same thing as `linked_list_append`, but the node is created BEFORE `at`. */
+struct ll_node * linked_list_prepend(struct ll_node *at, void *content);
+
+#define linked_list_create_node(content) linked_list_append(NULL, content)
+
+void linked_list_destroy(struct linked_list *list);
+
+void linked_list_destroy_node(struct ll_node *node);
+
+/* Iterates over all nodes starting from `head` until node->next is NULL,
+ * destroying every single one of them */
+void linked_list_recursive_destroy_nodes(struct ll_node *head);
 
 #endif /* U_LINKED_LIST_H */

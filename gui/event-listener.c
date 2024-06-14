@@ -21,13 +21,13 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
             evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).pressed);
-        	break;
+            break;
         case EVL_EVENT_KEYBOARD_KEYDOWN:
             evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).down);
-        	break;
+            break;
         case EVL_EVENT_KEYBOARD_KEYUP:
             evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).up);
-        	break;
+            break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
             evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].pressed;
             break;
@@ -36,7 +36,7 @@ evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEven
             break;
         case EVL_EVENT_MOUSE_BUTTONUP:
             evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].up;
-        	break;
+            break;
     }
 
     assert(evl->objectPtr != NULL);
@@ -48,7 +48,7 @@ void evl_updateEventListener(evl_EventListener *evl)
 {
     /* It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
     evl->detected = *evl->objectPtr;
-    
+
     if(evl->detected && evl->onEvent.fn)
         oe_executeOnEventfn(evl->onEvent);
 }

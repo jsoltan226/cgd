@@ -9,7 +9,7 @@
 struct asset {
     const char *rel_file_path;
     enum asset_img_type type;
-    
+
     struct pixel_data *pixel_data;
     SDL_Texture *texture;
 };

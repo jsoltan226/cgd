@@ -87,7 +87,7 @@ struct  mn_Menu {
 
     bg_ParallaxBG *bg;
 
-    mn_ID switchTo;      
+    mn_ID switchTo;
     mn_ID ID;
     unsigned long statusFlags;
 };

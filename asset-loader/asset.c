@@ -42,7 +42,7 @@ struct asset * asset_load(const char *rel_file_path, SDL_Renderer *r)
     a->type = asset_get_img_type(fp);
     if (a->type == IMG_TYPE_UNKNOWN)
         goto_error("Asset image type is UNKNOWN!");
-    
+
     switch(a->type) {
         case IMG_TYPE_PNG:
             if (read_PNG(a->pixel_data, fp))
@@ -86,7 +86,7 @@ i32 asset_write(struct asset *a, const char *rel_file_path, enum asset_img_type 
         return -1;
     }
 
-    if (rel_file_path == NULL) 
+    if (rel_file_path == NULL)
         rel_file_path = a->rel_file_path;
     if (img_type == IMG_TYPE_UNKNOWN)
         img_type = a->type;
@@ -121,7 +121,7 @@ void asset_destroy(struct asset *a)
 {
     if (a == NULL) return;
 
-    if (a->pixel_data->data) 
+    if (a->pixel_data->data)
         destroy_pixel_data(a->pixel_data);
 
     if (a->texture)

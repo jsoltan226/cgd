@@ -54,9 +54,9 @@ enum load_PNG_error_code {
 #define N_CHANNELS 4
 i32 read_PNG(struct pixel_data *pixel_data, FILE *fp)
 {
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_infop end_ptr;
+    png_structp png_ptr = NULL;
+    png_infop info_ptr = NULL;
+    png_infop end_ptr = NULL;
 
     struct PNG_Metadata meta;
 
@@ -85,7 +85,7 @@ i32 read_PNG(struct pixel_data *pixel_data, FILE *fp)
     end_ptr = png_create_info_struct(png_ptr);
     if (end_ptr == NULL)
         goto_error(ERR_INIT_PNG_END, "Failed to create the read PNG end info struct");
-         
+
     /* Setting up some (as usual) weird and non-standard error handling */
     /* From the libpng manual:
      * "When libpng encounters an error, it expects to longjmp back

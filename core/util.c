@@ -1,10 +1,10 @@
 #include "util.h"
 #include "int.h"
 #include "log.h"
+#include "platform/exe-info.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <cgd/platform/exe-info.h>
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };
 static char asset_dir_buf[u_BUF_SIZE] = { 0 };
@@ -34,45 +34,6 @@ const char *u_get_asset_dir()
     return asset_dir_buf;
 }
 
-/* You already know what this does */
-i64 u_max(i64 a, i64 b)
-{
-    if(a > b)
-        return a;
-    else 
-        return b;
-}
-
-/* Same here */
-i64 u_min(i64 a, i64 b)
-{
-    if(a < b)
-        return a;
-    else 
-        return b;
-}
-
-/* The simplest collision checking implementation;
- * returns true if 2 rectangles overlap 
- */
-bool u_collision(const rect_t *r1, const rect_t *r2)
-{
-    return (
-            r1->x + r1->w >= r2->x &&
-            r1->x <= r2->x + r2->w &&
-            r1->y + r1->h >= r2->y &&
-            r1->y <= r2->y + r2->h 
-           );
-}
-
-void u_error(const char *fmt, ...)
-{
-    va_list vaList;
-    va_start(vaList, fmt);
-    vfprintf(stderr, fmt, vaList);
-    va_end(vaList);
-}
-
 i32 u_get_bin_dir(char *buf, u32 buf_size)
 {
     if (buf == NULL) {
@@ -95,4 +56,14 @@ i32 u_get_bin_dir(char *buf, u32 buf_size)
     s_log_debug("util", "[u_get_bin_dir] The bin dir is \"%s\"", buf);
 
     return 0;
+}
+
+bool u_collision(const rect_t *r1, const rect_t *r2)
+{
+    return (
+        r1->x <= r2->x + r2->w &&
+        r1->x + r1->w >= r2->x &&
+        r1->y <= r2->y + r2->h &&
+        r1->y + r1->h >= r2->y
+    );
 }

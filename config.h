@@ -84,7 +84,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                                 .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
 
                                 .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
-                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
+                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
                             },
 
                             /* SOURCE RECT */
@@ -99,7 +99,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,
                             .onEventArgs = {
                                 .switchDestMenuID = SUB_MENU,
-                            }, 
+                            },
                         },
                         .flags = BTN_DEFAULT_FLAGS
                     },
@@ -126,7 +126,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                                 .y = 150 + TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
 
                                 .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
-                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight )) 
+                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
                             },
 
                             /* SOURCE RECT */

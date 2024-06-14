@@ -14,7 +14,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     /* Allocate space for the menu manager struct */
     mmgr_MenuManager* mmgr = malloc(sizeof(mmgr_MenuManager));
     assert(mmgr != NULL);
-    
+
     /* Copy over the counts of the menus and global event listeners */
     mmgr->menuCount = cfg->menuCount;
     mmgr->globalEventListenerCount = cfg->globalEventListenerCount;
@@ -23,7 +23,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(mn_Menu*));
     mmgr->globalEventListeners = malloc(cfg->globalEventListenerCount * sizeof(evl_EventListener*));
     assert(
-            (mmgr->fullMenuList != NULL || cfg->menuCount == 0) && 
+            (mmgr->fullMenuList != NULL || cfg->menuCount == 0) &&
             (mmgr->globalEventListeners != NULL || cfg->globalEventListenerCount == 0)
           );
 
@@ -158,5 +158,5 @@ void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_ID switchTo)
         /* Update the currentMenu pointer and the inMenuDepth accordingly */
         mmgr->currentMenu = destMenuPtr;
         mmgr->inMenuDepth++;
-    } 
+    }
 }

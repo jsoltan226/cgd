@@ -1,43 +1,14 @@
 #include "fonts.h"
-#include <cgd/core/datastruct/hashtable.h>
-#include <SDL2/SDL_blendmode.h>
+#include "core/math.h"
+#include "core/util.h"
 #include <ft2build.h>
-#include <string.h>
 #include FT_FREETYPE_H
-#include <cgd/core/util.h>
 #include <SDL2/SDL_render.h>
+#include <SDL2/SDL_blendmode.h>
 #include <stdlib.h>
+#include <string.h>
 
-static i64 max(i64 a, i64 b)
-{
-    if(a > b)
-        return a;
-    else
-        return b;
-};
-i64 min(i64 a, i64 b)
-{
-    if(a < b)
-        return a;
-    else
-        return b;
-};
-f64 fmax(f64 a, f64 b)
-{
-    if(a > b)
-        return a;
-    else
-        return b;
-};
-f64 fmin(f64 a, f64 b)
-{
-    if(a < b)
-        return a;
-    else
-        return b;
-};
-
-fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 lineH, 
+fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 lineH,
         fnt_Charset charset, u16 flags)
 {
     /* The exit error codes used by the 'err' label */
@@ -75,7 +46,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
 
     char fullFilePath[u_BUF_SIZE] = { 0 };
     if (strncpy(fullFilePath, u_get_asset_dir(), u_BUF_SIZE - 1) == NULL ||
-        strncat(fullFilePath, filePath, u_BUF_SIZE - strlen(fullFilePath) - 1) == NULL 
+        strncat(fullFilePath, filePath, u_BUF_SIZE - strlen(fullFilePath) - 1) == NULL
     ) {
         errCode = ERR_INIT_FT_FACE;
         goto err;
@@ -127,7 +98,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
         goto err;
     }
 
-    /* Prepare the temporary surfaces and the total width and height, 
+    /* Prepare the temporary surfaces and the total width and height,
      * used later to create the final surface with the appropriate dimensions */
     SDL_Surface** tmpSurfaces = malloc(sizeof(SDL_Surface*) * totalVisibleChars);
     u32 totalWidth = 0, totalHeight = 0;
@@ -166,7 +137,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
         if(m->horiAdvance != 0)
             currentGlyph->offsetX = (f32)m->horiBearingX / m->horiAdvance;
 
-        /* It took me 5 days to come up with this one line, 
+        /* It took me 5 days to come up with this one line,
          * so I don't think you should bother trying to understand it yourself.
          * You (probably) have the luxury to only need to know, WHAT this does, not HOW... */
         if(lineH != 0)
@@ -193,7 +164,7 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
         SDL_LockSurface(currentSurface);
         SDL_FillRect(currentSurface, NULL, SDL_MapRGBA(currentSurface->format, 0, 0, 0, 0));
 
-        /* Go through all the pixels one by one, 
+        /* Go through all the pixels one by one,
          * and map them over onto the current glyph's temp surface */
         for (u32 y = 0; y < glyphSlot->bitmap.rows; ++y) {
             for (u32 x = 0; x < glyphSlot->bitmap.width; ++x) {
@@ -215,8 +186,8 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
         errCode = ERR_CREATE_FINAL_SURFACE;
         goto err;
     }
-    
-    /* Iterate through the temporary surfaces and draw each of them, 
+
+    /* Iterate through the temporary surfaces and draw each of them,
      * one by one, onto the final surface */
     for(u32 i = 0; i < totalVisibleChars; i++){
         SDL_BlitSurface(tmpSurfaces[i], NULL, finalSurface, (SDL_Rect *)&newFont->glyphs[i].srcRect);
@@ -236,10 +207,10 @@ fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, 
     SDL_FreeSurface(finalSurface);
 
     SDL_SetTextureBlendMode(newFont->texture, SDL_BLENDMODE_BLEND);
-    fnt_setTextColor(newFont, 
-        FNT_DEFAULT_TEXT_COLOR.r, 
-        FNT_DEFAULT_TEXT_COLOR.g, 
-        FNT_DEFAULT_TEXT_COLOR.b, 
+    fnt_setTextColor(newFont,
+        FNT_DEFAULT_TEXT_COLOR.r,
+        FNT_DEFAULT_TEXT_COLOR.g,
+        FNT_DEFAULT_TEXT_COLOR.b,
         FNT_DEFAULT_TEXT_COLOR.a
     );
 
@@ -250,69 +221,69 @@ err:
     switch(errCode){
         /* We don't care about 'DRY' here, totally not bc im too lazy */
         default: case EXIT_OK:
-            fprintf(stderr, 
+            fprintf(stderr,
                 "[fnt_initFont]: Something is bad in the code; this situation should never occur. Not freeing any resources allocated in this function!\n"
             );
             break;
-    	case ERR_CREATE_FNT_TEXTURE:
-	        fprintf(stderr, 
-	        	"[fnt_initFont]: Failed to create the font's texture. Reason: %s.\n",
-	        	 SDL_GetError()
-	        );
-			break;
-    	case ERR_CREATE_FINAL_SURFACE:
-	        fprintf(stderr, 
-	        	"[fnt_initFont]: Failed to create the final surface the font's texture. Reason: %s.\n",
-	        	 SDL_GetError()
-	        );
-			break;
-    	case ERR_CREATE_CHAR_SURFACE:
-	        fprintf(stderr, 
-	        	"[fnt_initFont]: Failed to create a surface for the character \'%c\'. Reason: %s.\n",
-	        	 c, SDL_GetError()
-	        );
-			break;
-    	case ERR_FT_LOAD_CHAR:
-	        fprintf(stderr, 
-	        	"[fnt_loadFont]: Failed to load the character \'%c\'. Reason: %s",
-	        	 c, FT_Error_String(FreeType_errCode)
-	        );
-			break;
-    	case ERR_ALLOC_FNT_GLYPHS:
-	        fprintf(stderr, "[fnt_loadFont]: Failed to allocate memory for the new font's glyphs.\n");
-			break;
+        case ERR_CREATE_FNT_TEXTURE:
+            fprintf(stderr,
+                "[fnt_initFont]: Failed to create the font's texture. Reason: %s.\n",
+                 SDL_GetError()
+            );
+            break;
+        case ERR_CREATE_FINAL_SURFACE:
+            fprintf(stderr,
+                "[fnt_initFont]: Failed to create the final surface the font's texture. Reason: %s.\n",
+                 SDL_GetError()
+            );
+            break;
+        case ERR_CREATE_CHAR_SURFACE:
+            fprintf(stderr,
+                "[fnt_initFont]: Failed to create a surface for the character \'%c\'. Reason: %s.\n",
+                 c, SDL_GetError()
+            );
+            break;
+        case ERR_FT_LOAD_CHAR:
+            fprintf(stderr,
+                "[fnt_loadFont]: Failed to load the character \'%c\'. Reason: %s",
+                 c, FT_Error_String(FreeType_errCode)
+            );
+            break;
+        case ERR_ALLOC_FNT_GLYPHS:
+            fprintf(stderr, "[fnt_loadFont]: Failed to allocate memory for the new font's glyphs.\n");
+            break;
         case ERR_FT_SET_PIXEL_SIZES:
-	        fprintf(stderr, 
+            fprintf(stderr,
                 "[fnt_loadFont]: Failed set pixel sizes for the new font. Reason:%s.\n",
                 FT_Error_String(FreeType_errCode)
             );
             break;
         case ERR_GET_FILEPATH:
-	        fprintf(stderr, 
-	        	"[fnt_loadFont]: Failed to get the full path to the font.\n."
-	        );
+            fprintf(stderr,
+                "[fnt_loadFont]: Failed to get the full path to the font.\n."
+            );
             break;
-    	case ERR_INIT_FT_FACE:
-	        fprintf(stderr, 
-	        	"[fnt_loadFont]: Failed to create a FreeType face. Reason: %s.\n",
-	        	 FT_Error_String(FreeType_errCode)
-	        );
-			break;
-    	case ERR_INIT_FREETYPE:
-	        fprintf(stderr, 
-	        	"[fnt_loadFont]: Failed to initialize FreeType. Reason: %s.\n",
-	        	 FT_Error_String(FreeType_errCode)
-	        );
-			break;
-    	case ERR_ALLOC_FNT_STRUCT:
-	        fprintf(stderr, "[fnt_loadFont]: Failed to allocate memory for the new font struct.\n");
-			break;
+        case ERR_INIT_FT_FACE:
+            fprintf(stderr,
+                "[fnt_loadFont]: Failed to create a FreeType face. Reason: %s.\n",
+                 FT_Error_String(FreeType_errCode)
+            );
+            break;
+        case ERR_INIT_FREETYPE:
+            fprintf(stderr,
+                "[fnt_loadFont]: Failed to initialize FreeType. Reason: %s.\n",
+                 FT_Error_String(FreeType_errCode)
+            );
+            break;
+        case ERR_ALLOC_FNT_STRUCT:
+            fprintf(stderr, "[fnt_loadFont]: Failed to allocate memory for the new font struct.\n");
+            break;
     }
-    
+
     /* Depending on the stage of the initialization at which the error occured,
-     * free the resources that might have been allocated up to that point 
+     * free the resources that might have been allocated up to that point
      *
-     * (We are assuming tha the error codes are ordered appropriately in the EXIT_CODES enum) 
+     * (We are assuming tha the error codes are ordered appropriately in the EXIT_CODES enum)
     */
     if(errCode >= ERR_CREATE_FNT_TEXTURE){
         SDL_FreeSurface(finalSurface);
@@ -367,7 +338,7 @@ i32 fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const ch
                 if(i < fnt->visibleChars.total && i >= 0){
                     fnt_GlyphData *currentGlyph = &fnt->glyphs[i];
 
-                    rect_t glyphDestRect = { 
+                    rect_t glyphDestRect = {
                         .x = pos->x + penX + (currentGlyph->offsetX * fnt->charW),
                         .y = pos->y + penY + (currentGlyph->offsetY * fnt->lineHeight),
                         .w = (i32)(fnt->charW * currentGlyph->scaleX),
@@ -385,7 +356,7 @@ i32 fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const ch
                     }
 
                     rect_t charDestRect = (rect_t){
-                        .x = pos->x + penX, 
+                        .x = pos->x + penX,
                         .y = pos->y + penY,
                         .w = fnt->charW,
                         .h = fnt->lineHeight
@@ -430,7 +401,7 @@ i32 fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const ch
 
     if (fnt->flags & FNT_FLAG_DISPLAY_TEXT_RECTS) {
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-        SDL_RenderDrawRect(renderer, &(SDL_Rect) { 
+        SDL_RenderDrawRect(renderer, &(SDL_Rect) {
                 .x = pos->x - 1,
                 .y = pos->y - 1,
                 .w = maxPenX + 2,

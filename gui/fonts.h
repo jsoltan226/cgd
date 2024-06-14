@@ -1,7 +1,6 @@
 #ifndef FONTS_H
 #define FONTS_H
 
-#include <cgd/core/datastruct/hashtable.h>
 #include <cgd/core/shapes.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
@@ -48,7 +47,7 @@ typedef struct {
 
     fnt_GlyphData *glyphs;
     struct {
-        u32 first; u32 last; u32 total; 
+        u32 first; u32 last; u32 total;
     } visibleChars;
     fnt_Charset charset;
 
@@ -60,7 +59,7 @@ typedef struct {
     u16 flags;
 } fnt_Font;
 
-fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 charH, 
+fnt_Font *fnt_initFont(const char *filePath, SDL_Renderer *renderer, f32 charW, f32 charH,
         fnt_Charset charset, u16 flags);
 
 int fnt_renderText(fnt_Font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const char *fmt, ...);

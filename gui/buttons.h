@@ -27,7 +27,7 @@ typedef struct {
     bool hovering;
 
     oe_OnEvent onClick;
-    
+
     u32 flags;
 } btn_Button;
 

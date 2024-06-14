@@ -23,7 +23,7 @@ bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
     for(int i = 0; i < cfg->layerCount; i++)
     {
         bg_Layer* item = &bg->layers[i];
-        
+
         /* Load the texture and enable alpha blending */
         item->asset = asset_load(cfg->layerImageFilePaths[i], renderer);
         SDL_SetTextureBlendMode(item->asset->texture, SDL_BLENDMODE_BLEND);
@@ -39,7 +39,7 @@ bg_ParallaxBG* bg_initBG(bg_BGConfig* cfg, SDL_Renderer* renderer)
 
 void bg_updateBG(bg_ParallaxBG* bg)
 {
-    /* Simulate an infinite scrolling effect on all the layers */ 
+    /* Simulate an infinite scrolling effect on all the layers */
     for(int i = 0; i < bg->layerCount; i++)
     {
         bg->layers[i].x += bg->layers[i].speed;
@@ -63,10 +63,10 @@ void bg_destroyBG(bg_ParallaxBG* bg)
     /* Destroy the layers' textures, and then the whole bg->layers array */
     for(int i = 0; i < bg->layerCount; i++)
         asset_destroy(bg->layers[i].asset);
-        
+
     free(bg->layers);
     bg->layers = NULL;
-    
+
     /* Free the BG struct */
     free(bg);
     bg = NULL;

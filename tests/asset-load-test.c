@@ -16,6 +16,9 @@
 #define IMG_REL_PATH_PREFIX "tests/"
 static const char * const * test_img_names;
 
+SDL_Window *window = NULL;
+SDL_Renderer *renderer = NULL;
+
 int main(void)
 {
     s_set_log_out_filep(stdout);
@@ -24,14 +27,14 @@ int main(void)
     s_set_user_fault(NO_USER_FAULT);
 
     s_log_debug("raw2sdltest", "Creating SDL Window", NULL);
-    SDL_Window *window = SDL_CreateWindow("test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
     if (window == NULL) {
         s_log_error("raw2sdltest", "Failed to create SDL Window: %s", SDL_GetError());
         goto err;
     }
 
     s_log_debug("raw2sdltest", "Creating SDL Renderer", NULL);
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
+    renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) {
         s_log_error("raw2sdltest", "Failed to create SDL Renderer: %s", SDL_GetError());
         goto err;

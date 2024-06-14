@@ -9,15 +9,13 @@
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cgd/core/util.h>
-#include <cgd/core/ansi-esc-sequences.h>
-#include <cgd/input/keyboard.h>
-#include <cgd/input/mouse.h>
-#include <cgd/gui/fonts.h>
-#include <cgd/gui/menu-mgr.h>
+#include "core/util.h"
+#include "input/keyboard.h"
+#include "input/mouse.h"
+#include "gui/fonts.h"
+#include "gui/menu-mgr.h"
 #include "config.h"
-#include <cgd/core/function-arg-macros.h>
-#include <cgd/core/log.h>
+#include "core/log.h"
 
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
@@ -128,7 +126,7 @@ int main(int argc, char **argv)
         SDL_Event event;
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_QUIT){
-                running = false; 
+                running = false;
             }
         }
 
@@ -153,8 +151,8 @@ int main(int argc, char **argv)
 
             fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
 
-            fnt_renderText(sourceCodeProFont, renderer,  &textPos, 
-                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)", 
+            fnt_renderText(sourceCodeProFont, renderer,  &textPos,
+                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)",
                         (sourceCodeProFont->flags & 4) >> 2,
                         (sourceCodeProFont->flags & 2) >> 1,
                          sourceCodeProFont->flags & 1,

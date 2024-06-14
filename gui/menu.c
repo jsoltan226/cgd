@@ -28,11 +28,11 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
     mn->sprites.ptrArray = malloc(sizeof(spr_Sprite) * cfg->spriteInfo.count);
     mn->buttons.ptrArray = malloc(sizeof(btn_Button) * cfg->buttonInfo.count);
     mn->eventListeners.ptrArray = malloc(sizeof(evl_EventListener) * cfg->eventListenerInfo.count);
-    assert( (mn->sprites.ptrArray != NULL || mn->sprites.count == 0) && 
+    assert( (mn->sprites.ptrArray != NULL || mn->sprites.count == 0) &&
             (mn->buttons.ptrArray != NULL || mn->buttons.count == 0) &&
             (mn->eventListeners.ptrArray != NULL || mn->eventListeners.count == 0)
           );
-    
+
     /* Copy-over-data section */
     mn->sprites.count = cfg->spriteInfo.count;
     mn->buttons.count = cfg->buttonInfo.count;
@@ -50,7 +50,7 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
         mn_eventListenerConfig *currentCfg = &cfg->eventListenerInfo.cfgs[i];
         oe_OnEvent onEventObj;
         mn_initOnEventObj(&onEventObj, &currentCfg->onEventCfg, mn);
-        mn->eventListeners.ptrArray[i] = 
+        mn->eventListeners.ptrArray[i] =
             evl_initEventListener(&currentCfg->eventListenerCfg, &onEventObj, &tempEvlTargetObj);
     }
 
@@ -111,11 +111,11 @@ void mn_destroyMenu(mn_Menu* mn)
         spr_destroySprite(mn->sprites.ptrArray[i]);
     free(mn->sprites.ptrArray);
     mn->sprites.ptrArray = NULL;
-     
+
     for(int i = 0; i < mn->buttons.count; i++)
         btn_destroyButton(mn->buttons.ptrArray[i]);
     free(mn->buttons.ptrArray);
-    mn->buttons.ptrArray = NULL; 
+    mn->buttons.ptrArray = NULL;
 
     for(int i = 0; i < mn->eventListeners.count; i++)
         evl_destroyEventListener(mn->eventListeners.ptrArray[i]);
@@ -227,7 +227,7 @@ static int mn_memCopy(int argc, void **argv)
 
     if(argc != 3 || argv[0] == NULL || argv[1] == NULL || argv[2] == NULL)
         return EXIT_FAILURE;
-    
+
     const void *source = argv[0];
     void *dest = argv[1];
     /*
@@ -264,7 +264,7 @@ static int mn_flipBool(int argc, void **argv)
 
     if(argc != 1 || !argv[0])
         return EXIT_FAILURE;
-    
+
     /* argv[0] contains the pointer to a boolean variable, so convert it to a bool* and then dereference it */
     *(bool*)argv[0] = !(*(bool*)argv[0]);
 

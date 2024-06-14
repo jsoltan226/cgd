@@ -1,10 +1,11 @@
 #ifndef PIXEL_H_
 #define PIXEL_H_
 
+#include "shapes.h"
 #include "util.h"
 #include "int.h"
 
-typedef u_Color pixel_t;
+typedef color_RGBA32_t pixel_t;
 
 struct pixel_data {
     u8 **data;

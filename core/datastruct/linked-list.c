@@ -1,75 +1,86 @@
 #include "linked-list.h"
+#include "core/log.h"
 #include <stdlib.h>
 
-lls_LinkedList *lls_createLinkedList(void *head_content)
+struct linked_list * linked_list_create(void *head_content)
 {
-    lls_LinkedList *lls = malloc(sizeof(lls_LinkedList));
-    if (lls == NULL) return NULL;
-
-    lls_Node *firstNode = lls_createNode(head_content);
-    if (firstNode == NULL) {
-        free(lls);
+    struct linked_list *ll = malloc(sizeof(struct linked_list));
+    if (ll == NULL) {
+        s_log_error("linked-list", "malloc() for struct linked_list failed!");
         return NULL;
     }
 
-    lls->head = firstNode;
-    lls->tail = firstNode;
-    return lls;
-}
-
-lls_Node *lls_appendNode(lls_Node *referenceNode, void *content)
-{
-    lls_Node *newNode = calloc(1, sizeof(lls_Node));   
-    if (newNode == NULL) return NULL;
-
-    if (referenceNode != NULL) {
-		newNode->next = referenceNode->next;
-        newNode->previous = referenceNode;
-		if (referenceNode->next != NULL) referenceNode->next->previous = newNode;
-        referenceNode->next = newNode;
+    struct ll_node *first_node = linked_list_create_node(head_content);
+    if (first_node == NULL) {
+        s_log_error("linked-list", "linked_list_create_node() returned NULL!");
+        free(ll);
+        return NULL;
     }
 
-    newNode->content = content;
-    return newNode;
+    ll->head = first_node;
+    ll->tail = first_node;
+    return ll;
 }
 
-lls_Node *lls_prependNode(lls_Node *referenceNode, void *content)
+struct ll_node * linked_list_append(struct ll_node *at, void *content)
 {
-    lls_Node *newNode = calloc(1, sizeof(lls_Node));   
-    if (newNode == NULL) return NULL;
-
-    if (referenceNode != NULL) {
-		newNode->previous = referenceNode->previous;
-		newNode->next = referenceNode;
-		if (referenceNode->previous != NULL) referenceNode->previous->next = newNode;
-        referenceNode->previous = newNode;
+    struct ll_node *new_node = calloc(1, sizeof(struct ll_node));
+    if (new_node == NULL) {
+        s_log_error("linked-list", "linked_list_append: calloc() for new_node failed!");
+        return NULL;
     }
-    
-    newNode->content = content;
-    return newNode;
+
+    if (at != NULL) {
+        new_node->next = at->next;
+        new_node->prev = at;
+        if (at->next != NULL) at->next->prev= new_node;
+        at->next = new_node;
+    }
+
+    new_node->content = content;
+    return new_node;
 }
 
-void lls_destroyNode(lls_Node *node)
+struct ll_node * linked_list_prepend(struct ll_node *at, void *content)
 {
-    if (node->previous != NULL) node->previous->next = node->next;
-    if (node->next != NULL) node->next->previous = node->previous;
+    struct ll_node *new_node = calloc(1, sizeof(struct ll_node));
+    if (new_node == NULL) {
+        s_log_error("linked-list", "linked_list_prepend: calloc() for new_node failed!");
+        return NULL;
+    }
+
+    if (at != NULL) {
+        new_node->prev = at->prev;
+        new_node->next = at;
+        if (at->prev != NULL) at->prev->next = new_node;
+        at->prev = new_node;
+    }
+
+    new_node->content = content;
+    return new_node;
+}
+
+void linked_list_destroy_node(struct ll_node *node)
+{
+    if (node->prev != NULL) node->prev->next = node->next;
+    if (node->next != NULL) node->next->prev = node->prev;
     free(node);
 }
 
-void lls_destroyLinkedList(lls_LinkedList *list)
+void linked_list_destroy(struct linked_list *list)
 {
-	if (list == NULL) return;
+    if (list == NULL) return;
 
-	lls_destroyNodesRecursively(list->head);
-	free(list);
+    linked_list_recursive_destroy_nodes(list->head);
+    free(list);
 }
 
-void lls_destroyNodesRecursively(lls_Node *head)
+void linked_list_recursive_destroy_nodes(struct ll_node *head)
 {
-    lls_Node *currentNode = head;
-    while (currentNode != NULL) {
-		lls_Node *nextNode = currentNode->next;
-        free(currentNode);
-        currentNode = nextNode;
+    struct ll_node *curr_node = head;
+    while (curr_node != NULL) {
+        struct ll_node *next_node = curr_node->next;
+        free(curr_node);
+        curr_node = next_node;
     };
 }

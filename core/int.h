@@ -13,7 +13,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-#if defined(__STDC_IEC_559__) || defined (__ANDROID__)
+#if defined(__STDC_IEC_559__) || defined (__ANDROID__) || defined (_WIN64)
 typedef float f32;
 typedef double f64;
 #else

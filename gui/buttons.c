@@ -4,7 +4,6 @@
 #include "core/util.h"
 #include "core/shapes.h"
 #include "core/int.h"
-#include "core/function-arg-macros.h"
 #include "on-event.h"
 #include "sprite.h"
 #include <SDL2/SDL_render.h>
@@ -26,7 +25,7 @@ btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32
     btn->onClick.fn = onClick->fn;
     btn->onClick.argc = onClick->argc;
     memcpy(btn->onClick.argv, onClick->argv, OE_ARGV_SIZE * sizeof(void*));
-    
+
     btn->flags = flags;
 
     return btn;
