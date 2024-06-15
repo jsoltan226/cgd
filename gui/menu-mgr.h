@@ -12,7 +12,7 @@ typedef struct {
     int inMenuDepth;
     mn_Menu **fullMenuList;
     int menuCount;
-    evl_EventListener **globalEventListeners;
+    struct event_listener **globalEventListeners;
     int globalEventListenerCount;
 } mmgr_MenuManager;
 
@@ -20,7 +20,7 @@ typedef struct {
     int menuCount;
     mn_MenuConfig *menus;
     mn_OnEventConfig *globalEventListenerOnEventCfgs;
-    evl_EventListenerConfig *globalEventListenerCfgs;
+    struct event_listener_config *globalEventListenerCfgs;
     int globalEventListenerCount;
 } mmgr_MenuManagerConfig;
 

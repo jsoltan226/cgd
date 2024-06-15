@@ -1,60 +1,67 @@
 #include "event-listener.h"
 #include "on-event.h"
+#include "core/log.h"
 #include "input/pressable-obj.h"
 #include <stdio.h>
-#include <assert.h>
 
-evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *onEventObj, evl_Target *t)
+struct event_listener * event_listener_init(
+    struct event_listener_config *cfg,
+    struct on_event_obj *on_event_obj,
+    struct event_listener_target *t
+)
 {
-    evl_EventListener *evl = malloc(sizeof(evl_EventListener));
-    assert(evl != NULL);
+    struct event_listener *evl = malloc(sizeof(struct event_listener));
+    if (evl == NULL) {
+        s_log_error("event-listener", "malloc() failed for struct event_listener");
+        return NULL;
+    }
 
-    evl->onEvent.fn = onEventObj->fn;
-    evl->onEvent.argc = onEventObj->argc;
-    memcpy(evl->onEvent.argv, onEventObj->argv, OE_ARGV_SIZE * sizeof(void*));
+    evl->on_event_obj.fn = on_event_obj->fn;
+    memcpy(evl->on_event_obj.argv_buf, on_event_obj->argv_buf, ONEVENT_OBJ_ARGV_SIZE);
 
     /* Copy other info given in configuration */
     evl->type = cfg->type;
     evl->detected = false;
 
-    evl->objectPtr = NULL;
+    evl->obj_ptr = NULL;
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
-            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).pressed);
+            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).pressed);
             break;
         case EVL_EVENT_KEYBOARD_KEYDOWN:
-            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).down);
+            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).down);
             break;
         case EVL_EVENT_KEYBOARD_KEYUP:
-            evl->objectPtr = &(kb_getKey(t->keyboard, cfg->targetInfo.keycode).up);
+            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).up);
             break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
-            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].pressed;
+            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].pressed;
             break;
         case EVL_EVENT_MOUSE_BUTTONDOWN:
-            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].down;
+            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].down;
             break;
         case EVL_EVENT_MOUSE_BUTTONUP:
-            evl->objectPtr = &t->mouse->buttons[cfg->targetInfo.button_type].up;
+            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].up;
             break;
     }
-
-    assert(evl->objectPtr != NULL);
 
     return evl;
 }
 
-void evl_updateEventListener(evl_EventListener *evl)
+void event_listener_update(struct event_listener *evl)
 {
-    /* It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
-    evl->detected = *evl->objectPtr;
+    if (evl == NULL) return;
 
-    if(evl->detected && evl->onEvent.fn)
-        oe_executeOnEventfn(evl->onEvent);
+    /* It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
+    evl->detected = *evl->obj_ptr;
+
+    if(evl->detected && evl->on_event_obj.fn)
+        on_event_execute(evl->on_event_obj);
 }
 
-void evl_destroyEventListener(evl_EventListener *evl)
+void event_listener_destroy(struct event_listener *evl)
 {
+    if (evl == NULL) return;
+
     free(evl);
-    evl = NULL;
 }

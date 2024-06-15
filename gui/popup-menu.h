@@ -1,16 +1,16 @@
 #ifndef POPUP_MENU_H
 #define POPUP_MENU_H
 
-#include <cgd/gui/buttons.h>
-#include <cgd/gui/event-listener.h>
-#include <cgd/gui/sprite.h>
+#include "buttons.h"
+#include "event-listener.h"
+#include "sprite.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
 
 typedef struct {
-    btn_Button *buttons;
-    evl_EventListener *eventListeners;
-    spr_Sprite *sprites;
+    struct button *buttons;
+    struct event_listener *eventListeners;
+    sprite_t *sprites;
 } pum_PopUpMenu;
 
 typedef struct {

@@ -1,16 +1,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <cgd/gui/event-listener.h>
-#include <cgd/gui/menu.h>
-#include <cgd/gui/menu-mgr.h>
-#include <cgd/gui/on-event.h>
-#include <cgd/gui/parallax-bg.h>
-#include <cgd/gui/sprite.h>
-#include <cgd/gui/buttons.h>
-#include <cgd/input/keyboard.h>
-#include <cgd/core/int.h>
-#include <cgd/core/shapes.h>
+#include "gui/event-listener.h"
+#include "gui/menu.h"
+#include "gui/menu-mgr.h"
+#include "gui/on-event.h"
+#include "gui/parallax-bg.h"
+#include "gui/sprite.h"
+#include "gui/buttons.h"
+#include "input/keyboard.h"
+#include "core/int.h"
+#include "core/shapes.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
@@ -60,15 +60,15 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
     .menus = (mn_MenuConfig*)(mn_MenuConfig[]){
         {
             .bgConfig = {
-                .layerImageFilePaths = (const char**)(const char*[]){
+                .layer_img_filepaths = (const char**)(const char*[]){
                     "gui/background/layer_01.png",
                     "gui/background/layer_02.png",
                     "gui/background/layer_03.png",
                     "gui/background/layer_04.png",
                     "gui/background/layer_05.png",
                 },
-                .layerSpeeds = (int*)(int[]){ 1, 2, 4, 16, 16 },
-                .layerCount = 5,
+                .layer_speeds = (i32*)(i32[]){ 1, 2, 4, 16, 16 },
+                .layer_count = 5,
             },
 
             .spriteInfo = { 0 },
@@ -80,20 +80,20 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                         .spriteCfg = {
                             /* HITBOX */
                             .hitbox = {
-                                .x = TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
-                                .y = TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
+                                .x = TESTBUTTON_X + (i32)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
+                                .y = TESTBUTTON_Y + (i32)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
 
-                                .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
-                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
+                                .w = (i32)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
+                                .h = (i32)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
                             },
 
                             /* SOURCE RECT */
-                            .srcRect = { 0, 0, 780, 280 },
+                            .src_rect = { 0, 0, 780, 280 },
 
                             /* DESTINATION RECT */
-                            .destRect = { 20, 20, 200, 200 },
+                            .dst_rect = { 20, 20, 200, 200 },
 
-                            .textureFilePath = "gui/buttons/testButton.png"
+                            .texture_filepath = "gui/buttons/testButton.png"
                         },
                         .onClickCfg = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,
@@ -122,21 +122,21 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                         .spriteCfg = {
                             /* HITBOX */
                             .hitbox = {
-                                .x = 100 + TESTBUTTON_X + (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
-                                .y = 150 + TESTBUTTON_Y + (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
+                                .x = 100 + TESTBUTTON_X + (i32)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcX/tb_SrcWidth  )),
+                                .y = 150 + TESTBUTTON_Y + (i32)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcY/tb_SrcHeight )),
 
-                                .w = (int)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
-                                .h = (int)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
+                                .w = (i32)( TESTBUTTON_WIDTH  * ( tb_HitboxSrcWidth/tb_SrcWidth   )),
+                                .h = (i32)( TESTBUTTON_HEIGHT * ( tb_HitboxSrcHeight/tb_SrcHeight ))
                             },
 
                             /* SOURCE RECT */
-                            .srcRect = { 0, 0, 780, 280 },
+                            .src_rect = { 0, 0, 780, 280 },
 
                             /* DESTINATION RECT */
-                            .destRect = { 100 + 20, 150 + 20, 200, 200 },
+                            .dst_rect = { 100 + 20, 150 + 20, 200, 200 },
 
                             /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
-                            .textureFilePath = "gui/buttons/testButton.png"
+                            .texture_filepath = "gui/buttons/testButton.png"
                         },
                         .onClickCfg = {
                             .onEventType = MN_ONEVENT_SWITCHMENU,
@@ -153,7 +153,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
                     {
                         .eventListenerCfg = {
                             .type = EVL_EVENT_KEYBOARD_KEYDOWN,
-                            .targetInfo = { .keycode = KB_KEYCODE_P },
+                            .target_info = { .keycode = KB_KEYCODE_P },
                         },
                         .onEventCfg = {
                             .onEventType = MN_ONEVENT_PRINTMESSAGE,
@@ -180,18 +180,18 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
             .onEventArgs = { .boolVarPtr = &displayButtonHitboxOutlines },
         }
     },
-    .globalEventListenerCfgs = (evl_EventListenerConfig*)(evl_EventListenerConfig[]){
+    .globalEventListenerCfgs = (struct event_listener_config*)(struct event_listener_config[]){
         {
             .type = EVL_EVENT_KEYBOARD_KEYUP,
-            .targetInfo = { .keycode = KB_KEYCODE_Q },
+            .target_info = { .keycode = KB_KEYCODE_Q },
         },
         {
             .type = EVL_EVENT_KEYBOARD_KEYUP,
-            .targetInfo = { .keycode = KB_KEYCODE_ESCAPE },
+            .target_info = { .keycode = KB_KEYCODE_ESCAPE },
         },
         {
             .type = EVL_EVENT_KEYBOARD_KEYDOWN,
-            .targetInfo = { .keycode = KB_KEYCODE_H },
+            .target_info = { .keycode = KB_KEYCODE_H },
         },
     },
     .globalEventListenerCount = 3,

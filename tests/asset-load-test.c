@@ -5,11 +5,9 @@
 #include <cgd/core/log.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
-#include <linux/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/time.h>
 
 #define IMG_REL_PATH_BUF_SIZE 256

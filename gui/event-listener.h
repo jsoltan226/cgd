@@ -6,37 +6,41 @@
 #include "input/mouse.h"
 #include "on-event.h"
 
-typedef enum {
+enum event_listener_type {
     EVL_EVENT_KEYBOARD_KEYPRESS,
     EVL_EVENT_KEYBOARD_KEYDOWN,
     EVL_EVENT_KEYBOARD_KEYUP,
     EVL_EVENT_MOUSE_BUTTONPRESS,
     EVL_EVENT_MOUSE_BUTTONDOWN,
     EVL_EVENT_MOUSE_BUTTONUP,
-} evl_EventType;
+};
 
-typedef struct {
-    evl_EventType type;
-    oe_OnEvent onEvent;
-    bool *objectPtr;
+struct event_listener {
+    enum event_listener_type type;
+    struct on_event_obj on_event_obj;
+    bool *obj_ptr;
     bool detected;
-} evl_EventListener;
+};
 
-typedef struct {
-    evl_EventType type;
+struct event_listener_config {
+    enum event_listener_type type;
     union {
         enum mouse_button button_type;
         enum keyboard_keycode keycode;
-    } targetInfo;
-} evl_EventListenerConfig;
+    } target_info;
+};
 
-typedef struct {
+struct event_listener_target {
     struct mouse *mouse;
     struct keyboard *keyboard;
-} evl_Target;
+};
 
-evl_EventListener* evl_initEventListener(evl_EventListenerConfig *cfg, oe_OnEvent *oeObj, evl_Target *t);
-void evl_updateEventListener(evl_EventListener *evl);
-void evl_destroyEventListener(evl_EventListener *evl);
+struct event_listener * event_listener_init(
+    struct event_listener_config *cfg,
+    struct on_event_obj *on_event_obj,
+    struct event_listener_target *target
+);
+void event_listener_update(struct event_listener *evl);
+void event_listener_destroy(struct event_listener *evl);
 
 #endif

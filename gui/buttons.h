@@ -1,5 +1,5 @@
-#ifndef BUTTONS_H
-#define BUTTONS_H
+#ifndef BUTTONS_H_
+#define BUTTONS_H_
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
@@ -13,29 +13,31 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum btn_flags {
+enum button_flags {
     BTN_DISPLAY_HITBOX_OUTLINE  = 1 << 0,
     BTN_DISPLAY_HOVER_TINT      = 1 << 1,
 };
 #define BTN_DEFAULT_FLAGS (BTN_DISPLAY_HOVER_TINT)
 
-typedef struct {
-    spr_Sprite *sprite;
+struct button {
+    sprite_t *sprite;
 
-    pressable_obj_t *button;
-    bool is_being_clicked; /* Whether the button was clicked and the mouse is still being held */
+    pressable_obj_t button;
+    bool held; /* Whether the button was clicked and the mouse is still being held */
     bool hovering;
 
-    oe_OnEvent onClick;
+    struct on_event_obj on_click;
 
     u32 flags;
-} btn_Button;
+};
 
-btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32 flags, SDL_Renderer *renderer);
-void btn_updateButton(btn_Button *btn, struct mouse *mouse);
+struct button * button_init(struct sprite_config *sprite_cfg,
+    struct on_event_obj *on_click, u32 flags, SDL_Renderer *renderer);
 
-void btn_drawButton(btn_Button *btn, SDL_Renderer *r);
+void button_update(struct button *btn, struct mouse *mouse);
 
-void btn_destroyButton(btn_Button *btn);
+void button_draw(struct button *btn, SDL_Renderer *r);
 
-#endif
+void button_destroy(struct button *btn);
+
+#endif /* BUTTONS_H_ */

@@ -1,20 +1,21 @@
-#ifndef ON_EVENT_H
-#define ON_EVENT_H
+#ifndef ON_EVENT_H_
+#define ON_EVENT_H_
+#include "core/int.h"
 #include <stdlib.h>
 
-#define OE_ARGV_SIZE    4
+#define ONEVENT_OBJ_ARGV_LEN    16
+#define ONEVENT_OBJ_ARGV_SIZE   (ONEVENT_OBJ_ARGV_LEN * sizeof(u64))
 
-typedef int(*oe_OnEventFnPtr)(int argc, void** argv);
+typedef i32(*on_event_fn)(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 
-typedef struct {
-    oe_OnEventFnPtr fn;
-    int argc;
-    void* argv[4];
-} oe_OnEvent;
+struct on_event_obj {
+    on_event_fn fn;
+    u64 argv_buf[ONEVENT_OBJ_ARGV_LEN];
+};
 
-#define oe_executeOnEventfn(oeObj)      do { \
-    if (oeObj.fn != NULL) \
-        oeObj.fn(oeObj.argc, oeObj.argv); \
+#define on_event_execute(oeObj) do {    \
+    if (oeObj.fn != NULL)               \
+        oeObj.fn(oeObj.argv_buf);       \
 } while (0);
 
-#endif
+#endif /* ON_EVENT_H_ */

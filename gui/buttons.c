@@ -1,4 +1,5 @@
 #include "buttons.h"
+#include "core/log.h"
 #include "input/mouse.h"
 #include "input/pressable-obj.h"
 #include "core/util.h"
@@ -7,32 +8,38 @@
 #include "on-event.h"
 #include "sprite.h"
 #include <SDL2/SDL_render.h>
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-btn_Button *btn_initButton(spr_SpriteConfig *spriteCfg, oe_OnEvent *onClick, u32 flags, SDL_Renderer *renderer)
+struct button *button_init(struct sprite_config *sprite_cfg,
+    struct on_event_obj *on_click, u32 flags,
+    SDL_Renderer *renderer)
 {
-    btn_Button *btn = calloc(1, sizeof(btn_Button));
-    assert(btn != NULL);
+    struct button *btn = calloc(1, sizeof(struct button));
+    if (btn == NULL) {
+        s_log_error("button", "calloc() failed for struct button!");
+        return NULL;
+    }
 
-    btn->sprite = spr_initSprite(spriteCfg, renderer);
-    assert(btn->sprite != NULL);
+    btn->sprite = sprite_init(sprite_cfg, renderer);
+    if (btn->sprite == NULL) {
+        s_log_error("button", "Failed to initialize the sprite!");
+        free(btn);
+        return NULL;
+    }
 
-    btn->button = pressable_obj_create();
-    assert(btn->button != NULL);
-
-    btn->onClick.fn = onClick->fn;
-    btn->onClick.argc = onClick->argc;
-    memcpy(btn->onClick.argv, onClick->argv, OE_ARGV_SIZE * sizeof(void*));
+    btn->on_click.fn = on_click->fn;
+    memcpy(btn->on_click.argv_buf, on_click->argv_buf, ONEVENT_OBJ_ARGV_SIZE);
 
     btn->flags = flags;
 
     return btn;
 }
 
-void btn_updateButton(btn_Button *btn, struct mouse *mouse)
+void button_update(struct button *btn, struct mouse *mouse)
 {
+    if (btn == NULL || mouse == NULL) return;
+
     btn->hovering = u_collision(
         &(rect_t) { mouse->x, mouse->y, 0, 0 },
         &btn->sprite->hitbox
@@ -40,27 +47,29 @@ void btn_updateButton(btn_Button *btn, struct mouse *mouse)
 
     const pressable_obj_t *mouse_button = &mouse->buttons[MOUSE_BUTTON_LEFT];
 
-    if (btn->is_being_clicked && (mouse_button->up || mouse_button->forceReleased)) {
-        btn->is_being_clicked = false;
-        if (btn->hovering) oe_executeOnEventfn(btn->onClick);
+    if (btn->held && (mouse_button->up || mouse_button->forceReleased)) {
+        btn->held = false;
+        if (btn->hovering) on_event_execute(btn->on_click);
     } else if (mouse_button->down && btn->hovering) {
-        btn->is_being_clicked = true;
+        btn->held = true;
     }
 
-    pressable_obj_update(btn->button, btn->is_being_clicked);
+    pressable_obj_update(&btn->button, btn->held);
 }
 
-void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
+void button_draw(struct button *btn, SDL_Renderer *renderer)
 {
+    if (btn == NULL || renderer == NULL) return;
+
     /* Draw the sprite */
-    spr_drawSprite(btn->sprite, renderer);
+    sprite_draw(btn->sprite, renderer);
 
     /* Draw the hitbox outline */
     if(btn->flags & BTN_DISPLAY_HITBOX_OUTLINE){
         static const color_RGBA32_t outline_normal = { 255, 0, 0, 255 };
         static const color_RGBA32_t outline_pressed = { 0, 255, 0, 255 };
 
-        color_RGBA32_t outline_color = btn->is_being_clicked ? outline_pressed : outline_normal;
+        color_RGBA32_t outline_color = btn->held ? outline_pressed : outline_normal;
 
         SDL_SetRenderDrawColor(renderer, u_color_arg_expand(outline_color));
         SDL_RenderDrawRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
@@ -69,7 +78,7 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
         static const color_RGBA32_t hover_tint = { 30, 30, 30, 100 };
         static const color_RGBA32_t click_tint = { 20, 20, 20, 128 };
 
-        if (btn->is_being_clicked) {
+        if (btn->held) {
             SDL_SetRenderDrawColor(renderer, u_color_arg_expand(click_tint));
             SDL_RenderFillRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
         } else if (btn->hovering) {
@@ -79,11 +88,10 @@ void btn_drawButton(btn_Button *btn, SDL_Renderer *renderer)
     }
 }
 
-void btn_destroyButton(btn_Button *btn)
+void button_destroy(struct button *btn)
 {
-    spr_destroySprite(btn->sprite);
-    pressable_obj_destroy(btn->button);
+    if (btn == NULL) return;
 
+    sprite_destroy(btn->sprite);
     free(btn);
-    btn = NULL;
 }

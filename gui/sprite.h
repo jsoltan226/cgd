@@ -1,25 +1,25 @@
-#ifndef SPRITE_H
-#define SPRITE_H
+#ifndef SPRITE_H_
+#define SPRITE_H_
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include <cgd/core/shapes.h>
-#include <cgd/asset-loader/asset.h>
+#include "core/shapes.h"
+#include "asset-loader/asset.h"
 
 typedef struct {
     rect_t hitbox;
-    rect_t srcRect, destRect;
+    rect_t src_rect, dst_rect;
     struct asset *asset;
-} spr_Sprite;
+} sprite_t;
 
-typedef struct {
-    rect_t hitbox, srcRect, destRect;
-    const char* textureFilePath;
-} spr_SpriteConfig;
+struct sprite_config {
+    rect_t hitbox, src_rect, dst_rect;
+    const char *texture_filepath;
+};
 
-spr_Sprite* spr_initSprite(spr_SpriteConfig* cfg, SDL_Renderer* r);
-void spr_drawSprite(spr_Sprite* spr, SDL_Renderer* r);
-void spr_destroySprite(spr_Sprite* spr);
+sprite_t * sprite_init(struct sprite_config *cfg, SDL_Renderer *r);
+void sprite_draw(sprite_t *spr, SDL_Renderer *r);
+void sprite_destroy(sprite_t *spr);
 
-#endif
+#endif /* SPRITE_H_ */

@@ -21,7 +21,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
 
     /* Allocate space for the menus and global event listeners */
     mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(mn_Menu*));
-    mmgr->globalEventListeners = malloc(cfg->globalEventListenerCount * sizeof(evl_EventListener*));
+    mmgr->globalEventListeners = malloc(cfg->globalEventListenerCount * sizeof(struct event_listener *));
     assert(
             (mmgr->fullMenuList != NULL || cfg->menuCount == 0) &&
             (mmgr->globalEventListeners != NULL || cfg->globalEventListenerCount == 0)
@@ -38,17 +38,17 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     }
 
     /* Initialize the global event listeners */
-    evl_Target tempEvlTargetObj = {
+    struct event_listener_target tempEvlTargetObj = {
         .keyboard = keyboard,
         .mouse = mouse,
     };
     for(int i = 0; i < cfg->globalEventListenerCount; i++){
-        /* Use the mn_OnEvent interface for initializing oe_OnEvent structs */
-        oe_OnEvent tempOEObj;
+        /* Use the mn_OnEvent interface for initializing on_event_obj structs */
+        struct on_event_obj tempOEObj;
         mn_initOnEventObj(&tempOEObj, &cfg->globalEventListenerOnEventCfgs[i], NULL);
 
         /* Initialize the event listener */
-        mmgr->globalEventListeners[i] = evl_initEventListener(&cfg->globalEventListenerCfgs[i], &tempOEObj, &tempEvlTargetObj);
+        mmgr->globalEventListeners[i] = event_listener_init(&cfg->globalEventListenerCfgs[i], &tempOEObj, &tempEvlTargetObj);
         assert(mmgr->globalEventListeners[i] != NULL);
     }
 
@@ -62,9 +62,8 @@ void mmgr_updateMenuManager(mmgr_MenuManager* mmgr,
     struct keyboard *keyboard, struct mouse *mouse, bool paused)
 {
     /* Update the event listeners first */
-    for(int i = 0; i < mmgr->globalEventListenerCount; i++){
-        evl_updateEventListener(mmgr->globalEventListeners[i]);
-    }
+    for(int i = 0; i < mmgr->globalEventListenerCount; i++)
+        event_listener_update(mmgr->globalEventListeners[i]);
 
     /* If paused, only update the event listeners. This is a temporary solution, though */
     if(paused) return;
@@ -107,9 +106,8 @@ void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr)
 
     /* Destroy the event listeners and the array olding them */
     for(int i = 0; i < mmgr->globalEventListenerCount; i++)
-    {
-        evl_destroyEventListener(mmgr->globalEventListeners[i]);
-    }
+        event_listener_destroy(mmgr->globalEventListeners[i]);
+
     free(mmgr->globalEventListeners);
     mmgr->globalEventListeners = NULL;
 

@@ -3,6 +3,7 @@
 
 #include "buttons.h"
 #include "event-listener.h"
+#include "on-event.h"
 #include "sprite.h"
 #include "parallax-bg.h"
 #include <cgd/input/mouse.h>
@@ -57,35 +58,35 @@ typedef struct {
     } onEventArgs;
 } mn_OnEventConfig;
 
-typedef bg_BGConfig mn_BGConfig;
-typedef spr_SpriteConfig mn_SpriteConfig;
+typedef struct parallax_bg_config mn_BGConfig;
+typedef struct sprite_config mn_SpriteConfig;
 typedef struct {
-    spr_SpriteConfig spriteCfg;
+    struct sprite_config spriteCfg;
     mn_OnEventConfig onClickCfg;
     uint32_t flags;
 } mn_ButtonConfig;
 typedef struct {
-    evl_EventListenerConfig eventListenerCfg;
+    struct event_listener_config eventListenerCfg;
     mn_OnEventConfig onEventCfg;
 } mn_eventListenerConfig;
 
 struct  mn_Menu {
     struct {
-        evl_EventListener **ptrArray;
+        struct event_listener **ptrArray;
         int count;
     } eventListeners;
 
     struct {
-        spr_Sprite **ptrArray;
+        sprite_t **ptrArray;
         int count;
     } sprites;
 
     struct {
-        btn_Button **ptrArray;
+        struct button **ptrArray;
         int count;
     } buttons;
 
-    bg_ParallaxBG *bg;
+    struct parallax_bg *bg;
 
     mn_ID switchTo;
     mn_ID ID;
@@ -119,6 +120,6 @@ mn_Menu* mn_initMenu(mn_MenuConfig *cfg, SDL_Renderer *r,
 void mn_updateMenu(mn_Menu *menu, struct mouse *mouse);
 void mn_drawMenu(mn_Menu *menu, SDL_Renderer *r);
 void mn_destroyMenu(mn_Menu *menu);
-void mn_initOnEventObj(oe_OnEvent *oeObj, mn_OnEventConfig *cfg, mn_Menu *optionalMenuPtr);
+void mn_initOnEventObj(struct on_event_obj *on_event_obj, mn_OnEventConfig *cfg, mn_Menu *optionalMenuPtr);
 
 #endif
