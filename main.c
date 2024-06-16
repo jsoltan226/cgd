@@ -44,7 +44,7 @@ SDL_Window *window;
 SDL_Renderer *renderer;
 struct mouse *mouse;
 struct keyboard *keyboard;
-fnt_Font *sourceCodeProFont;
+struct font *sourceCodeProFont;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
 #ifdef _WIN32
@@ -105,17 +105,23 @@ int main(int argc, char **argv)
         goto_error(ERR_INIT_MENU_MANAGER, "Failed to initialize the menu manager");
 
     s_log_debug("main", "Initializing the font");
-    sourceCodeProFont = fnt_initFont("/fonts/SourceCodePro-Semibold.otf", renderer, 0.f, 30.f, FNT_CHARSET_ASCII, 0);
+    sourceCodeProFont = font_init(
+        "fonts/SourceCodePro-Semibold.otf",
+        renderer,
+        0.f, 30.f,
+        FNT_CHARSET_ASCII,
+        0
+    );
     if (sourceCodeProFont == NULL)
         goto_error(ERR_INIT_FONT, "Failed to initialize the font");
 
-    fnt_setTextColor(sourceCodeProFont, 150, 150, 150, 255);
+    font_set_text_color(sourceCodeProFont, 150, 150, 150, 255);
 
     s_log_info("main", "Init OK! Entering main loop...");
     /* MAIN LOOP */
     while(running)
     {
-        Uint32 startTime = SDL_GetTicks();
+        u32 startTime = SDL_GetTicks();
 
         /* EVENT/INPUT HANDLING SECTION */
 
@@ -149,9 +155,9 @@ int main(int argc, char **argv)
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3).up)
                 sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_CHAR_RECTS;
 
-            fnt_Vector2D textPos = { .x = mouse->x, .y = mouse->y };
+            vec2d_t textPos = { .x = mouse->x, .y = mouse->y };
 
-            fnt_renderText(sourceCodeProFont, renderer,  &textPos,
+            font_draw_text(sourceCodeProFont, renderer,  &textPos,
                     "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)",
                         (sourceCodeProFont->flags & 4) >> 2,
                         (sourceCodeProFont->flags & 2) >> 1,
@@ -185,7 +191,7 @@ int main(int argc, char **argv)
     EXIT_CODE = EXIT_OK;
 
 cleanup:
-    if (sourceCodeProFont != NULL) fnt_destroyFont(sourceCodeProFont);
+    if (sourceCodeProFont != NULL) font_destroy(sourceCodeProFont);
     if (MenuManager != NULL) mmgr_destroyMenuManager(MenuManager);
     if (keyboard != NULL) keyboard_destroy(keyboard);
     if (mouse != NULL) mouse_destroy(mouse);

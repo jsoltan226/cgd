@@ -20,7 +20,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     mmgr->globalEventListenerCount = cfg->globalEventListenerCount;
 
     /* Allocate space for the menus and global event listeners */
-    mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(mn_Menu*));
+    mmgr->fullMenuList = malloc(cfg->menuCount * sizeof(struct Menu *));
     mmgr->globalEventListeners = malloc(cfg->globalEventListenerCount * sizeof(struct event_listener *));
     assert(
             (mmgr->fullMenuList != NULL || cfg->menuCount == 0) &&
@@ -33,7 +33,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
 
     /* Initialize the menus */
     for(int i = 0; i < cfg->menuCount; i++){
-        mmgr->fullMenuList[i] = mn_initMenu(&cfg->menus[i], renderer, keyboard, mouse);
+        mmgr->fullMenuList[i] = menu_init(&cfg->menus[i], renderer, keyboard, mouse);
         assert(mmgr->fullMenuList[i] != NULL);
     }
 
@@ -45,7 +45,7 @@ mmgr_MenuManager* mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer
     for(int i = 0; i < cfg->globalEventListenerCount; i++){
         /* Use the mn_OnEvent interface for initializing on_event_obj structs */
         struct on_event_obj tempOEObj;
-        mn_initOnEventObj(&tempOEObj, &cfg->globalEventListenerOnEventCfgs[i], NULL);
+        menu_init_onevent_obj(&tempOEObj, &cfg->globalEventListenerOnEventCfgs[i], NULL);
 
         /* Initialize the event listener */
         mmgr->globalEventListeners[i] = event_listener_init(&cfg->globalEventListenerCfgs[i], &tempOEObj, &tempEvlTargetObj);
@@ -69,10 +69,10 @@ void mmgr_updateMenuManager(mmgr_MenuManager* mmgr,
     if(paused) return;
 
     /* Update the menus */
-    mn_updateMenu(mmgr->currentMenu, mouse);
+    menu_update(mmgr->currentMenu, mouse);
 
     /* Switch the menu if it has its 'switchTo' member set */
-    if(mmgr->currentMenu->switchTo != MN_ID_NULL){
+    if(mmgr->currentMenu->switchTo != MENU_ID_NULL){
         mmgr_switchMenu(mmgr, mmgr->currentMenu->switchTo);
         mouse_force_release(mouse, MOUSE_EVERYBUTTONMASK);
     }
@@ -87,33 +87,28 @@ void mmgr_drawMenuManager(mmgr_MenuManager* mmgr, SDL_Renderer* renderer)
 {
     /* Event listeners don't need drawing */
 
-    mn_drawMenu(mmgr->currentMenu, renderer);
+    menu_draw(mmgr->currentMenu, renderer);
 }
 
 void mmgr_destroyMenuManager(mmgr_MenuManager* mmgr)
 {
     /* Destroy the menus held in the full menu list, and the the list itself */
     for(int i = 0; i < mmgr->menuCount; i++)
-    {
-        mn_destroyMenu(mmgr->fullMenuList[i]);
-    }
+        menu_destroy(mmgr->fullMenuList[i]);
+
     free(mmgr->fullMenuList);
-    mmgr->fullMenuList = NULL;
 
     /* Clean up other allocated arrays */
     free(mmgr->previousMenus);
-    mmgr->previousMenus = NULL;
 
     /* Destroy the event listeners and the array olding them */
     for(int i = 0; i < mmgr->globalEventListenerCount; i++)
         event_listener_destroy(mmgr->globalEventListeners[i]);
 
     free(mmgr->globalEventListeners);
-    mmgr->globalEventListeners = NULL;
 
     /* And finally, free the struct itself */
     free(mmgr);
-    mmgr = NULL;
 }
 
 void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
@@ -121,21 +116,20 @@ void mmgr_goBackMenu(mmgr_MenuManager* mmgr)
     /* If there are no previous menus to go back to, don't do anything */
     if(mmgr->inMenuDepth <= 0)
         return;
-    else {
-        /* Pop the previousMenus array into the currentMenu */
-        mmgr->currentMenu = mmgr->previousMenus[mmgr->inMenuDepth - 1];
 
-        /* Update the mmgr->inMenuDepth member and size of the previousMenus list accordingly */
-        mmgr->inMenuDepth--;
-        mmgr->previousMenus = realloc(mmgr->previousMenus, mmgr->inMenuDepth * sizeof(mn_Menu*));
-        assert(mmgr->previousMenus != NULL);
-    }
+    /* Pop the previousMenus array into the currentMenu */
+    mmgr->currentMenu = mmgr->previousMenus[mmgr->inMenuDepth - 1];
+
+    /* Update the mmgr->inMenuDepth member and size of the previousMenus list accordingly */
+    mmgr->inMenuDepth--;
+    mmgr->previousMenus = realloc(mmgr->previousMenus, mmgr->inMenuDepth * sizeof(struct Menu *));
+    assert(mmgr->previousMenus != NULL);
 }
 
-void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_ID switchTo)
+void mmgr_switchMenu(mmgr_MenuManager* mmgr, u64 switchTo)
 {
     /* Check if a menu with the given ID exists in the menu list. If it doesn't, don't do anything. */
-    mn_Menu *destMenuPtr = NULL;
+    struct Menu *destMenuPtr = NULL;
     for(int i = 0; i < mmgr->menuCount; i++){
         if(mmgr->fullMenuList[i]->ID == switchTo){
             destMenuPtr = mmgr->fullMenuList[i];
@@ -145,10 +139,10 @@ void mmgr_switchMenu(mmgr_MenuManager* mmgr, mn_ID switchTo)
 
     if(destMenuPtr){
         /* Reset the current menus' switchTo member */
-        mmgr->currentMenu->switchTo = MN_ID_NULL;
+        mmgr->currentMenu->switchTo = MENU_ID_NULL;
 
         /* Update the mmgr->previousMenus array and push the current menu to the top of it */
-        mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth + 1) * sizeof(mn_Menu*));
+        mmgr->previousMenus = realloc(mmgr->previousMenus, (mmgr->inMenuDepth + 1) * sizeof(struct Menu *));
         assert(mmgr->previousMenus != NULL);
 
         mmgr->previousMenus[mmgr->inMenuDepth] = mmgr->currentMenu;

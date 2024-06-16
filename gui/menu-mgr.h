@@ -7,10 +7,10 @@
 #include <stdbool.h>
 
 typedef struct {
-    mn_Menu *currentMenu;
-    mn_Menu **previousMenus;
+    struct Menu *currentMenu;
+    struct Menu **previousMenus;
     int inMenuDepth;
-    mn_Menu **fullMenuList;
+    struct Menu **fullMenuList;
     int menuCount;
     struct event_listener **globalEventListeners;
     int globalEventListenerCount;
@@ -18,8 +18,8 @@ typedef struct {
 
 typedef struct {
     int menuCount;
-    mn_MenuConfig *menus;
-    mn_OnEventConfig *globalEventListenerOnEventCfgs;
+    struct menu_config *menus;
+    struct menu_onevent_config *globalEventListenerOnEventCfgs;
     struct event_listener_config *globalEventListenerCfgs;
     int globalEventListenerCount;
 } mmgr_MenuManagerConfig;
@@ -33,7 +33,7 @@ void mmgr_updateMenuManager(mmgr_MenuManager *mmgr,
 
 void mmgr_drawMenuManager(mmgr_MenuManager *mmgr, SDL_Renderer *r);
 void mmgr_destroyMenuManager(mmgr_MenuManager *mmgr);
-void mmgr_switchMenu(mmgr_MenuManager *mmgr, mn_ID switchTo);
+void mmgr_switchMenu(mmgr_MenuManager *mmgr, u64 switchTo);
 void mmgr_goBackMenu(mmgr_MenuManager *mmgr);
 
 #endif

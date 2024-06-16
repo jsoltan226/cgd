@@ -57,7 +57,7 @@ enum MainMenuButtonIDs {
 
 const mmgr_MenuManagerConfig menuManagerConfig = {
     .menuCount = 2,
-    .menus = (mn_MenuConfig*)(mn_MenuConfig[]){
+    .menus = (struct menu_config *)(struct menu_config[]){
         {
             .bgConfig = {
                 .layer_img_filepaths = (const char**)(const char*[]){
@@ -75,7 +75,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
 
             .buttonInfo = {
                 .count = 1,
-                .cfgs = (mn_ButtonConfig*)(mn_ButtonConfig[]){
+                .cfgs = (struct menu_button_config *)(struct menu_button_config[]){
                     {
                         .spriteCfg = {
                             /* HITBOX */
@@ -117,7 +117,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
 
             .buttonInfo = {
                 .count = 1,
-                .cfgs = (mn_ButtonConfig*)(mn_ButtonConfig[]){
+                .cfgs = (struct menu_button_config *)(struct menu_button_config[]){
                     {
                         .spriteCfg = {
                             /* HITBOX */
@@ -149,7 +149,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
 
             .eventListenerInfo = {
                 .count = 1,
-                .cfgs = (mn_eventListenerConfig*)(mn_eventListenerConfig[]){
+                .cfgs = (struct menu_event_listener_config *)(struct menu_event_listener_config[]){
                     {
                         .eventListenerCfg = {
                             .type = EVL_EVENT_KEYBOARD_KEYDOWN,
@@ -166,7 +166,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
             .id = SUB_MENU,
         },
     },
-    .globalEventListenerOnEventCfgs = (mn_OnEventConfig*)(mn_OnEventConfig[]){
+    .globalEventListenerOnEventCfgs = (struct menu_onevent_config *)(struct menu_onevent_config[]){
         {
             .onEventType = MN_ONEVENT_QUIT,
             .onEventArgs = { .boolVarPtr = &running },
@@ -180,7 +180,7 @@ const mmgr_MenuManagerConfig menuManagerConfig = {
             .onEventArgs = { .boolVarPtr = &displayButtonHitboxOutlines },
         }
     },
-    .globalEventListenerCfgs = (struct event_listener_config*)(struct event_listener_config[]){
+    .globalEventListenerCfgs = (struct event_listener_config *)(struct event_listener_config[]){
         {
             .type = EVL_EVENT_KEYBOARD_KEYUP,
             .target_info = { .keycode = KB_KEYCODE_Q },

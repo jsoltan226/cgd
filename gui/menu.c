@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include "menu.h"
 #include "event-listener.h"
-#include <cgd/gui/buttons.h>
-#include <cgd/gui/on-event.h>
-#include <cgd/gui/parallax-bg.h>
-#include <cgd/gui/sprite.h>
+#include "buttons.h"
+#include "on-event.h"
+#include "parallax-bg.h"
+#include "sprite.h"
 
 /* Here are the declarations of internal mn_OnEvent interface functions. Please see the definitions at the end of this file for detailed explanations of what they do */
 static int mn_memCopy(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
@@ -18,12 +18,11 @@ static int mn_flipBool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static int mn_executeOther(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
+struct Menu * menu_init(struct menu_config *cfg, SDL_Renderer* renderer,
     struct keyboard *keyboard, struct mouse *mouse)
 {
 
-    /* Memory allocation section */
-    mn_Menu* mn = calloc(1, sizeof(mn_Menu));
+    struct Menu *mn = calloc(1, sizeof(struct Menu));
     assert(mn != NULL);
 
     mn->sprites.ptrArray = malloc(sizeof(sprite_t) * cfg->spriteInfo.count);
@@ -38,7 +37,7 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
     mn->sprites.count = cfg->spriteInfo.count;
     mn->buttons.count = cfg->buttonInfo.count;
     mn->eventListeners.count = cfg->eventListenerInfo.count;
-    mn->switchTo = MN_ID_NULL;
+    mn->switchTo = MENU_ID_NULL;
     mn->ID = cfg->id;
     mn->statusFlags = MN_STATUS_NONE;
 
@@ -47,21 +46,21 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
         .keyboard = keyboard,
         .mouse = mouse,
     };
-    for(int i = 0; i < cfg->eventListenerInfo.count; i++){
-        mn_eventListenerConfig *currentCfg = &cfg->eventListenerInfo.cfgs[i];
+    for(u32 i = 0; i < cfg->eventListenerInfo.count; i++){
+        struct menu_event_listener_config *currentCfg = &cfg->eventListenerInfo.cfgs[i];
         struct on_event_obj onEventObj;
-        mn_initOnEventObj(&onEventObj, &currentCfg->onEventCfg, mn);
+        menu_init_onevent_obj(&onEventObj, &currentCfg->onEventCfg, mn);
         mn->eventListeners.ptrArray[i] =
             event_listener_init(&currentCfg->eventListenerCfg, &onEventObj, &tempEvlTargetObj);
     }
 
-    for(int i = 0; i < cfg->spriteInfo.count; i++){
+    for(u32 i = 0; i < cfg->spriteInfo.count; i++){
         mn->sprites.ptrArray[i] = sprite_init(&cfg->spriteInfo.cfgs[i], renderer);
     }
 
-    for(int i = 0; i < cfg->buttonInfo.count; i++){
+    for(u32 i = 0; i < cfg->buttonInfo.count; i++){
         struct on_event_obj onClickObj;
-        mn_initOnEventObj(&onClickObj, &cfg->buttonInfo.cfgs[i].onClickCfg, mn);
+        menu_init_onevent_obj(&onClickObj, &cfg->buttonInfo.cfgs[i].onClickCfg, mn);
         mn->buttons.ptrArray[i] = button_init(
             &cfg->buttonInfo.cfgs[i].spriteCfg,
             &onClickObj,
@@ -75,34 +74,32 @@ mn_Menu* mn_initMenu(mn_MenuConfig* cfg, SDL_Renderer* renderer,
     return mn;
 }
 
-void mn_updateMenu(mn_Menu* mn, struct mouse *mouse)
+void menu_update(struct Menu *mn, struct mouse *mouse)
 {
     /* Sprites do not need updating; they never change */
 
-    for(int i = 0; i < mn->buttons.count; i++)
+    for(u32 i = 0; i < mn->buttons.count; i++)
         button_update(mn->buttons.ptrArray[i], mouse);
 
-    for(int i = 0; i < mn->eventListeners.count; i++)
+    for(u32 i = 0; i < mn->eventListeners.count; i++)
         event_listener_update(mn->eventListeners.ptrArray[i]);
 
     parallax_bg_update(mn->bg);
 }
 
-void mn_drawMenu(mn_Menu* mn, SDL_Renderer* renderer)
+void menu_draw(struct Menu *mn, SDL_Renderer *renderer)
 {
     /* Draw background below everything else */
     parallax_bg_draw(mn->bg, renderer);
 
-    for(int i = 0; i < mn->sprites.count; i++)
+    for(u32 i = 0; i < mn->sprites.count; i++)
         sprite_draw(mn->sprites.ptrArray[i], renderer);
 
-    for(int i = 0; i < mn->buttons.count; i++)
+    for(u32 i = 0; i < mn->buttons.count; i++)
         button_draw(mn->buttons.ptrArray[i], renderer);
-
-    /* Event listeners do not need drawing because they are invisible */
 }
 
-void mn_destroyMenu(mn_Menu* mn)
+void menu_destroy(struct Menu *mn)
 {
     for(int i = 0; i < mn->sprites.count; i++)
         sprite_destroy(mn->sprites.ptrArray[i]);
@@ -124,7 +121,8 @@ void mn_destroyMenu(mn_Menu* mn)
     free(mn);
 }
 
-void mn_initOnEventObj(struct on_event_obj *oeObj, mn_OnEventConfig *oeCfg, mn_Menu *optionalMenuPtr)
+void menu_init_onevent_obj(struct on_event_obj *oeObj,
+    struct menu_onevent_config *oeCfg, struct Menu *optionalMenuPtr)
 {
     /* =====> Do not bother reading this, see explanations in the menu.h header file  <===== */
     memset(oeObj->argv_buf, 0, ONEVENT_OBJ_ARGV_SIZE);
@@ -175,10 +173,10 @@ static int mn_switchMenu(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
         return EXIT_FAILURE;
 
     /* argv[0] contains a pointer to an mn->switchTo variable, which we will need to change to whatever argv[1] is */
-    mn_ID *menuIDPtr = (void *)argv_buf[0];
+    u64 *menuIDPtr = (void *)argv_buf[0];
 
     /* argv[1] contains the direct value of the id of the menu we want to switch to */
-    mn_ID switchTo = argv_buf[1];
+    u64 switchTo = argv_buf[1];
     if(menuIDPtr == NULL)
         return EXIT_FAILURE;
 

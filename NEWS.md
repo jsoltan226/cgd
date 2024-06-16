@@ -14,3 +14,9 @@
 
 * "Refactored `gui/on-event.h`, `gui/sprite`, `gui/buttons`, `gui/event-listener` and `gui/parallax-bg`" <jsoltan226@github.com>
     * Just what the title says
+
+
+## NEWS for Sun 16.06.2024
+
+* "Refactored `gui/fonts`, started working on `gui/menu`" <jsoltan226@github.com>
+    * Just what the title says
