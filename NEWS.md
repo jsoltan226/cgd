@@ -20,3 +20,8 @@
 
 * "Refactored `gui/fonts`, started working on `gui/menu`" <jsoltan226@github.com>
     * Just what the title says
+
+* "Added a C implementation of the C++ `std::vector`" <jsoltan226@github.com>
+    * Added a pretty much full implementation of the `std::vector` in `core/datastruct/vector`. It. Was. A. Pain.
+    * Added `tests/vector-test.c`
+    * Fixed some uninitialized variable errors with clang in `gui/fonts.c` that were leftover from the previous commit

@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define goto_error(msg...) do {       \
-    s_log_error("font", msg);               \
-    goto err;                               \
+#define goto_error(msg...) do {     \
+    s_log_error("font", msg);       \
+    goto err;                       \
 } while (0);
 
 struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW, f32 lineH,
@@ -25,7 +25,8 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     struct font *new_font = NULL;
     SDL_Surface **tmp_surfaces = NULL;
     SDL_Surface *final_surface = NULL;
-
+    FT_Library ft = NULL;
+    FT_Face face = NULL;
 
     new_font = calloc(1, sizeof(struct font));
     if(new_font == NULL)
@@ -33,7 +34,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
 
     s_log_debug("font", "Initializing FreeType...");
     /* Initialize FreeType and load the font */
-    FT_Library ft = NULL; 
+    ft = NULL; 
     if(ft_ret = FT_Init_FreeType(&ft), ft_ret != 0)
         goto_error("Failed to initialize FreeType: %s", FT_Error_String(ft_ret));
 
@@ -43,7 +44,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
 
     s_log_debug("font", "Initializing font face from \"%s\"...", full_filepath);
 
-    FT_Face face = NULL;
+    face = NULL;
     if (ft_ret = FT_New_Face(ft, full_filepath, 0, &face), ft_ret != 0)
         goto_error("Failed to initialize FreeType face for \"%s\": %s",
             filepath, FT_Error_String(ft_ret));
