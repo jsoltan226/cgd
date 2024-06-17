@@ -1,10 +1,10 @@
 #include "../exe-info.h"
+#include "core/int.h"
 
-#include <stddef.h>
 #include <stdio.h>
 #include <windows.h>
 
-int p_getExePath(char *buf, size_t buf_size)
+i32 p_get_exe_path(char *buf, u32 buf_size)
 {
     if (!GetModuleFileName(NULL, buf, buf_size - 1)) {
         fprintf(stderr, "GetModuleFileName() failed. Reason: %s.\n", GetLastError());

@@ -14,11 +14,12 @@ typedef struct {
 } sprite_t;
 
 struct sprite_config {
+    u8 magic;
     rect_t hitbox, src_rect, dst_rect;
-    const char *texture_filepath;
+    filepath_t texture_filepath;
 };
 
-sprite_t * sprite_init(struct sprite_config *cfg, SDL_Renderer *r);
+sprite_t * sprite_init(const struct sprite_config *cfg, SDL_Renderer *r);
 void sprite_draw(sprite_t *spr, SDL_Renderer *r);
 void sprite_destroy(sprite_t *spr);
 

@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
+#include "core/datastruct/vector.h"
 #include "core/int.h"
 #include "asset-loader/asset.h"
 
@@ -14,17 +15,23 @@ struct parallax_bg_layer {
 };
 
 struct parallax_bg {
-    struct parallax_bg_layer *layers;
-    u32 layer_count;
+    VECTOR(struct parallax_bg_layer) layers;
+};
+
+#define PARALLAX_BG_MAX_LAYERS  32
+struct parallax_bg_layer_config {
+    u8 magic;
+    const char *filepath;
+    i32 speed;
 };
 
 struct parallax_bg_config {
-    const char **layer_img_filepaths;
-    i32 *layer_speeds;
-    u32 layer_count;
+    u8 magic;
+    struct parallax_bg_layer_config layer_cfgs[PARALLAX_BG_MAX_LAYERS];
 };
 
-struct parallax_bg * parallax_bg_init(struct parallax_bg_config *cfg, SDL_Renderer *renderer);
+struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
+    SDL_Renderer *renderer);
 void parallax_bg_update(struct parallax_bg *bg);
 void parallax_bg_draw(struct parallax_bg *bg, SDL_Renderer *renderer);
 void parallax_bg_destroy(struct parallax_bg *bg);

@@ -13,10 +13,9 @@ struct keyboard * keyboard_init(void)
 {
     /* Allocate the keyboard array */
     struct keyboard *kb = malloc(sizeof(struct keyboard));
-    if (kb == NULL) {
-        s_log_error("keyboard", "malloc() for struct keyboard failed");
-        return NULL;
-    }
+    if (kb == NULL)
+        s_log_fatal("keyboard", "keyboard_init",
+            "malloc() failed for %s", "struct keyboard");
 
     /* Initialize all the keys */
     for(u32 i = 0; i < KB_KEYBOARD_LENGTH; i++) {
@@ -29,17 +28,20 @@ struct keyboard * keyboard_init(void)
 
 void keyboard_update(struct keyboard *kb)
 {
+    if (kb == NULL) return;
+
     /* Get the keyboard state from SDL, and update all the keys accordingly */
     const u8* keystates = SDL_GetKeyboardState(NULL);
 
-    for(u32 i = 0; i < KB_KEYBOARD_LENGTH; i++)
-    {
+    for(u32 i = 0; i < KB_KEYBOARD_LENGTH; i++) {
         pressable_obj_update(&kb->keys[i].key, keystates[kb->keys[i].SDLKeycode]);
     }
 }
 
 void keyboard_destroy(struct keyboard *kb)
 {
+    if (kb == NULL) return;
+
     s_log_debug("keyboard", "Destroying keyboard...");
     free(kb);
 }

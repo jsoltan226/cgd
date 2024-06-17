@@ -11,30 +11,31 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define module_name "asset-load"
-
 #define goto_error(msg...) do {         \
-    s_log_error(module_name, msg);     \
+    s_log_error("asset-load", msg);     \
     goto err;                           \
 } while (0);
-#undef module_name
 
-struct asset * asset_load(const char *rel_file_path, SDL_Renderer *r)
+struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *r)
 {
-#define module_name "asset-load"
+    if (rel_file_path == NULL || r == NULL) {
+        s_log_error("asset-load", "Invalid parameters");
+        return NULL;
+    }
+
     s_log_debug("asset-load", "Loading asset \"%s\"...", rel_file_path);
 
     FILE *fp = NULL;
 
     struct asset *a = calloc(1, sizeof(struct asset));
     if (a == NULL)
-        goto_error("Failed to malloc() asset struct!");
+        s_log_fatal("asset-load", "asset_load", "calloc() failed for %s", "struct asset");
 
     a->pixel_data = calloc(1, sizeof(struct pixel_data));
     if (a->pixel_data == NULL)
-        goto_error("Failed to malloc() asset pixel data!");
+        s_log_fatal("asset-load", "asset_load", "malloc() failed for %s", "pixel data");
 
-    a->rel_file_path = rel_file_path;
+    strncpy((char *)a->rel_file_path, rel_file_path, ASSET_MAX_FILEPATH_LEN - 1);
     fp = asset_fopen(rel_file_path, "rb");
     if (fp == NULL)
         goto_error("Failed to open asset \"%s\": %s", a->rel_file_path, strerror(errno));
@@ -64,11 +65,12 @@ err:
     if (fp) fclose(fp);
     if (a) asset_destroy(a);
     return NULL;
-#undef module_name
 }
 
 FILE * asset_fopen(const char *rel_file_path, const char *mode)
 {
+    if (rel_file_path == NULL || mode == NULL) return NULL;
+
     FILE *fp = NULL;
     char full_path_buf[u_BUF_SIZE] = { 0 };
 

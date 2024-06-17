@@ -2,8 +2,6 @@ INTEGRATE THE LOGGING
 Integrate the asset system properly
 Add a context
 Add a file with instructions regarding the coding style
-Refactor the old ugly code from e.g. parallax-bg.c
-Check all functions that use `malloc()` for bugs caused by usage of uninitialized memory
 Split LOG_DEBUG into multiple levels
 
 (Future) Implement lazy loading of menus in menu-mgr

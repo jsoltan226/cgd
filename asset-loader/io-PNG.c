@@ -35,13 +35,12 @@ struct PNG_Metadata {
 };
 
 enum load_PNG_error_code {
-    ERR_INPUT_FILEP_NULL,
+    ERR_INVALID_ARGS,
     ERR_NOT_PNG,
     ERR_INIT_PNG_STRUCT,
     ERR_INIT_PNG_READ_INFO,
     ERR_INIT_PNG_END,
     ERR_SETJMP,
-    ERR_ALLOC_PIXELDATA,
 } load_PNG_error_code;
 
 #define goto_error(code, msg...) do { \
@@ -60,8 +59,8 @@ i32 read_PNG(struct pixel_data *pixel_data, FILE *fp)
 
     struct PNG_Metadata meta;
 
-    if (fp == NULL)
-        goto_error(ERR_INPUT_FILEP_NULL, "The in file pointer is NULL");
+    if (pixel_data == NULL || fp == NULL)
+        goto_error(ERR_INVALID_ARGS, "read_png: Invalid parameters");
 
     /* Read the PNG header to check whether the given file contains a valid PNG signature */
     fread(meta.header, 1, N_PNG_SIG_BYTES, fp);
@@ -156,12 +155,12 @@ your png_jmpbuf(png_ptr)."
     /* Allocate memory for the raw pixel data */
     pixel_data->data = malloc(meta.height * sizeof(u8*));
     if(pixel_data == NULL)
-        goto_error(ERR_ALLOC_PIXELDATA, "Failed to malloc() pixel_data->data");
+        s_log_fatal("io-PNG", "read_PNG", "malloc() failed for %s", "struct pixel_data");
 
     for (u32 i = 0; i < meta.height; i++) {
         pixel_data->data[i] = malloc(meta.width * N_CHANNELS);
         if (pixel_data->data[i] == NULL)
-            goto_error(ERR_ALLOC_PIXELDATA, "Failed to malloc() pixel_data->data[%u]", i);
+            s_log_fatal("io-PNG", "read_PNG", "malloc() failed for %s", "pixel data");
     }
 
     /* And now, read the pixel data!!! FINALLY!!! */

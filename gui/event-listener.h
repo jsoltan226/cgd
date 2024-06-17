@@ -36,9 +36,9 @@ struct event_listener_target {
 };
 
 struct event_listener * event_listener_init(
-    struct event_listener_config *cfg,
-    struct on_event_obj *on_event_obj,
-    struct event_listener_target *target
+    const struct event_listener_config *cfg,
+    const struct on_event_obj *on_event_obj,
+    const struct event_listener_target *target
 );
 void event_listener_update(struct event_listener *evl);
 void event_listener_destroy(struct event_listener *evl);

@@ -6,8 +6,11 @@
 #include "core/pixel.h"
 #include "img-type.h"
 
+#define ASSET_MAX_FILEPATH_LEN 256
+typedef const char filepath_t[ASSET_MAX_FILEPATH_LEN];
+
 struct asset {
-    const char *rel_file_path;
+    filepath_t rel_file_path;
     enum asset_img_type type;
 
     struct pixel_data *pixel_data;
@@ -15,7 +18,7 @@ struct asset {
 };
 
 /* Both return NULL on failure */
-struct asset * asset_load(const char *rel_file_path, SDL_Renderer *renderer);
+struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *renderer);
 FILE * asset_fopen(const char *rel_file_path, const char *mode);
 
 /* If `rel_file_path` or `img_type` are NULL,

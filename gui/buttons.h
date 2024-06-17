@@ -6,11 +6,9 @@
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
 #include "input/mouse.h"
-#include "input/keyboard.h"
 #include "on-event.h"
 #include "sprite.h"
 #include "core/int.h"
-#include <stdint.h>
 #include <stdbool.h>
 
 enum button_flags {
@@ -31,8 +29,8 @@ struct button {
     u32 flags;
 };
 
-struct button * button_init(struct sprite_config *sprite_cfg,
-    struct on_event_obj *on_click, u32 flags, SDL_Renderer *renderer);
+struct button * button_init(const struct sprite_config *sprite_cfg,
+    const struct on_event_obj *on_click, u32 flags, SDL_Renderer *renderer);
 
 void button_update(struct button *btn, struct mouse *mouse);
 

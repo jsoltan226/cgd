@@ -11,6 +11,10 @@
 
 SDL_Texture * pixel_data_2_sdl_tex(struct pixel_data *pixel_data, SDL_Renderer *renderer)
 {
+    if (pixel_data == NULL || renderer == NULL) {
+        s_log_error("raw2sdl", "Invalid parameters");
+        return NULL;
+    }
     SDL_Surface *tmpSurface = NULL;
 
     /* Copy over the pixels to an SDL_Surface */

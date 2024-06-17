@@ -2,7 +2,6 @@
 #define _UTIL_H
 
 #include <SDL2/SDL.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include "int.h"
 #include "shapes.h"

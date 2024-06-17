@@ -1,39 +1,44 @@
 #ifndef MENUMGR_H
 #define MENUMGR_H
 
+#include "core/datastruct/vector.h"
+#include "core/int.h"
 #include "event-listener.h"
 #include "menu.h"
 #include <SDL2/SDL_render.h>
 #include <stdbool.h>
 
-typedef struct {
-    struct Menu *currentMenu;
-    struct Menu **previousMenus;
-    int inMenuDepth;
-    struct Menu **fullMenuList;
-    int menuCount;
-    struct event_listener **globalEventListeners;
-    int globalEventListenerCount;
-} mmgr_MenuManager;
+#define MENUMGR_MAX_MENU_COUNT  32
 
-typedef struct {
-    int menuCount;
-    struct menu_config *menus;
-    struct menu_onevent_config *globalEventListenerOnEventCfgs;
-    struct event_listener_config *globalEventListenerCfgs;
-    int globalEventListenerCount;
-} mmgr_MenuManagerConfig;
+struct MenuManager {
+    struct Menu *curr_menu;
 
-mmgr_MenuManager *mmgr_initMenuManager(mmgr_MenuManagerConfig* cfg, SDL_Renderer* renderer,
-    struct keyboard *keyboard, struct mouse *mouse);
+    VECTOR(struct Menu *) menu_stack;
 
-void mmgr_updateMenuManager(mmgr_MenuManager *mmgr,
+    VECTOR(struct Menu *) full_menu_list;
+
+    VECTOR(struct event_listener *) global_event_listeners;
+};
+
+struct menu_manager_config {
+    u8 magic;
+    struct menu_config menu_info[MENUMGR_MAX_MENU_COUNT];
+    struct menu_event_listener_config global_event_listener_info[MENU_CONFIG_MAX_LEN];
+};
+
+struct MenuManager * menu_mgr_init(const struct menu_manager_config* cfg,
+    SDL_Renderer* renderer, struct keyboard *keyboard, struct mouse *mouse);
+
+void menu_mgr_update(struct MenuManager *mmgr,
     struct keyboard *keyboard, struct mouse *mouse,
     bool paused);
 
-void mmgr_drawMenuManager(mmgr_MenuManager *mmgr, SDL_Renderer *r);
-void mmgr_destroyMenuManager(mmgr_MenuManager *mmgr);
-void mmgr_switchMenu(mmgr_MenuManager *mmgr, u64 switchTo);
-void mmgr_goBackMenu(mmgr_MenuManager *mmgr);
+void menu_mgr_draw(struct MenuManager *mmgr, SDL_Renderer *r);
+
+void menu_mgr_destroy(struct MenuManager *mmgr);
+
+/* Used for managing the menu stack - push menu to switch to it, pop to go back */
+void menu_mgr_push_menu(struct MenuManager *mmgr, u64 switch_target_ID);
+void menu_mgr_pop_menu(struct MenuManager *mmgr);
 
 #endif

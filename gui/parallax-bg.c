@@ -1,50 +1,64 @@
 #include "parallax-bg.h"
+#include "core/datastruct/vector.h"
 #include "core/log.h"
 #include "asset-loader/asset.h"
+#include "menu.h"
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
 
-struct parallax_bg * parallax_bg_init(struct parallax_bg_config *cfg, SDL_Renderer *renderer)
+struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
+    SDL_Renderer *renderer)
 {
-    struct parallax_bg *bg = calloc(1, sizeof(struct parallax_bg));
-    if (bg == NULL) {
-        s_log_error("parallax-bg", "calloc() failed for struct parallax_bg!");
+    if (cfg == NULL || renderer == NULL) {
+        s_log_error("parallax-bg", "parallax_bg_init: Invalid parameters");
         return NULL;
     }
 
+    struct parallax_bg *bg = calloc(1, sizeof(struct parallax_bg)); if (bg == NULL)
+        s_log_fatal("parallax_bg", "parallax_bg_init",
+            "calloc() failed for %s", "struct parallax_bg");
+
     /* Allocate space for all the background layers */
-    bg->layer_count = cfg->layer_count;
-    bg->layers = malloc(cfg->layer_count * sizeof(struct parallax_bg_layer));
+    bg->layers = vector_new(struct parallax_bg_layer);
     if (bg->layers == NULL) {
-        s_log_error("parallax-bg", "malloc() failed for parallax_bg layers!");
+        s_log_error("parallax-bg", "Failed to initialize the layers vector");
         parallax_bg_destroy(bg);
         return NULL;
     }
 
 
     /* Initialize all the layers one by one */
-    for(u32 i = 0; i < cfg->layer_count; i++) {
-        struct parallax_bg_layer *item = &bg->layers[i];
+    u32 i = 0;
+    while (cfg->layer_cfgs[i].magic == MENU_CONFIG_MAGIC && i < PARALLAX_BG_MAX_LAYERS) {
 
         /* Load the texture and enable alpha blending */
-        item->asset = asset_load(cfg->layer_img_filepaths[i], renderer);
-        if (item->asset == NULL) {
+        struct asset *asset = asset_load(cfg->layer_cfgs[i].filepath, renderer);
+        if (asset == NULL) {
             s_log_error("parallax-bg", "Failed to load asset \"%s\"!",
-                cfg->layer_img_filepaths[i]
+                cfg->layer_cfgs[i].filepath
             );
             parallax_bg_destroy(bg);
             return NULL;
         }
 
-        SDL_SetTextureBlendMode(item->asset->texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(asset->texture, SDL_BLENDMODE_BLEND);
 
-        /* Set all other members to the appropriate values */
-        SDL_QueryTexture(item->asset->texture, NULL, NULL, &item->w, &item->h);
-        item->x = 0;
-        item->speed = cfg->layer_speeds[i];
+        /* Get the texture parameters */
+        i32 w = 0, h = 0;
+        SDL_QueryTexture(asset->texture, NULL, NULL, &w, &h);
+
+        vector_push_back(bg->layers, (struct parallax_bg_layer){
+            .asset = asset,
+            .w = w, .h = h,
+            .x = 0,
+            .speed = cfg->layer_cfgs[i].speed
+        });
+        i++;
     }
+
+    s_log_debug("parallax-bg", "Initialized %u layers", i);
 
     return bg;
 }
@@ -54,7 +68,7 @@ void parallax_bg_update(struct parallax_bg *bg)
     if (bg == NULL || bg->layers == NULL) return;
 
     /* Simulate an infinite scrolling effect on all the layers */
-    for(u32 i = 0; i < bg->layer_count; i++) {
+    for(u32 i = 0; i < vector_size(bg->layers); i++) {
         bg->layers[i].x += bg->layers[i].speed;
         if(bg->layers[i].x > bg->layers[i].w / 2 || bg->layers[i].x < -(bg->layers[i].w / 2))
             bg->layers[i].x = 0;
@@ -63,10 +77,10 @@ void parallax_bg_update(struct parallax_bg *bg)
 
 void parallax_bg_draw(struct parallax_bg *bg, SDL_Renderer *renderer)
 {
-    if (bg == NULL || bg->layers == NULL) return;
+    if (bg == NULL || bg->layers == NULL || renderer == NULL) return;
 
     /* Draw all the layers */
-    for(u32 i = 0; i < bg->layer_count; i++) {
+    for(u32 i = 0; i < vector_size(bg->layers); i++) {
         SDL_Rect rect = { bg->layers[i].x, 0, bg->layers[i].w / 2, bg->layers[i].h };
         SDL_RenderCopy(renderer, bg->layers[i].asset->texture, &rect, NULL);
     }
@@ -76,16 +90,12 @@ void parallax_bg_destroy(struct parallax_bg *bg)
 {
     if (bg == NULL) return;
 
-    /* Destroy the layers' textures, and then the whole bg->layers array */
     if (bg->layers != NULL) {
-        for(u32 i = 0; i < bg->layer_count; i++)
+        for(u32 i = 0; i < vector_size(bg->layers); i++)
             asset_destroy(bg->layers[i].asset);
 
-        free(bg->layers);
-        bg->layers = NULL;
+        vector_destroy(bg->layers);
     }
 
-    /* Free the BG struct */
     free(bg);
-    bg = NULL;
 }

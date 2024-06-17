@@ -39,7 +39,7 @@ static enum EXIT_CODES EXIT_CODE;
 } while (0);
 
 /* bool running = true (moved to config.h) */
-mmgr_MenuManager *MenuManager;
+struct MenuManager *MenuManager;
 SDL_Window *window;
 SDL_Renderer *renderer;
 struct mouse *mouse;
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     s_log_info("main", "Initializing the GUI...");
     s_log_debug("main", "Initializing the menu manager");
-    MenuManager = mmgr_initMenuManager((mmgr_MenuManagerConfig*)&menuManagerConfig, renderer, keyboard, mouse);
+    MenuManager = menu_mgr_init(&menu_manager_cfg, renderer, keyboard, mouse);
     if (MenuManager == NULL)
         goto_error(ERR_INIT_MENU_MANAGER, "Failed to initialize the menu manager");
 
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
         }
 
         /* UPDATE SECTION */
-        mmgr_updateMenuManager(MenuManager, keyboard, mouse, paused);
+        menu_mgr_update(MenuManager, keyboard, mouse, paused);
 
         if(!paused){
 
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
             SDL_SetRenderDrawColor(renderer, u_color_arg_expand(rendererBg));
             SDL_RenderClear(renderer);
 
-            mmgr_drawMenuManager(MenuManager, renderer);
+            menu_mgr_draw(MenuManager, renderer);
 
             /*
             if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1).up)
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
 
 cleanup:
     if (sourceCodeProFont != NULL) font_destroy(sourceCodeProFont);
-    if (MenuManager != NULL) mmgr_destroyMenuManager(MenuManager);
+    if (MenuManager != NULL) menu_mgr_destroy(MenuManager);
     if (keyboard != NULL) keyboard_destroy(keyboard);
     if (mouse != NULL) mouse_destroy(mouse);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);

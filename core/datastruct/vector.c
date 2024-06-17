@@ -37,14 +37,14 @@ void * vector_init(u32 item_size)
     return v;
 }
 
-void * vector_increase_size(void *v)
+void * vector_increase_size__(void *v)
 {
     if (v == NULL) return NULL;
 
     struct vector_metadata *meta = get_metadata_ptr(v);
 
     if (meta->n_items >= meta->capacity) {
-        v = vector_realloc(v, meta->capacity * 2);
+        v = vector_realloc__(v, meta->capacity * 2);
         meta = get_metadata_ptr(v); /* `meta` might have been moved by `realloc()` */
         meta->capacity *= 2;
     }
@@ -53,7 +53,7 @@ void * vector_increase_size(void *v)
     return v;
 }
 
-void * vector_pop_back_p(void *v)
+void * vector_pop_back__(void *v)
 {
     if (v == NULL) return NULL;
 
@@ -65,7 +65,7 @@ void * vector_pop_back_p(void *v)
     memset(element_at(v, meta->n_items), 0, meta->item_size);
 
     if (meta->n_items <= (meta->capacity / 2)) {
-        v = vector_realloc(v, meta->capacity / 2);
+        v = vector_realloc__(v, meta->capacity / 2);
         meta = get_metadata_ptr(v);
         meta->capacity /= 2;
     }
@@ -73,7 +73,7 @@ void * vector_pop_back_p(void *v)
     return v;
 }
 
-void vector_memmove(void *v, u32 src_index, u32 dst_index, u32 nmemb)
+void vector_memmove__(void *v, u32 src_index, u32 dst_index, u32 nmemb)
 {
     if (v == NULL)
         s_log_fatal("vector", "vector_memmove", "invalid parameters");
@@ -115,12 +115,12 @@ void * vector_end(void * v)
     return v + (meta->n_items * meta->item_size);
 }
 
-void * vector_shrink_to_fit_p(void *v)
+void * vector_shrink_to_fit__(void *v)
 {
     if (v == NULL) return NULL;
 
     struct vector_metadata *meta = get_metadata_ptr(v);
-    v = vector_realloc(v, meta->n_items);
+    v = vector_realloc__(v, meta->n_items);
 
     meta = get_metadata_ptr(v);
     meta->capacity = meta->n_items;
@@ -138,7 +138,7 @@ void vector_clear(void *v)
     meta->n_items = 0;
 }
 
-void * vector_erase_p(void *v, u32 index)
+void * vector_erase__(void *v, u32 index)
 {
     if (v == NULL)
         s_log_fatal("vector", "vector_erase", "invalid parameters");
@@ -148,11 +148,11 @@ void * vector_erase_p(void *v, u32 index)
     if (index >= meta->n_items) return v;
 
     /* Move all memory right of `index` one spot to the left, and delete the last spot */
-    vector_memmove(v, index + 1, index, meta->n_items - index - 1);
-    return vector_pop_back_p(v);
+    vector_memmove__(v, index + 1, index, meta->n_items - index - 1);
+    return vector_pop_back__(v);
 }
 
-void * vector_realloc(void *v, u32 new_cap)
+void * vector_realloc__(void *v, u32 new_cap)
 {
     /* Unfortunately if `v` is NULL we do not know the element size,
      * and so we cannot make it work like realloc(NULL, size) would
@@ -174,12 +174,12 @@ void * vector_realloc(void *v, u32 new_cap)
     return new_v;
 }
 
-void * vector_resize_p(void *v, u32 new_size)
+void * vector_resize__(void *v, u32 new_size)
 {
     if (v == NULL || new_size == 0)
         s_log_fatal("vector", "vector_resize", "invalid parameters");
 
-    v = vector_realloc(v, new_size);
+    v = vector_realloc__(v, new_size);
     if (v == NULL)
         return NULL;
 
@@ -199,7 +199,7 @@ void * vector_clone(void *v)
     void *new_v = vector_init(meta_p->item_size);
     if (new_v == NULL) return NULL;
 
-    new_v = vector_realloc(new_v, meta_p->capacity);
+    new_v = vector_realloc__(new_v, meta_p->capacity);
 
     memcpy(get_metadata_ptr(new_v), meta_p,
         (meta_p->capacity * meta_p->item_size) + sizeof(struct vector_metadata)

@@ -1,6 +1,7 @@
 #ifndef FONTS_H
 #define FONTS_H
 
+#include "asset-loader/asset.h"
 #include "core/shapes.h"
 #include "core/int.h"
 #include <SDL2/SDL.h>
@@ -9,9 +10,6 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 

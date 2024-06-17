@@ -2,35 +2,39 @@
 #define MENU_H
 
 #include "buttons.h"
+#include "core/util.h"
 #include "event-listener.h"
 #include "on-event.h"
 #include "sprite.h"
 #include "parallax-bg.h"
 #include "input/mouse.h"
 #include "core/int.h"
+#include "core/datastruct/vector.h"
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
 
+#define MENU_CONFIG_MAX_LEN 128
 #define MENU_ID_NULL  ((u64)-1)
 
 enum menu_onevent_type {
-    MN_ONEVENT_NONE,
-    MN_ONEVENT_MEMCOPY,
-    MN_ONEVENT_SWITCHMENU,
-    MN_ONEVENT_FLIPBOOL,
-    MN_ONEVENT_PAUSE,
-    MN_ONEVENT_GOBACK,
-    MN_ONEVENT_PRINTMESSAGE,
-    MN_ONEVENT_QUIT,
+    MENU_ONEVENT_NONE,
+    MENU_ONEVENT_MEMCOPY,
+    MENU_ONEVENT_SWITCHMENU,
+    MENU_ONEVENT_FLIPBOOL,
+    MENU_ONEVENT_PAUSE,
+    MENU_ONEVENT_GOBACK,
+    MENU_ONEVENT_PRINTMESSAGE,
+    MENU_ONEVENT_QUIT,
 #ifndef CGD_BUILDTYPE_RELEASE
-    MN_ONEVENT_EXECUTE_OTHER,
+    MENU_ONEVENT_EXECUTE_OTHER,
 #endif /* CGD_BUILDTYPE_RELEASE */
 };
 
 enum menu_status_flag {
-    MN_STATUS_NONE      = 0,
-    MN_STATUS_GOBACK    = 1 << 0,
+    MENU_STATUS_NONE        = 0,
+    MENU_STATUS_SWITCH      = 1 << 0,
+    MENU_STATUS_GOBACK      = 1 << 1,
 };
 
 struct menu_onevent_config {
@@ -40,86 +44,74 @@ struct menu_onevent_config {
             void *dest;
             void *source;
             size_t size;
-        } memCopyInfo;
+        } memcpy_info;
 
-        u64 switchDestMenuID;
+        u64 switch_dest_ID;
 
-        struct Menu *goBackMenuSource;
+        struct Menu *go_back_dest;
 
-        const char *message;
+        char message[u_BUF_SIZE];
 
-        bool *boolVarPtr;
+        bool *bool_ptr;
 
-        void (*executeOther)();
+#ifndef CGD_BUILDTYPE_RELEASE
+        void (*execute_other)();
+#endif /* CGD_BUILDTYPE_RELEASE */
     } onEventArgs;
 };
 
-#define menu_parallax_bg_config parallax_bg_config
-#define menu_sprite_config sprite_config
-
+#define MENU_CONFIG_MAGIC 0x40
+struct menu_parallax_bg_config {
+    u8 magic;
+    struct parallax_bg_config bg_cfg;
+};
+struct menu_sprite_config {
+    u8 magic;
+    struct sprite_config sprite_cfg;
+};
 struct menu_button_config {
-    struct sprite_config spriteCfg;
-    struct menu_onevent_config onClickCfg;
+    u8 magic;
+    struct sprite_config sprite_cfg;
+    struct menu_onevent_config on_click_cfg;
     u32 flags;
 };
-
 struct menu_event_listener_config {
-    struct event_listener_config eventListenerCfg;
-    struct menu_onevent_config onEventCfg;
+    u8 magic;
+    struct event_listener_config event_listener_cfg;
+    struct menu_onevent_config on_event_cfg;
 };
 
 struct Menu {
-    struct {
-        struct event_listener **ptrArray;
-        u32 count;
-    } eventListeners;
-
-    struct {
-        sprite_t **ptrArray;
-        u32 count;
-    } sprites;
-
-    struct {
-        struct button **ptrArray;
-        u32 count;
-    } buttons;
+    VECTOR(struct event_listener *) event_listeners;
+    VECTOR(sprite_t *) sprites;
+    VECTOR(struct button *) buttons;
 
     struct parallax_bg *bg;
 
-    u64 switchTo;
+    u64 switch_target;
     u64 ID;
 
-    u64 statusFlags;
+    u64 flags;
 };
 
 struct menu_config {
-    struct menu_parallax_bg_config bgConfig;
+    u8 magic;
 
-    struct {
-        int count;
-        struct menu_sprite_config *cfgs;
-    } spriteInfo;
+    struct menu_parallax_bg_config bg_config;
+    struct menu_sprite_config sprite_info[MENU_CONFIG_MAX_LEN];
+    struct menu_button_config button_info[MENU_CONFIG_MAX_LEN];
+    struct menu_event_listener_config event_listener_info[MENU_CONFIG_MAX_LEN];
 
-    struct {
-        int count;
-        struct menu_button_config *cfgs;
-    } buttonInfo;
-
-    struct {
-        int count;
-        struct menu_event_listener_config *cfgs;
-    } eventListenerInfo;
-
-    u64 id;
+    u64 ID;
 };
 
-struct Menu * menu_init(struct menu_config *cfg, SDL_Renderer *r,
+struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer *r,
     struct keyboard *keyboard, struct mouse *mouse);
 
 void menu_update(struct Menu *menu, struct mouse *mouse);
 void menu_draw(struct Menu *menu, SDL_Renderer *r);
 void menu_destroy(struct Menu *menu);
 void menu_init_onevent_obj(struct on_event_obj *on_event_obj,
-        struct menu_onevent_config *cfg, struct Menu *optionalMenuPtr);
+        const struct menu_onevent_config *cfg, const struct Menu *optionalMenuPtr);
 
 #endif

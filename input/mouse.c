@@ -9,20 +9,21 @@
 struct mouse * mouse_init(void)
 {
     struct mouse *m = calloc(1, sizeof(struct mouse));
-    if (m == NULL) {
-        s_log_error("mouse", "malloc() for struct mouse failed");
-        return NULL;
-    }
+    if (m == NULL)
+        s_log_fatal("mouse", "mouse_init",
+            "calloc() failed for %s", "struct mouse");
 
     m->x = 0;
     m->y = 0;
 
-    s_log_debug("mouse", "mouse_init() OK!");
+    s_log_debug("mouse", "mouse_init() OK");
     return m;
 }
 
 void mouse_update(struct mouse *mouse)
 {
+    if (mouse == NULL) return;
+
     u32 state = SDL_GetMouseState(&mouse->x, &mouse->y);
 
     pressable_obj_update(&mouse->buttons[MOUSE_BUTTON_LEFT],   state & SDL_BUTTON_LMASK);
@@ -32,6 +33,8 @@ void mouse_update(struct mouse *mouse)
 
 void mouse_force_release(struct mouse *mouse, u32 button_masks)
 {
+    if (mouse == NULL) return;
+
     s_log_debug("mouse", "Force releasing buttons: L: %i, R: %i, M: %i",
         0 < (button_masks & MOUSE_LEFTBUTTONMASK),
         0 < (button_masks & MOUSE_RIGHTBUTTONMASK),
@@ -45,6 +48,8 @@ void mouse_force_release(struct mouse *mouse, u32 button_masks)
 
 void mouse_destroy(struct mouse *mouse)
 {
+    if (mouse == NULL) return;
+
     s_log_debug("mouse", "Destroying mouse...");
     free(mouse);
 }

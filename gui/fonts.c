@@ -18,6 +18,11 @@
 struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW, f32 lineH,
         enum font_charset charset, u16 flags)
 {
+    if (filepath == NULL || renderer == NULL) {
+        s_log_error("font", "Invalid parameters");
+        return NULL;
+    }
+
     /* The exit error codes used by the 'err' label */
     i32 ft_ret = 0;
 
@@ -329,6 +334,7 @@ void font_destroy(struct font *font)
 
 void font_set_text_color(struct font *font, u8 r, u8 g, u8 b, u8 a)
 {
+    if (font == NULL) return;
     SDL_SetTextureColorMod(font->texture, r, g, b);
     SDL_SetTextureAlphaMod(font->texture, a);
 }

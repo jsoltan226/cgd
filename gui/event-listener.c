@@ -5,16 +5,20 @@
 #include <stdio.h>
 
 struct event_listener * event_listener_init(
-    struct event_listener_config *cfg,
-    struct on_event_obj *on_event_obj,
-    struct event_listener_target *t
+    const struct event_listener_config *cfg,
+    const struct on_event_obj *on_event_obj,
+    const struct event_listener_target *t
 )
 {
-    struct event_listener *evl = malloc(sizeof(struct event_listener));
-    if (evl == NULL) {
-        s_log_error("event-listener", "malloc() failed for struct event_listener");
+    if (cfg == NULL || on_event_obj == NULL || t == NULL) {
+        s_log_error("event-listener", "event_listener_init: Invalid parameters");
         return NULL;
     }
+
+    struct event_listener *evl = malloc(sizeof(struct event_listener));
+    if (evl == NULL)
+        s_log_fatal("event-listener", "event_listener_init",
+            "malloc() failed for %s", "struct event_listener");
 
     evl->on_event_obj.fn = on_event_obj->fn;
     memcpy(evl->on_event_obj.argv_buf, on_event_obj->argv_buf, ONEVENT_OBJ_ARGV_SIZE);
@@ -52,7 +56,6 @@ void event_listener_update(struct event_listener *evl)
 {
     if (evl == NULL) return;
 
-    /* It should't be possible for evl->objectPtr to be NULL, so I am not checking for that */
     evl->detected = *evl->obj_ptr;
 
     if(evl->detected && evl->on_event_obj.fn)

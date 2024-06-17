@@ -34,3 +34,11 @@
     * Fixed `CFLAGS` in `Makefile` for targets `release`, `build-tests` and `compile-tests`
     * Corrected some typos
     * Added the proper compiler flags in .clangd
+
+* "Finished refactoring" <jsoltan226@github.com>
+    * Added checks for NULL in arguments of pointer types pretty much everywhere
+    * Started using `s_log_fatal` where appropriate
+    * Made all the config structs fixe-sized
+    * Refactored `gui/menu`, `gui/menu-mgr` and `gui/parallax-bg`, made heave use of `core/datastruct/vector`
+    * Removed the preprocessor guards in `core/datastruct/vector` as they didn't work at all (lol), instead renamed internal functions to have a suffix of `__`, e.g. `vector_realloc__`
+    * Fixed the way switching menus was happening in `gui/menu-mgr`

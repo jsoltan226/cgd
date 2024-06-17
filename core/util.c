@@ -45,7 +45,7 @@ i32 u_get_bin_dir(char *buf, u32 buf_size)
     }
 
     memset(buf, 0, buf_size);
-    if (p_getExePath(buf, buf_size)) {
+    if (p_get_exe_path(buf, buf_size)) {
         s_log_error("util", "[u_get_bin_dir] Failed to get the path to the executable.\n");
     }
 

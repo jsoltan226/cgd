@@ -1,8 +1,8 @@
-#ifndef EXE_INFO_H_
-#define EXE_INFO_H_
+#ifndef P_EXE_INFO_H_
+#define P_EXE_INFO_H_
 
-#include <stddef.h>
+#include "core/int.h"
 
-int p_getExePath(char *buf, size_t buf_size);
+i32 p_get_exe_path(char *buf, u32 buf_size);
 
-#endif /* EXE_INFO_H_ */
+#endif /* P_EXE_INFO_H_ */

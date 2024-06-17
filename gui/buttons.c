@@ -11,10 +11,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct button *button_init(struct sprite_config *sprite_cfg,
-    struct on_event_obj *on_click, u32 flags,
-    SDL_Renderer *renderer)
+struct button *button_init(const struct sprite_config *sprite_cfg,
+    const struct on_event_obj *on_click,
+    u32 flags, SDL_Renderer *renderer)
 {
+    if (sprite_cfg == NULL || on_click == NULL || renderer == NULL) {
+        s_log_error("button", "button_init: Invalid parameters");
+        return NULL;
+    }
+
     struct button *btn = calloc(1, sizeof(struct button));
     if (btn == NULL) {
         s_log_error("button", "calloc() failed for struct button!");
@@ -47,7 +52,7 @@ void button_update(struct button *btn, struct mouse *mouse)
 
     const pressable_obj_t *mouse_button = &mouse->buttons[MOUSE_BUTTON_LEFT];
 
-    if (btn->held && (mouse_button->up || mouse_button->forceReleased)) {
+    if (btn->held && (mouse_button->up || mouse_button->force_released)) {
         btn->held = false;
         if (btn->hovering) on_event_execute(btn->on_click);
     } else if (mouse_button->down && btn->hovering) {

@@ -5,7 +5,7 @@
 #include "core/int.h"
 
 typedef struct {
-    bool up, down, pressed, forceReleased;
+    bool up, down, pressed, force_released;
     i32 time;
 } pressable_obj_t;
 
