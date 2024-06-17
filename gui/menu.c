@@ -157,10 +157,12 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
             oeObj->fn = &mn_printMessage;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.message;
             break;
+#ifndef CGD_BUILDTYPE_RELEASE
         case MN_ONEVENT_EXECUTE_OTHER:
             oeObj->fn = &mn_executeOther;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.executeOther;
             break;
+#endif /* CGD_BUILDTYPE_RELEASE */
     }
 }
 
@@ -203,7 +205,7 @@ static int mn_memCopy(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
     /* =====> AVOID USING THIS FUNCTION. IT IS NOT VERY SAFE. <===== */
     /* check for argument existence and validity */
 
-    if(argv_buf == NULL || 
+    if(argv_buf == NULL ||
         (void *)argv_buf[0] == NULL ||
         (void *)argv_buf[1] == NULL ||
         (void *)argv_buf[2] == NULL
@@ -246,7 +248,7 @@ static int mn_flipBool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
     return EXIT_SUCCESS;
 }
 
-#ifndef CGD_BUILDDTYPE_RELEASE
+#ifndef CGD_BUILDTYPE_RELEASE
 static int mn_executeOther(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
 {
     /* =====> THIS IS A VERY UNSAFE FUNCTION, USED FOR TESTING PURPOSES ONLY! DO NOT USE IT IN PRODUCTION CODE!!! <===== */

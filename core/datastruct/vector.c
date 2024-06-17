@@ -23,7 +23,7 @@ void * vector_init(u32 item_size)
 {
     void *v = malloc(sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
     if (v == NULL) {
-        s_log_error("vector", "malloc() failed for new vector!");
+        s_log_fatal("vector", "vector_init", "malloc() failed for new vector!");
         return NULL;
     }
     memset(v, 0, sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
@@ -37,19 +37,18 @@ void * vector_init(u32 item_size)
     return v;
 }
 
-void * vector_push_back_p(void *v, void *item)
+void * vector_increase_size(void *v)
 {
-    if (v == NULL || item == NULL) return NULL;
-    
+    if (v == NULL) return NULL;
+
     struct vector_metadata *meta = get_metadata_ptr(v);
-    
+
     if (meta->n_items >= meta->capacity) {
         v = vector_realloc(v, meta->capacity * 2);
         meta = get_metadata_ptr(v); /* `meta` might have been moved by `realloc()` */
         meta->capacity *= 2;
     }
 
-    memcpy(element_at(v, meta->n_items), item, meta->item_size);
     meta->n_items++;
     return v;
 }
@@ -59,7 +58,9 @@ void * vector_pop_back_p(void *v)
     if (v == NULL) return NULL;
 
     struct vector_metadata *meta = get_metadata_ptr(v);
-    
+    /* Do nothing if vector is empty */
+    if (meta->n_items == 0) return v;
+
     meta->n_items--;
     memset(element_at(v, meta->n_items), 0, meta->item_size);
 
@@ -72,28 +73,24 @@ void * vector_pop_back_p(void *v)
     return v;
 }
 
-void * vector_insert_p(void *v, u32 at, void *item)
+void vector_memmove(void *v, u32 src_index, u32 dst_index, u32 nmemb)
 {
-    if (v == NULL || item == NULL) return NULL;
+    if (v == NULL)
+        s_log_fatal("vector", "vector_memmove", "invalid parameters");
+
+    if (src_index == dst_index || nmemb == 0)
+        return;
 
     struct vector_metadata *meta = get_metadata_ptr(v);
-    
-    if (meta->n_items >= meta->capacity) {
-        v = vector_realloc(v, meta->capacity * 2);
-        meta = get_metadata_ptr(v); /* `meta` might have been moved by `realloc()` */
-        meta->capacity *= 2;
-    }
+    /* Don't do anything of the vector doesn't have enough spare capacity */
+    if (src_index + nmemb > meta->n_items || dst_index + nmemb > meta->capacity)
+        return;
 
-    /* Move all items after `at` 1 spot to the right */
-    memcpy(
-        element_at(v, at + 1),
-        element_at(v, at),
-        (meta->n_items - at) * meta->item_size
+    memmove(
+        element_at(v, dst_index),
+        element_at(v, src_index),
+        nmemb * meta->item_size
     );
-
-    memmove(element_at(v, at), item, meta->item_size);
-
-    return v;
 }
 
 bool vector_empty(void *v)
@@ -113,6 +110,7 @@ u32 vector_capacity(void *v)
 
 void * vector_end(void * v)
 {
+    if (v == NULL) return NULL;
     struct vector_metadata *meta = get_metadata_ptr(v);
     return v + (meta->n_items * meta->item_size);
 }
@@ -142,10 +140,15 @@ void vector_clear(void *v)
 
 void * vector_erase_p(void *v, u32 index)
 {
+    if (v == NULL)
+        s_log_fatal("vector", "vector_erase", "invalid parameters");
+
     struct vector_metadata *meta = get_metadata_ptr(v);
 
-    /* Move all memory right of `index` one spot to the left, and pop the last spot */
-    memmove(element_at(v, index), element_at(v, index + 1), meta->item_size);
+    if (index >= meta->n_items) return v;
+
+    /* Move all memory right of `index` one spot to the left, and delete the last spot */
+    vector_memmove(v, index + 1, index, meta->n_items - index - 1);
     return vector_pop_back_p(v);
 }
 
@@ -163,7 +166,7 @@ void * vector_realloc(void *v, u32 new_cap)
         (new_cap * meta_p->item_size) + sizeof(struct vector_metadata));
 
     if (new_v == NULL) {
-        s_log_error("vector", "realloc() failed!");
+        s_log_fatal("vector", "vector_realloc", "realloc() failed!");
         return NULL;
     }
 
@@ -173,8 +176,12 @@ void * vector_realloc(void *v, u32 new_cap)
 
 void * vector_resize_p(void *v, u32 new_size)
 {
+    if (v == NULL || new_size == 0)
+        s_log_fatal("vector", "vector_resize", "invalid parameters");
+
     v = vector_realloc(v, new_size);
-    if (v == NULL) return NULL;
+    if (v == NULL)
+        return NULL;
 
     struct vector_metadata *meta = get_metadata_ptr(v);
     meta->capacity = new_size;

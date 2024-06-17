@@ -40,6 +40,22 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...)
     fprintf(fp, "\n");
 }
 
+noreturn void s_log_fatal(const char *module_name, const char *function_name,
+    const char *fmt, ...)
+{
+    fprintf(err_log_file, "[%s] FATAL ERROR: %s: ", module_name, function_name);
+
+    va_list vArgs;
+    va_start(vArgs, fmt);
+    vfprintf(err_log_file, fmt, vArgs);
+    va_end(vArgs);
+    fprintf(err_log_file, "\nFatal error encountered. Calling abort().\n");
+
+    fflush(out_log_file);
+    fflush(err_log_file);
+    abort();
+}
+
 i32 s_set_log_out_file(const char *file_path)
 {
     out_log_file = fopen(file_path, "wb");

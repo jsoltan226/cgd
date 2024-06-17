@@ -25,3 +25,12 @@
     * Added a pretty much full implementation of the `std::vector` in `core/datastruct/vector`. It. Was. A. Pain.
     * Added `tests/vector-test.c`
     * Fixed some uninitialized variable errors with clang in `gui/fonts.c` that were leftover from the previous commit
+
+## NEWS for Mon 17.06.2024
+* "Fixed `core/datastruct/vector`, added `s_log_fatal`, fixed some minor bugs" <jsoltan226@github.com>
+    * `core/datastruct/vector` no functions (kinda)
+    * Made `tests/vector-test.c` to be more of a fuzz test
+    * The internal functions in `core/datastruct/vector.h` are now secured from the user with preprocessor guards
+    * Fixed `CFLAGS` in `Makefile` for targets `release`, `build-tests` and `compile-tests`
+    * Corrected some typos
+    * Added the proper compiler flags in .clangd

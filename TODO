@@ -4,7 +4,7 @@ Add a context
 Add a file with instructions regarding the coding style
 Refactor the old ugly code from e.g. parallax-bg.c
 Check all functions that use `malloc()` for bugs caused by usage of uninitialized memory
-Add a LOG_FATAL_ERROR log level, and split LOG_DEBUG into multiple levels
+Split LOG_DEBUG into multiple levels
 
 (Future) Implement lazy loading of menus in menu-mgr
 (Future) Add popup menus

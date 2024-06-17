@@ -34,7 +34,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
 
     s_log_debug("font", "Initializing FreeType...");
     /* Initialize FreeType and load the font */
-    ft = NULL; 
+    ft = NULL;
     if(ft_ret = FT_Init_FreeType(&ft), ft_ret != 0)
         goto_error("Failed to initialize FreeType: %s", FT_Error_String(ft_ret));
 
@@ -190,7 +190,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     SDL_SetTextureBlendMode(new_font->texture, SDL_BLENDMODE_BLEND);
     font_set_text_color(new_font, u_color_arg_expand(FNT_DEFAULT_TEXT_COLOR));
 
-    s_log_info("font", "OK loading font from \"%s\"", filepath);
+    s_log_debug("font", "OK loading font from \"%s\"", filepath);
 
     return new_font;
 
@@ -321,7 +321,7 @@ void font_destroy(struct font *font)
     s_log_debug("font", "Destroying font...");
 
     free(font->glyphs);
-    if (font->texture != NULL) 
+    if (font->texture != NULL)
         SDL_DestroyTexture(font->texture);
 
     free(font);

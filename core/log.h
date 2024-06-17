@@ -3,13 +3,15 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdnoreturn.h>
 #include "int.h"
 
 typedef enum {
     LOG_DEBUG,
     LOG_INFO,
     LOG_WARNING,
-    LOG_ERROR
+    LOG_ERROR,
+    LOG_FATAL_ERROR,
 } s_log_level;
 
 void s_log(s_log_level level, const char *module_name, const char *fmt, ...);
@@ -29,6 +31,9 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...);
 
 #define s_log_error(module_name, fmt...) \
     s_log(LOG_ERROR, module_name, fmt)
+
+noreturn void s_log_fatal(const char *module_name, const char *function_name,
+    const char *fmt, ...);
 
 void s_set_log_level(s_log_level new_log_level);
 s_log_level s_get_log_level();

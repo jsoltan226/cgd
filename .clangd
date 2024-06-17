@@ -4,3 +4,5 @@ CompileFlags:
     - "-I."
     - "-I.."
     - "-I../.."
+    - "-xc"
+    - "-std=c11"

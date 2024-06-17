@@ -67,7 +67,7 @@ COL_RESET=
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
 
-release: CFLAGS = -O3 -Wall -Werror
+release: CFLAGS = -O3 -Wall -Werror -DNDEBUG -DCGD_BUILDTYPE_RELEASE
 release: clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run
@@ -138,8 +138,10 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 	fi; \
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
 
+build-tests: CFLAGS = -ggdb -O0 -Wall
 build-tests: $(TEST_EXE_DIR) compile-tests
 
+compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
 run-tests: tests
