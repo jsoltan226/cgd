@@ -2,15 +2,14 @@
 #define U_SHAPES_H_
 
 #include "int.h"
+#include <assert.h>
 
-typedef union {
+typedef struct {
     f32 x, y;
-    f32 pos[2];
 } vec2d_t;
 
-typedef union {
-    f32 x, y;
-    f32 pos[2];
+typedef struct {
+    f32 x, y, z;
 } vec3d_t;
 
 typedef struct {
@@ -20,5 +19,8 @@ typedef struct {
 typedef struct {
     u8 r, g, b, a;
 } color_RGBA32_t;
+
+static_assert(sizeof(color_RGBA32_t) == 4,
+    "The size of color_RGBA32_t must be 4 bytes (32 bits)");
 
 #endif /* U_SHAPES_H_ */

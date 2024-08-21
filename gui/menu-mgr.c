@@ -4,24 +4,19 @@
 #include "core/int.h"
 #include "event-listener.h"
 #include "menu.h"
-#include "on-event.h"
 #include "input/mouse.h"
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <error.h>
+#include <string.h>
 
-#define goto_error(msg...) do {     \
-    s_log_error("menu-mgr", msg);   \
-    goto err;                       \
-} while (0)
+#define MODULE_NAME "menu-mgr"
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
     SDL_Renderer *r, struct keyboard *keyboard, struct mouse *mouse)
 {
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
-    if (mmgr == NULL)
-        s_log_fatal("menu-mgr", "menu_mgr_init",
-            "calloc() failed for %s", "struct MenuManager");
+    s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
 
     if (cfg->magic != MENU_CONFIG_MAGIC)
         goto_error("menu_mgr_init: The config struct is invalid");
@@ -42,25 +37,35 @@ struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
     }
 
     /* Initialize the global event listeners */
-    struct event_listener_target tmp_evl_target_obj = {
-        .keyboard = keyboard,
-        .mouse = mouse,
-    };
     i = 0;
     while (cfg->global_event_listener_info[i].magic == MENU_CONFIG_MAGIC &&
         i < MENUMGR_MAX_MENU_COUNT) {
-        struct on_event_obj tmp_onevent_obj = { 0 };
+        struct event_listener_config tmp_cfg = { 0 };
+        memcpy(&tmp_cfg, &cfg->global_event_listener_info[i].event_listener_cfg,
+            sizeof(struct event_listener_config));
+
+        switch(cfg->global_event_listener_info[i].event_listener_cfg.type) {
+            case EVL_EVENT_KEYBOARD_KEYUP:
+            case EVL_EVENT_KEYBOARD_KEYDOWN:
+            case EVL_EVENT_KEYBOARD_KEYPRESS:
+                tmp_cfg.target_obj.keyboard_p = &keyboard;
+                break;
+            case EVL_EVENT_MOUSE_BUTTONUP:
+            case EVL_EVENT_MOUSE_BUTTONDOWN:
+            case EVL_EVENT_MOUSE_BUTTONPRESS:
+                tmp_cfg.target_obj.mouse_p = &mouse;
+                break;
+            default:
+                tmp_cfg.target_obj.mouse_p = NULL;
+        }
+
         menu_init_onevent_obj(
-            &tmp_onevent_obj,
+            &tmp_cfg.on_event,
             &cfg->global_event_listener_info[i].on_event_cfg,
             NULL
         );
 
-        struct event_listener *new_evl = event_listener_init(
-            &cfg->global_event_listener_info[i].event_listener_cfg,
-            &tmp_onevent_obj,
-            &tmp_evl_target_obj
-        );
+        struct event_listener *new_evl = event_listener_init(&tmp_cfg);
         if (new_evl == NULL)
             goto_error("Global event_listener_init failed!");
 
@@ -159,12 +164,12 @@ void menu_mgr_push_menu(struct MenuManager *mmgr, u64 switch_target_ID)
         }
     }
     if (dest_ptr == NULL) {
-        s_log_warn("menu-mgr", "Cannot switch to menu with ID %u: No such menu",
+        s_log_warn("Cannot switch to menu with ID %u: No such menu",
             switch_target_ID);
         return;
     }
 
-    s_log_debug("menu-mgr", "Switching to menu with ID %lu...", dest_ptr->ID);
+    s_log_debug("Switching to menu with ID %lu...", dest_ptr->ID);
 
     /* Reset the current menu's switch_target */
     mmgr->curr_menu->switch_target = MENU_ID_NULL;

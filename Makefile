@@ -8,7 +8,7 @@ COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC
 DEPFLAGS?=-MMD -MP
 LDFLAGS?=-pie
 ARFLAGS=rcs
-LIBS?=-lpng -lSDL2 -lfreetype -lm
+LIBS?=-lSDL2 -lfreetype -lm
 STRIP?=strip
 DEBUGSTRIP?=strip -d
 STRIPFLAGS?=-g -s
@@ -173,7 +173,7 @@ run:
 
 debug-run:
 	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
-	@$(EXEC) -a debug $(EXE) $(EXEARGS)
+	@bash -c '$(EXEC) -a debug $(EXE) $(EXEARGS)'
 
 bdr: all debug-run
 

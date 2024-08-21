@@ -17,23 +17,30 @@ typedef enum {
 void s_log(s_log_level level, const char *module_name, const char *fmt, ...);
 
 #ifndef NDEBUG
-#define s_log_debug(module_name, fmt...) \
-    s_log(LOG_DEBUG, module_name, fmt)
+#define s_log_debug(...) \
+    s_log(LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #else
-#define s_log_debug(module_name, fmt...)
+#define s_log_debug(...)
 #endif /* NDEBUG */
 
-#define s_log_info(module_name, fmt...) \
-    s_log(LOG_INFO, module_name, fmt)
+#define s_log_info(...) \
+    s_log(LOG_INFO, MODULE_NAME, __VA_ARGS__)
 
-#define s_log_warn(module_name, fmt...) \
-    s_log(LOG_WARNING, module_name, fmt)
+#define s_log_warn(...) \
+    s_log(LOG_WARNING, MODULE_NAME, __VA_ARGS__)
 
-#define s_log_error(module_name, fmt...) \
-    s_log(LOG_ERROR, module_name, fmt)
+#define s_log_error(...) \
+    s_log(LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
 noreturn void s_log_fatal(const char *module_name, const char *function_name,
     const char *fmt, ...);
+
+#define s_assert(expr, /* msg on fail */...) do {                   \
+    if (!(expr)) {                                                  \
+        s_log_error("Assertion failed: '%s'", #expr);               \
+        s_log_fatal(MODULE_NAME, __func__, __VA_ARGS__);            \
+    }                                                               \
+} while (0);
 
 void s_set_log_level(s_log_level new_log_level);
 s_log_level s_get_log_level();

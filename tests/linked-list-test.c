@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MODULE_NAME "linked-list-test"
+
 #define LIST_LENGTH 25
 
 static struct linked_list *ll = NULL;
@@ -17,27 +19,27 @@ int main(void)
     s_set_log_err_filep(stdout);
     s_set_log_level(LOG_DEBUG);
 
-    s_log_debug("linked-list-test", "Creating linked list...");
+    s_log_debug("Creating linked list...");
     ll = linked_list_create("item0");
     if (ll == NULL) {
-        s_log_error("linked-list-test", "linked_list_create() failed! Stop.");
+        s_log_error("linked_list_create() failed! Stop.");
         goto err;
     }
 
-    s_log_debug("linked-list-test", "Populating list...");
+    s_log_debug("Populating list...");
     struct ll_node *curr_node = ll->head;
     for (u32 i = 1; i < LIST_LENGTH; i++) {
         char *curr_str = &item_str_table[i * ITEM_STR_LEN];
         snprintf(curr_str, ITEM_STR_LEN, "item%u", i);
 
-        s_log_info("linked-list-test", "linked_list_append(ll, \"%s\")", curr_str);
+        s_log_info("linked_list_append(ll, \"%s\")", curr_str);
         if (curr_node = linked_list_append(curr_node, (void *)curr_str), curr_node == NULL) {
-            s_log_error("linked-list-test", "Failed to append \"%s\" to the list. Stop.", curr_str);
+            s_log_error("Failed to append \"%s\" to the list. Stop.", curr_str);
             goto err;
         }
     }
 
-    s_log_debug("linked-list-test", "Dumping list...");
+    s_log_debug("Dumping list...");
     curr_node = ll->head;
 #define BUF_SIZE 512
     char buf[BUF_SIZE] = { 0 };
@@ -49,16 +51,16 @@ int main(void)
     }
     strncat(buf, "TAIL", BUF_SIZE - strlen(buf) - 1);
 
-    s_log_info("linked-list-test", "list: %s", buf);
+    s_log_info("list: %s", buf);
 
-    s_log_debug("linked-list-test", "OK, Cleaning up...");
+    s_log_debug("OK, Cleaning up...");
     linked_list_destroy(ll);
 
-    s_log_info("linked-list-test", "Test result is OK");
+    s_log_info("Test result is OK");
     return EXIT_SUCCESS;
 
 err:
-    s_log_info("linked-list-test", "Test result is FAIL");
+    s_log_info("Test result is FAIL");
     if (ll) linked_list_destroy(ll);
     return EXIT_FAILURE;
 }

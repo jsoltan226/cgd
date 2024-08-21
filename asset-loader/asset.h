@@ -13,7 +13,7 @@ struct asset {
     filepath_t rel_file_path;
     enum asset_img_type type;
 
-    struct pixel_data *pixel_data;
+    struct pixel_flat_data pixel_data;
     SDL_Texture *texture;
 };
 

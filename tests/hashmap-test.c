@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MODULE_NAME "hashmaptest"
+
 static void dump_hashmap(struct hashmap *map, s_log_level log_level);
 
 #define MAP_SIZE 10
@@ -29,19 +31,19 @@ int main(void)
     s_set_log_err_filep(stdout);
     s_set_log_level(LOG_DEBUG);
 
-    s_log_debug("hashmaptest", "Creating hashmap...");
+    s_log_debug("Creating hashmap...");
 
     map = hashmap_create(MAP_SIZE);
     if (map == NULL) {
-        s_log_error("hashmaptest", "hashmap_create() failed! Stop.");
+        s_log_error("hashmap_create() failed! Stop.");
         goto err;
     }
     for (u32 i = 0; i < MAP_SIZE; i++) {
-        s_log_debug("hashmaptest", "hashmap_insert(map, \"%s\", \"%s\")",
+        s_log_debug("hashmap_insert(map, \"%s\", \"%s\")",
             key_value_pairs[i][0], key_value_pairs[i][1]
         );
         if (hashmap_insert(map, key_value_pairs[i][0], key_value_pairs[i][1])) {
-            s_log_error("hashmaptest",
+            s_log_error(
                 "Failed to insert key \"%s\" and value \"%s\". Stop.",
                 key_value_pairs[i][0], key_value_pairs[i][1]
             );
@@ -52,20 +54,20 @@ int main(void)
     dump_hashmap(map, LOG_INFO);
 
     for (u32 i = 0; i < MAP_SIZE; i++) {
-        s_log_info("hashmaptest", "hashmap_lookup_record(\"%s\") -> \"%s\"",
+        s_log_info("hashmap_lookup_record(\"%s\") -> \"%s\"",
             key_value_pairs[i][0],
             hashmap_lookup_record(map, key_value_pairs[i][0])
         );
     }
 
-    s_log_debug("hashmaptest", "Destroying hashmap...");
+    s_log_debug("Destroying hashmap...");
     hashmap_destroy(map);
 
-    s_log_info("hashmaptest", "Test result is OK");
+    s_log_info("Test result is OK");
     return EXIT_SUCCESS;
 
 err:
-    s_log_info("hashmaptest", "Test result is FAIL");
+    s_log_info("Test result is FAIL");
     if (map) hashmap_destroy(map);
     return EXIT_FAILURE;
 }

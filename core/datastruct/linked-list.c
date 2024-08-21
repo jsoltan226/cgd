@@ -2,17 +2,16 @@
 #include "core/log.h"
 #include <stdlib.h>
 
+#define MODULE_NAME "linked-list"
+
 struct linked_list * linked_list_create(void *head_content)
 {
     struct linked_list *ll = malloc(sizeof(struct linked_list));
-    if (ll == NULL) {
-        s_log_error("linked-list", "malloc() for struct linked_list failed!");
-        return NULL;
-    }
+    s_assert(ll != NULL, "malloc() failed for struct linked_list");
 
     struct ll_node *first_node = linked_list_create_node(head_content);
     if (first_node == NULL) {
-        s_log_error("linked-list", "linked_list_create_node() returned NULL!");
+        s_log_error("linked_list_create_node() returned NULL!");
         free(ll);
         return NULL;
     }
@@ -25,10 +24,7 @@ struct linked_list * linked_list_create(void *head_content)
 struct ll_node * linked_list_append(struct ll_node *at, void *content)
 {
     struct ll_node *new_node = calloc(1, sizeof(struct ll_node));
-    if (new_node == NULL) {
-        s_log_error("linked-list", "linked_list_append: calloc() for new_node failed!");
-        return NULL;
-    }
+    s_assert(new_node != NULL, "calloc() for new_node failed!");
 
     if (at != NULL) {
         new_node->next = at->next;
@@ -44,10 +40,7 @@ struct ll_node * linked_list_append(struct ll_node *at, void *content)
 struct ll_node * linked_list_prepend(struct ll_node *at, void *content)
 {
     struct ll_node *new_node = calloc(1, sizeof(struct ll_node));
-    if (new_node == NULL) {
-        s_log_error("linked-list", "linked_list_prepend: calloc() for new_node failed!");
-        return NULL;
-    }
+    s_assert(new_node != NULL, "calloc() for new_node failed!");
 
     if (at != NULL) {
         new_node->prev = at->prev;

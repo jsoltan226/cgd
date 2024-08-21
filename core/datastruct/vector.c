@@ -2,9 +2,12 @@
 #include "core/int.h"
 #include "core/log.h"
 #include "core/math.h"
+#include "core/util.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MODULE_NAME "vector"
 
 struct vector_metadata {
     const u32 item_size;
@@ -22,10 +25,7 @@ struct vector_metadata {
 void * vector_init(u32 item_size)
 {
     void *v = malloc(sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
-    if (v == NULL) {
-        s_log_fatal("vector", "vector_init", "malloc() failed for new vector!");
-        return NULL;
-    }
+    s_assert(v != NULL, "malloc() failed for vector");
     memset(v, 0, sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
 
     struct vector_metadata *metadata_ptr = v;
@@ -75,8 +75,7 @@ void * vector_pop_back__(void *v)
 
 void vector_memmove__(void *v, u32 src_index, u32 dst_index, u32 nmemb)
 {
-    if (v == NULL)
-        s_log_fatal("vector", "vector_memmove", "invalid parameters");
+    u_check_params(v != NULL);
 
     if (src_index == dst_index || nmemb == 0)
         return;
@@ -140,8 +139,7 @@ void vector_clear(void *v)
 
 void * vector_erase__(void *v, u32 index)
 {
-    if (v == NULL)
-        s_log_fatal("vector", "vector_erase", "invalid parameters");
+    u_check_params(v != NULL);
 
     struct vector_metadata *meta = get_metadata_ptr(v);
 
@@ -165,10 +163,7 @@ void * vector_realloc__(void *v, u32 new_cap)
     new_v = realloc(meta_p,
         (new_cap * meta_p->item_size) + sizeof(struct vector_metadata));
 
-    if (new_v == NULL) {
-        s_log_fatal("vector", "vector_realloc", "realloc() failed!");
-        return NULL;
-    }
+    s_assert(new_v != NULL, "realloc() failed!");
 
     new_v += sizeof(struct vector_metadata);
     return new_v;
@@ -176,8 +171,7 @@ void * vector_realloc__(void *v, u32 new_cap)
 
 void * vector_resize__(void *v, u32 new_size)
 {
-    if (v == NULL || new_size == 0)
-        s_log_fatal("vector", "vector_resize", "invalid parameters");
+    u_check_params(v != NULL && new_size > 0);
 
     v = vector_realloc__(v, new_size);
     if (v == NULL)

@@ -1,24 +1,23 @@
 #include "sprite.h"
 #include "asset-loader/asset.h"
 #include "core/log.h"
+#include "core/util.h"
 #include "menu.h"
 #include <SDL2/SDL_render.h>
 
+#define MODULE_NAME "sprite"
+
 sprite_t * sprite_init(const struct sprite_config *cfg, SDL_Renderer *renderer)
 {
-    if (cfg == NULL || renderer == NULL) {
-        s_log_error("sprite", "sprite_init: Invalid parameters");
-        return NULL;
-    }
+    u_check_params(cfg != NULL && renderer != NULL)
 
     if (cfg->magic != MENU_CONFIG_MAGIC) {
-        s_log_error("sprite", "The config struct is invalid");
+        s_log_error("The config struct is invalid");
         return NULL;
     }
 
     sprite_t *spr = malloc(sizeof(sprite_t));
-    if (spr == NULL)
-        s_log_fatal("sprite", "sprite_init", "malloc() failed for %s", "new sprite");
+    s_assert(spr != NULL, "malloc() failed for new sprite");
 
     spr->src_rect = cfg->src_rect;
     spr->dst_rect = cfg->dst_rect;
@@ -26,7 +25,7 @@ sprite_t * sprite_init(const struct sprite_config *cfg, SDL_Renderer *renderer)
 
     spr->asset = asset_load(cfg->texture_filepath, renderer);
     if (spr->asset == NULL) {
-        s_log_error("sprite", "Failed to load asset \"%s\"!", cfg->texture_filepath);
+        s_log_error("Failed to load asset \"%s\"!", cfg->texture_filepath);
         sprite_destroy(spr);
         return NULL;
     }

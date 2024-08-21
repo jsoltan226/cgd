@@ -1,11 +1,13 @@
 #include "keyboard.h"
 #include "pressable-obj.h"
-#include <core/log.h>
-#include <cgd/core/int.h>
+#include "core/log.h"
+#include "core/int.h"
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_keycode.h>
 #include <stdbool.h>
+
+#define MODULE_NAME "keyboard"
 
 static const SDL_Keycode kb_keycode_2_sdl_scancode_map[KB_KEYBOARD_LENGTH];
 
@@ -13,16 +15,14 @@ struct keyboard * keyboard_init(void)
 {
     /* Allocate the keyboard array */
     struct keyboard *kb = malloc(sizeof(struct keyboard));
-    if (kb == NULL)
-        s_log_fatal("keyboard", "keyboard_init",
-            "malloc() failed for %s", "struct keyboard");
+    s_assert(kb != NULL, "malloc() failed for struct keyboard");
 
     /* Initialize all the keys */
     for(u32 i = 0; i < KB_KEYBOARD_LENGTH; i++) {
         kb->keys[i].key = (pressable_obj_t) { 0 };
         kb->keys[i].SDLKeycode = kb_keycode_2_sdl_scancode_map[i];
     }
-    s_log_debug("keyboard", "keyboard_init OK, %u unique keys", sizeof(kb->keys) / sizeof(*kb->keys));
+    s_log_debug("keyboard_init OK, %u unique keys", sizeof(kb->keys) / sizeof(*kb->keys));
     return kb;
 }
 
@@ -42,7 +42,7 @@ void keyboard_destroy(struct keyboard *kb)
 {
     if (kb == NULL) return;
 
-    s_log_debug("keyboard", "Destroying keyboard...");
+    s_log_debug("Destroying keyboard...");
     free(kb);
 }
 

@@ -1,9 +1,12 @@
 #include "core/datastruct/vector.h"
 #include "core/log.h"
+#include "core/util.h"
 #include <sys/time.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MODULE_NAME "vectortest"
 
 struct large_struct {
     u64 arr[16];
@@ -15,12 +18,6 @@ static const struct large_struct large_items[N_LARGE_STRUCTS];
 
 #define N_SMALL_ITEMS 64
 static const u64 small_items[N_SMALL_ITEMS];
-
-#define goto_error(msg...) do {     \
-    s_log_error("vectortest:test", msg); \
-    ERROR = true;                   \
-    goto cleanup;                   \
-} while (0)
 
 static bool ERROR = false;
 static i32 test();
@@ -37,37 +34,39 @@ int main(void)
     struct timeval start = { 0 }, stop = { 0 };
     gettimeofday(&start, NULL);
 
-    s_log_debug("vectortest", "Running %u iterations...", N_ITERATIONS);
+    s_log_debug("Running %u iterations...", N_ITERATIONS);
     for (u32 i = 0; i < N_ITERATIONS; i++) {
-        s_log_info("vectortest", "Iteration %u", i);
+        s_log_info("Iteration %u", i);
         if (test()) {
-            s_log_info("vectortest", "Test result is FAIL");
+            s_log_info("Test result is FAIL");
             return EXIT_FAILURE;
         }
     }
 
     gettimeofday(&stop, NULL);
     i64 deltatime_microseconds = ((stop.tv_sec - start.tv_sec)*1000000 + (stop.tv_usec - start.tv_usec));
-    s_log_info("vectortest", "[PROFILING]: Total n iterations: %u", N_ITERATIONS);
-    s_log_info("vectortest", "[PROFILING]: Time (s): %lf",
+    s_log_info("[PROFILING]: Total n iterations: %u", N_ITERATIONS);
+    s_log_info("[PROFILING]: Time (s): %lf",
         (f64)deltatime_microseconds/1000000.f
     );
-    s_log_info("vectortest", "[PROFILING]: Iterations/s: %lf",
+    s_log_info("[PROFILING]: Iterations/s: %lf",
         (f64)(N_ITERATIONS*1000000.f) / (f64)deltatime_microseconds
     );
 
-    s_log_info("vectortest", "Test result is OK");
+    s_log_info("Test result is OK");
 
     return EXIT_SUCCESS;
 }
 
+#undef MODULE_NAME
+#define MODULE_NAME "vectortest:test"
 static i32 test()
 {
     u64 *vector_small = NULL;
     struct large_struct *vector_large = NULL;
     u64 *vector_cloned = NULL;
 
-    s_log_debug("vectortest:test", "Initializing vectors...");
+    s_log_debug("Initializing vectors...");
     vector_small = vector_new(u64);
     if (vector_small == NULL)
         goto_error("Failed to initialize vector_small!");
@@ -76,7 +75,7 @@ static i32 test()
     if (vector_large == NULL)
         goto_error("Failed to initialize vector_large!");
 
-    s_log_debug("vectortest:test", "Testing vector_push_back...");
+    s_log_debug("Testing vector_push_back...");
 
     for (u32 i = 0; i < N_SMALL_ITEMS; i++)
         vector_push_back(vector_small, small_items[i]);
@@ -90,7 +89,7 @@ static i32 test()
         goto_error("`vector_large->items` does not match `large_items`");
 
     u32 vsmall_n_popped_back = random_u32() % ((N_SMALL_ITEMS / 2) - 1) + 1;
-    s_log_debug("vectortest:test", "Testing vector_pop_back (and vector_back) with %u items...",
+    s_log_debug("Testing vector_pop_back (and vector_back) with %u items...",
         vsmall_n_popped_back);
     for (u32 i = 0; i < vsmall_n_popped_back; i++)
         vector_pop_back(vector_small);
@@ -99,7 +98,7 @@ static i32 test()
         goto_error("`vector_small->items` does not match `small_items`");
 
     u32 vlarge_insert_index = random_u32() % (N_LARGE_STRUCTS - 1);
-    s_log_debug("vectortest:test", "Testing vector_insert (index %u, max %u) and vector_erase...",
+    s_log_debug("Testing vector_insert (index %u, max %u) and vector_erase...",
         vlarge_insert_index, N_LARGE_STRUCTS - 1);
     vector_insert(vector_large, vlarge_insert_index,
         (struct large_struct){ .arr = { 0 }, .str = "inserted item" }
@@ -114,8 +113,7 @@ static i32 test()
             vector_large[vlarge_insert_index].str);
 
     u64 *vsmall_begin_val = vector_begin(vector_small);
-    s_log_debug("vectortest:test",
-        "Testing vector_begin, vector_front and vector_end vith value %u...",
+    s_log_debug("Testing vector_begin, vector_front and vector_end vith value %u...",
         vsmall_begin_val
     );
     if (vsmall_begin_val != vector_small)
@@ -128,14 +126,14 @@ static i32 test()
 
     u64 *vsmall_end_val_p = vector_end(vector_small);
     u64 vsmall_pushed_val = (u64)random_u32();
-    s_log_debug("vectortest:test", "vector_end() returned %p -> %lu, pushed value is %lu",
+    s_log_debug("vector_end() returned %p -> %lu, pushed value is %lu",
         vsmall_end_val_p, *vsmall_end_val_p, vsmall_pushed_val);
     vector_push_back(vector_small, vsmall_pushed_val);
     if (vector_back(vector_small) != *vsmall_end_val_p || *vsmall_end_val_p != vsmall_pushed_val)
         goto_error("vector_end test failed, expected value %lu, got %lu",
             vsmall_pushed_val, *vsmall_end_val_p);
 
-    s_log_debug("vectortest:test", "Testing vector_clone, vector_empty and vector_clear...");
+    s_log_debug("Testing vector_clone, vector_empty and vector_clear...");
     vector_cloned = vector_clone(vector_small);
     if (
         vector_cloned == NULL ||
@@ -149,21 +147,21 @@ static i32 test()
     if (vector_empty(vector_small) || !vector_empty(vector_cloned))
         goto_error("vector_empty test failed");
 
-    s_log_debug("vectortest:test", "Testing vector_capacity and vector_shrink_to_fit...");
+    s_log_debug("Testing vector_capacity and vector_shrink_to_fit...");
     vector_shrink_to_fit(vector_cloned);
     if (vector_capacity(vector_cloned) != 0)
         goto_error("vector_shrink_to_fit test failed; expected value 0, got %u",
             vector_capacity(vector_cloned));
 
     u32 vsmall_new_size = 1 + random_u32() % (N_SMALL_ITEMS - vsmall_n_popped_back - 1);
-    s_log_debug("vectortest:test", "Testing vector_resize -> new_size %u and vector_at...",
+    s_log_debug("Testing vector_resize -> new_size %u and vector_at...",
         vsmall_new_size);
     vector_resize(vector_small, vsmall_new_size);
     if (vector_back(vector_small) != vector_at(vector_small, vsmall_new_size - 1))
         goto_error("vector_resize test failed; expected value %lu, got %lu",
             vector_at(vector_small, vsmall_new_size), vector_back(vector_small));
 
-cleanup:
+err:
     if (vector_small != NULL) vector_destroy(vector_small);
     if (vector_large != NULL) vector_destroy(vector_large);
     if (vector_cloned != NULL) vector_destroy(vector_cloned);

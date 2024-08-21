@@ -10,18 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define goto_error(msg...) do {     \
-    s_log_error("font", msg);       \
-    goto err;                       \
-} while (0);
+#define MODULE_NAME "fonts"
 
 struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW, f32 lineH,
         enum font_charset charset, u16 flags)
 {
-    if (filepath == NULL || renderer == NULL) {
-        s_log_error("font", "Invalid parameters");
-        return NULL;
-    }
+    u_check_params(filepath != NULL && renderer != NULL);
 
     /* The exit error codes used by the 'err' label */
     i32 ft_ret = 0;
@@ -37,7 +31,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     if(new_font == NULL)
         goto_error("malloc() failed for struct font!");
 
-    s_log_debug("font", "Initializing FreeType...");
+    s_log_debug("Initializing FreeType...");
     /* Initialize FreeType and load the font */
     ft = NULL;
     if(ft_ret = FT_Init_FreeType(&ft), ft_ret != 0)
@@ -47,7 +41,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     strncpy(full_filepath, u_get_asset_dir(), u_BUF_SIZE - 1);
     strncat(full_filepath, filepath, u_BUF_SIZE - strlen(full_filepath) - 1);
 
-    s_log_debug("font", "Initializing font face from \"%s\"...", full_filepath);
+    s_log_debug("Initializing font face from \"%s\"...", full_filepath);
 
     face = NULL;
     if (ft_ret = FT_New_Face(ft, full_filepath, 0, &face), ft_ret != 0)
@@ -67,14 +61,14 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
 
     switch (charset) {
         default: case FNT_CHARSET_ASCII:
-            s_log_debug("font", "Charset is ASCII");
+            s_log_debug("Charset is ASCII");
             new_font->visible_chars.first = FNT_ASCII_FIRST_VISIBLE_CHAR;
             new_font->visible_chars.last = FNT_ASCII_LAST_VISIBLE_CHAR;
             new_font->visible_chars.total = FNT_ASCII_TOTAL_VISIBLE_CHARS;
             break;
         case FNT_CHARSET_UTF8:
             // temporary
-            s_log_debug("font", "Charset is UTF-8");
+            s_log_debug("Charset is UTF-8");
             new_font->visible_chars.first = FNT_ASCII_FIRST_VISIBLE_CHAR;
             new_font->visible_chars.last = FNT_ASCII_LAST_VISIBLE_CHAR;
             new_font->visible_chars.total = FNT_ASCII_TOTAL_VISIBLE_CHARS;
@@ -165,7 +159,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
-    s_log_debug("font", "Total width is %i, total height is %i. Creating final surface...",
+    s_log_debug("Total width is %i, total height is %i. Creating final surface...",
         totalW, totalH);
     final_surface = SDL_CreateRGBSurfaceWithFormat(
         0, totalW, totalH, 32, SDL_PIXELFORMAT_RGBA32
@@ -195,7 +189,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
     SDL_SetTextureBlendMode(new_font->texture, SDL_BLENDMODE_BLEND);
     font_set_text_color(new_font, u_color_arg_expand(FNT_DEFAULT_TEXT_COLOR));
 
-    s_log_debug("font", "OK loading font from \"%s\"", filepath);
+    s_log_debug("OK loading font from \"%s\"", filepath);
 
     return new_font;
 
@@ -323,7 +317,7 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
 void font_destroy(struct font *font)
 {
     if (font == NULL) return;
-    s_log_debug("font", "Destroying font...");
+    s_log_debug("Destroying font...");
 
     free(font->glyphs);
     if (font->texture != NULL)

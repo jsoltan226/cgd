@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#define MODULE_NAME "log"
+
 static FILE *out_log_file = NULL, *err_log_file = NULL;
 static bool user_fault = NO_USER_FAULT;
 static s_log_level current_log_level = LOG_INFO;
@@ -19,11 +21,11 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...)
 
     if (err_log_file == NULL) {
         s_set_log_err_filep(stderr);
-        s_log_warn("log", "The error log file was unset; setting it to stderr", NULL);
+        s_log_warn("The error log file was unset; setting it to stderr");
     }
     if (out_log_file == NULL) {
         s_set_log_out_filep(stdout);
-        s_log_warn("log", "The out log file was unset; setting it to stdout", NULL);
+        s_log_warn("The out log file was unset; setting it to stdout");
     }
 
     FILE *fp = level >= LOG_WARNING ? err_log_file : out_log_file;
@@ -60,7 +62,7 @@ i32 s_set_log_out_file(const char *file_path)
 {
     out_log_file = fopen(file_path, "wb");
     if (out_log_file == NULL) {
-        s_log_error("log", "Failed to open out log file '%s': %s", file_path, strerror(errno));
+        s_log_error("Failed to open out log file '%s': %s", file_path, strerror(errno));
         return 1;
     }
 
@@ -70,7 +72,7 @@ i32 s_set_log_out_file(const char *file_path)
 i32 s_set_log_out_filep(FILE *fp)
 {
     if (fp == NULL) {
-        s_log_warn("log", "Not changing out log file to NULL", NULL);
+        s_log_warn("Not changing out log file to NULL", NULL);
         return 1;
     }
     out_log_file = fp;
@@ -81,7 +83,7 @@ i32 s_set_log_err_file(const char *file_path)
 {
     err_log_file = fopen(file_path, "wb");
     if (err_log_file == NULL) {
-        s_log_error("log", "Failed to open error log file '%s': %s", file_path, strerror(errno));
+        s_log_error("Failed to open error log file '%s': %s", file_path, strerror(errno));
         return 1;
     }
 
@@ -91,7 +93,7 @@ i32 s_set_log_err_file(const char *file_path)
 i32 s_set_log_err_filep(FILE *fp)
 {
     if (fp == NULL) {
-        s_log_warn("log", "Not changing error log file to NULL", NULL);
+        s_log_warn("Not changing error log file to NULL", NULL);
         return 1;
     }
     err_log_file = fp;

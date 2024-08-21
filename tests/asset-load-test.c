@@ -1,14 +1,19 @@
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_video.h>
-#include <cgd/core/int.h>
-#include <cgd/asset-loader/asset.h>
-#include <cgd/core/log.h>
+#include "asset-loader/io-PNG.h"
+#include "asset-loader/plugin.h"
+#include "core/int.h"
+#include "asset-loader/asset.h"
+#include "core/log.h"
+#include "core/util.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+
+#define MODULE_NAME "raw2sdltest"
 
 #define IMG_REL_PATH_BUF_SIZE 256
 #define IMG_REL_PATH_PREFIX "tests/"
@@ -24,17 +29,24 @@ int main(void)
     s_set_log_level(LOG_DEBUG);
     s_set_user_fault(NO_USER_FAULT);
 
-    s_log_debug("raw2sdltest", "Creating SDL Window", NULL);
-    window = SDL_CreateWindow("test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
+    s_log_debug("Loading libPNG...");
+    if (asset_load_plugin_by_type(IMG_TYPE_PNG))
+        goto_error("Failed to load libPNG!");
+
+    s_log_debug("Creating SDL Window");
+    window = SDL_CreateWindow("test", 
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL
+    );
     if (window == NULL) {
-        s_log_error("raw2sdltest", "Failed to create SDL Window: %s", SDL_GetError());
+        s_log_error("Failed to create SDL Window: %s", SDL_GetError());
         goto err;
     }
 
-    s_log_debug("raw2sdltest", "Creating SDL Renderer", NULL);
+    s_log_debug("Creating SDL Renderer", NULL);
     renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) {
-        s_log_error("raw2sdltest", "Failed to create SDL Renderer: %s", SDL_GetError());
+        s_log_error("Failed to create SDL Renderer: %s", SDL_GetError());
         goto err;
     }
 
@@ -47,7 +59,7 @@ int main(void)
         struct asset *a = asset_load(path_buf, renderer);
 
         if (a == NULL) {
-            s_log_error("raw2sdltest", "Test FAILED for \"%s\"", path_buf);
+            s_log_error("Test FAILED for \"%s\"", path_buf);
             goto err;
         }
         asset_destroy(a);
@@ -64,7 +76,7 @@ int main(void)
         struct asset *a = asset_load(path_buf, renderer);
 
         if (a == NULL) {
-            s_log_error("raw2sdltest", "Test FAILED for \"%s\"", path_buf);
+            s_log_error("Test FAILED for \"%s\"", path_buf);
             goto err;
         }
         asset_destroy(a);
@@ -75,22 +87,24 @@ int main(void)
     gettimeofday(&stop, NULL);
 
     i64 deltatime_microseconds = ((stop.tv_sec - start.tv_sec)*1000000 + (stop.tv_usec - start.tv_usec));
-    s_log_debug("raw2sdltest", "Test result is OK");
-    s_log_info("raw2sdltest", "[PROFILING]: Total n iterations: %u", ntested);
-    s_log_info("raw2sdltest", "[PROFILING]: Time (s): %lf",
+    s_log_debug("Test result is OK");
+    s_log_info("[PROFILING]: Total n iterations: %u", ntested);
+    s_log_info("[PROFILING]: Time (s): %lf",
         (f64)deltatime_microseconds/1000000.f
     );
-    s_log_info("raw2sdltest", "[PROFILING]: Iterations/s: %lf",
+    s_log_info("[PROFILING]: Iterations/s: %lf",
         (f64)(ntested*1000000.f) / (f64)deltatime_microseconds
     );
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    asset_unload_all_plugins();
     return EXIT_SUCCESS;
 
 err:
-    s_log_error("raw2sdltest", "Test result is FAIL, cleaning up...", NULL);
+    s_log_error("Test result is FAIL, cleaning up...", NULL);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     if (window != NULL) SDL_DestroyWindow(window);
+    asset_unload_all_plugins();
     return EXIT_FAILURE;
 }
 

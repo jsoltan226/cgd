@@ -17,6 +17,8 @@
 #include "config.h"
 #include "core/log.h"
 
+#define MODULE_NAME "main"
+
 enum EXIT_CODES {
     EXIT_OK                         = EXIT_SUCCESS,
     ERR_OTHER                       = EXIT_FAILURE,
@@ -32,9 +34,10 @@ enum EXIT_CODES {
     ERR_MAX
 };
 static enum EXIT_CODES EXIT_CODE;
-#define goto_error(code, message...) do {   \
+#undef goto_error
+#define goto_error(code, ...) do {          \
     EXIT_CODE = code;                       \
-    s_log_error("main", message);           \
+    s_log_error(__VA_ARGS__);               \
     goto cleanup;                           \
 } while (0);
 
@@ -56,55 +59,55 @@ int main(int argc, char **argv)
     s_set_log_out_filep(stdout);
     s_set_log_err_filep(stderr);
     s_set_user_fault(NO_USER_FAULT);
-#ifndef NDEBUG
+#ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
         s_set_log_level(LOG_DEBUG);
     else
         s_set_log_level(LOG_INFO);
 #else
     s_set_log_level(LOG_INFO);
-#endif /* NDEBUG */
+#endif /* CGD_BUILDTYPE_RELEASE */
 
-    s_log_info("main", "Initializing SDL");
+    s_log_info("Initializing SDL");
 
     /* SDL initialization section */
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
         goto_error(ERR_INIT_SDL, "Failed to initialize SDL: %s", SDL_GetError());
 
-    s_log_debug("main", "Creating SDL Window...");
+    s_log_debug("Creating SDL Window...");
     window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
     if (window == NULL)
         goto_error(ERR_CREATE_WINDOW, "Failed to create SDL Window: %s", SDL_GetError());
 
-    s_log_debug("main", "Creating SDL Renderer...");
+    s_log_debug("Creating SDL Renderer...");
     renderer = SDL_CreateRenderer(window, -1, RENDERER_FLAGS);
     if (renderer == NULL)
         goto_error(ERR_CREATE_RENDERER, "Failed to create SDL Renderer: %s", SDL_GetError());
 
-    s_log_debug("main", "Setting SDL blend mode to BLEND");
+    s_log_debug("Setting SDL blend mode to BLEND");
     if (SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND))
         goto_error(ERR_SET_RENDERER_BLENDMODE, "Failed to set SDL blend mode to BLEND: %s", SDL_GetError());
 
-    s_log_info("main", "Initializing the keyboard and mouse...");
+    s_log_info("Initializing the keyboard and mouse...");
 
     /* Initialize the engine structs */
-    s_log_debug("main", "Initializing the keyboard");
+    s_log_debug("Initializing the keyboard");
     keyboard = keyboard_init();
     if (keyboard == NULL)
         goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the keyboard!");
 
-    s_log_debug("main", "Initializing the mouse");
+    s_log_debug("Initializing the mouse");
     mouse = mouse_init();
     if (mouse == NULL)
         goto_error(ERR_INIT_MOUSE, "Failed to initialize the mouse!");
 
-    s_log_info("main", "Initializing the GUI...");
-    s_log_debug("main", "Initializing the menu manager");
+    s_log_info("Initializing the GUI...");
+    s_log_debug("Initializing the menu manager");
     MenuManager = menu_mgr_init(&menu_manager_cfg, renderer, keyboard, mouse);
     if (MenuManager == NULL)
         goto_error(ERR_INIT_MENU_MANAGER, "Failed to initialize the menu manager");
 
-    s_log_debug("main", "Initializing the font");
+    s_log_debug("Initializing the font");
     sourceCodeProFont = font_init(
         "fonts/SourceCodePro-Semibold.otf",
         renderer,
@@ -117,7 +120,7 @@ int main(int argc, char **argv)
 
     font_set_text_color(sourceCodeProFont, 150, 150, 150, 255);
 
-    s_log_info("main", "Init OK! Entering main loop...");
+    s_log_info("Init OK! Entering main loop...");
     /* MAIN LOOP */
     while(running)
     {
@@ -187,7 +190,7 @@ int main(int argc, char **argv)
         }
     }
 
-    s_log_info("main", "Exited from the main loop, starting cleanup...");
+    s_log_info("Exited from the main loop, starting cleanup...");
     EXIT_CODE = EXIT_OK;
 
 cleanup:
@@ -199,7 +202,7 @@ cleanup:
     if (window != NULL) SDL_DestroyWindow(window);
     SDL_Quit();
 
-    s_log_info("main", "Cleanup done, Exiting with code %i.", EXIT_CODE);
+    s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
     exit(EXIT_CODE);
 }
 

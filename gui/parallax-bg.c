@@ -2,28 +2,27 @@
 #include "core/datastruct/vector.h"
 #include "core/log.h"
 #include "asset-loader/asset.h"
+#include "core/util.h"
 #include "menu.h"
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
 
+#define MODULE_NAME "parallax-bg"
+
 struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
     SDL_Renderer *renderer)
 {
-    if (cfg == NULL || renderer == NULL) {
-        s_log_error("parallax-bg", "parallax_bg_init: Invalid parameters");
-        return NULL;
-    }
+    u_check_params(cfg != NULL && renderer != NULL);
 
     struct parallax_bg *bg = calloc(1, sizeof(struct parallax_bg)); if (bg == NULL)
-        s_log_fatal("parallax_bg", "parallax_bg_init",
-            "calloc() failed for %s", "struct parallax_bg");
+    s_assert(bg != NULL, "calloc() failed for struct parallax_bg");
 
     /* Allocate space for all the background layers */
     bg->layers = vector_new(struct parallax_bg_layer);
     if (bg->layers == NULL) {
-        s_log_error("parallax-bg", "Failed to initialize the layers vector");
+        s_log_error("Failed to initialize the layers vector");
         parallax_bg_destroy(bg);
         return NULL;
     }
@@ -36,7 +35,7 @@ struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
         /* Load the texture and enable alpha blending */
         struct asset *asset = asset_load(cfg->layer_cfgs[i].filepath, renderer);
         if (asset == NULL) {
-            s_log_error("parallax-bg", "Failed to load asset \"%s\"!",
+            s_log_error("Failed to load asset \"%s\"!",
                 cfg->layer_cfgs[i].filepath
             );
             parallax_bg_destroy(bg);
@@ -58,7 +57,7 @@ struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
         i++;
     }
 
-    s_log_debug("parallax-bg", "Initialized %u layers", i);
+    s_log_debug("Initialized %u layers", i);
 
     return bg;
 }

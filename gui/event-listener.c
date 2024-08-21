@@ -1,51 +1,54 @@
 #include "event-listener.h"
+#include "core/util.h"
+#include "input/keyboard.h"
 #include "on-event.h"
 #include "core/log.h"
 #include "input/pressable-obj.h"
 #include <stdio.h>
 
-struct event_listener * event_listener_init(
-    const struct event_listener_config *cfg,
-    const struct on_event_obj *on_event_obj,
-    const struct event_listener_target *t
-)
+#define MODULE_NAME "event-listener"
+
+struct event_listener * event_listener_init(const struct event_listener_config *cfg)
 {
-    if (cfg == NULL || on_event_obj == NULL || t == NULL) {
-        s_log_error("event-listener", "event_listener_init: Invalid parameters");
-        return NULL;
-    }
+    u_check_params(cfg != NULL &&
+        /* cfg->target_obj is a union of 2 pointers,
+         * so we only need to check if one field is invalid */
+        cfg->target_obj.keyboard_p != NULL &&
+        *cfg->target_obj.keyboard_p != NULL
+    );
 
     struct event_listener *evl = malloc(sizeof(struct event_listener));
-    if (evl == NULL)
-        s_log_fatal("event-listener", "event_listener_init",
-            "malloc() failed for %s", "struct event_listener");
+    s_assert(evl != NULL, "malloc() failed for struct event_listener");
 
-    evl->on_event_obj.fn = on_event_obj->fn;
-    memcpy(evl->on_event_obj.argv_buf, on_event_obj->argv_buf, ONEVENT_OBJ_ARGV_SIZE);
+    evl->on_event_obj.fn = cfg->on_event.fn;
+    memcpy(evl->on_event_obj.argv_buf, cfg->on_event.argv_buf, ONEVENT_OBJ_ARGV_SIZE);
 
     /* Copy other info given in configuration */
     evl->type = cfg->type;
     evl->detected = false;
 
+    struct keyboard *keyboard = *cfg->target_obj.keyboard_p;
+    struct mouse *mouse = *cfg->target_obj.mouse_p;
+
     evl->obj_ptr = NULL;
     switch(cfg->type){
         case EVL_EVENT_KEYBOARD_KEYPRESS:
-            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).pressed);
+            evl->obj_ptr = &(kb_getKey(keyboard, cfg->target_info.keycode).pressed);
             break;
         case EVL_EVENT_KEYBOARD_KEYDOWN:
-            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).down);
+            evl->obj_ptr = &(kb_getKey(keyboard, cfg->target_info.keycode).down);
             break;
         case EVL_EVENT_KEYBOARD_KEYUP:
-            evl->obj_ptr = &(kb_getKey(t->keyboard, cfg->target_info.keycode).up);
+            evl->obj_ptr = &(kb_getKey(keyboard, cfg->target_info.keycode).up);
             break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
-            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].pressed;
+            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].pressed;
             break;
         case EVL_EVENT_MOUSE_BUTTONDOWN:
-            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].down;
+            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].down;
             break;
         case EVL_EVENT_MOUSE_BUTTONUP:
-            evl->obj_ptr = &t->mouse->buttons[cfg->target_info.button_type].up;
+            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].up;
             break;
     }
 

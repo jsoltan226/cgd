@@ -7,23 +7,22 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define MODULE_NAME "hashmap"
+
 static inline u32 hash(const char *key, u32 max);
 static struct ll_node * lookup_bucket_list_node(struct hashmap *map, const char *key);
 
 struct hashmap * hashmap_create(u32 initial_length)
 {
     struct hashmap *map = malloc(sizeof(struct hashmap));
-    if (map == NULL) {
-        s_log_error("hashmap", "malloc() for struct hashmap failed!");
-        return NULL;
-    }
+    s_assert(map != NULL, "malloc() failed for map");
 
     map->length = initial_length;
     map->n_elements = 0;
 
     map->bucket_lists = calloc(initial_length, sizeof(struct linked_list *));
     if (map->bucket_lists == NULL) {
-        s_log_error("hashmap", "calloc() for map->bucket_lists failed!");
+        s_log_error("calloc() for map->bucket_lists failed!");
         free(map);
         return NULL;
     }
@@ -38,10 +37,7 @@ i32 hashmap_insert(struct hashmap *map, const char *key, const void *entry)
     u32 index = hash(key, map->length);
 
     struct hashmap_record *new_record = malloc(sizeof(struct hashmap_record));
-    if (new_record == NULL) {
-        s_log_error("hashmap", "hashmap_insert: malloc() for new record failed!");
-        return 1;
-    }
+    s_assert(new_record != NULL, "malloc() for new record failed!");
 
     new_record->value = (void *)entry;
     strncpy(new_record->key, key, HM_MAX_KEY_LENGTH);
@@ -50,7 +46,7 @@ i32 hashmap_insert(struct hashmap *map, const char *key, const void *entry)
     if (map->bucket_lists[index] == NULL) {
         map->bucket_lists[index] = linked_list_create(new_record);
         if (map->bucket_lists[index] == NULL) {
-            s_log_error("hashmap",
+            s_log_error(
                 "hashmap_insert: linked_list_create() for bucket list @ index %i returned NULL!",
                 index
             );

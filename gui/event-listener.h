@@ -25,21 +25,18 @@ struct event_listener {
 struct event_listener_config {
     enum event_listener_type type;
     union {
+        struct keyboard **keyboard_p;
+        struct mouse **mouse_p;
+    } target_obj;
+    union {
         enum mouse_button button_type;
         enum keyboard_keycode keycode;
     } target_info;
+    
+    struct on_event_obj on_event;
 };
 
-struct event_listener_target {
-    struct mouse *mouse;
-    struct keyboard *keyboard;
-};
-
-struct event_listener * event_listener_init(
-    const struct event_listener_config *cfg,
-    const struct on_event_obj *on_event_obj,
-    const struct event_listener_target *target
-);
+struct event_listener * event_listener_init(const struct event_listener_config *cfg);
 void event_listener_update(struct event_listener *evl);
 void event_listener_destroy(struct event_listener *evl);
 

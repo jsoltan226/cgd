@@ -11,24 +11,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MODULE_NAME "button"
+
 struct button *button_init(const struct sprite_config *sprite_cfg,
     const struct on_event_obj *on_click,
     u32 flags, SDL_Renderer *renderer)
 {
-    if (sprite_cfg == NULL || on_click == NULL || renderer == NULL) {
-        s_log_error("button", "button_init: Invalid parameters");
-        return NULL;
-    }
+    u_check_params(sprite_cfg != NULL && on_click != NULL && renderer != NULL);
 
     struct button *btn = calloc(1, sizeof(struct button));
-    if (btn == NULL) {
-        s_log_error("button", "calloc() failed for struct button!");
-        return NULL;
-    }
+    s_assert(btn != NULL, "calloc() failed for struct button!");
 
     btn->sprite = sprite_init(sprite_cfg, renderer);
     if (btn->sprite == NULL) {
-        s_log_error("button", "Failed to initialize the sprite!");
+        s_log_error("Failed to initialize the sprite!");
         free(btn);
         return NULL;
     }

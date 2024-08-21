@@ -2,12 +2,15 @@
 #include <stdlib.h>
 #include "menu.h"
 #include "core/log.h"
+#include "core/util.h"
 #include "event-listener.h"
 #include "buttons.h"
 #include "on-event.h"
 #include "parallax-bg.h"
 #include "sprite.h"
 #include "core/datastruct/vector.h"
+
+#define MODULE_NAME "menu"
 
 /* Here are the declarations of internal menu_onevent_api__onEvent interface functions. Please see the definitions at the end of this file for detailed explanations of what they do */
 static i32 menu_onevent_api_memcpy(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
@@ -19,31 +22,22 @@ static i32 menu_onevent_api_flip_bool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-#define goto_error(msg...) do { \
-    s_log_error("menu", msg);   \
-    goto err;                   \
-} while (0)
-
 struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
     struct keyboard *keyboard, struct mouse *mouse)
 {
     struct Menu *mn = NULL;
 
-    if (cfg == NULL || renderer == NULL || keyboard == NULL || mouse == NULL) {
-        s_log_error("menu", "menu_init: Invalid parameters");
-        return NULL;
-    }
+    u_check_params(cfg != NULL && renderer != NULL && keyboard != NULL && mouse != NULL);
 
-    s_log_debug("menu", "Initializing menu with ID %lu", cfg->ID);
+    s_log_debug("Initializing menu with ID %lu", cfg->ID);
 
     if (cfg->ID == MENU_ID_NULL)
         goto_error("Config struct is invalid");
 
-    s_log_debug("menu", "(%lu) OK Verifying config struct", cfg->ID);
+    s_log_debug("(%lu) OK Verifying config struct", cfg->ID);
 
     mn = calloc(1, sizeof(struct Menu));
-    if (mn == NULL)
-        s_log_fatal("menu", "menu_init", "calloc() failed for %s", "struct Menu");
+    s_assert(mn != NULL, "calloc() failed for struct menu");
 
     mn->sprites = vector_new(sprite_t *);
     mn->buttons = vector_new(struct button *);
@@ -67,33 +61,43 @@ struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
         vector_push_back(mn->buttons, new_button);
         i++;
     }
-    s_log_debug("menu", "(%lu) Initialized %u button(s)", cfg->ID, i);
+    s_log_debug("(%lu) Initialized %u button(s)", cfg->ID, i);
 
     /* Initialize the event listeners */
-    struct event_listener_target tmp_evl_target_obj = {
-        .keyboard = keyboard,
-        .mouse = mouse,
-    };
     i = 0;
     while (cfg->event_listener_info[i].magic == MENU_CONFIG_MAGIC && i < MENU_CONFIG_MAX_LEN) {
-        struct on_event_obj tmp_onevent_obj;
+        struct event_listener_config tmp_cfg = { 0 };
+        memcpy(&tmp_cfg, &cfg->event_listener_info[i].event_listener_cfg, 
+            sizeof(struct event_listener_config));
+
+        switch(cfg->event_listener_info[i].event_listener_cfg.type) {
+            case EVL_EVENT_KEYBOARD_KEYUP:
+            case EVL_EVENT_KEYBOARD_KEYDOWN:
+            case EVL_EVENT_KEYBOARD_KEYPRESS:
+                tmp_cfg.target_obj.keyboard_p = &keyboard;
+                break;
+            case EVL_EVENT_MOUSE_BUTTONUP:
+            case EVL_EVENT_MOUSE_BUTTONDOWN:
+            case EVL_EVENT_MOUSE_BUTTONPRESS:
+                tmp_cfg.target_obj.mouse_p = &mouse;
+                break;
+            default:
+                tmp_cfg.target_obj.mouse_p = NULL;
+        }
+
         menu_init_onevent_obj(
-            &tmp_onevent_obj,
+            &tmp_cfg.on_event,
             &cfg->event_listener_info[i].on_event_cfg,
             mn
         );
-        struct event_listener *evl = event_listener_init(
-            &cfg->event_listener_info[i].event_listener_cfg,
-            &tmp_onevent_obj,
-            &tmp_evl_target_obj
-        );
+        struct event_listener *evl = event_listener_init(&tmp_cfg);
         if (evl == NULL)
             goto_error("Event listener init failed!");
 
         vector_push_back(mn->event_listeners, evl);
         i++;
     }
-    s_log_debug("menu", "(%lu) Initialized %u event listener(s)", cfg->ID, i);
+    s_log_debug("(%lu) Initialized %u event listener(s)", cfg->ID, i);
 
     /* Initialize the sprites */
     i = 0;
@@ -105,18 +109,18 @@ struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
         vector_push_back(mn->sprites, s);
         i++;
     }
-    s_log_debug("menu", "(%lu) Initialized %u sprite(s)", cfg->ID, i);
+    s_log_debug("(%lu) Initialized %u sprite(s)", cfg->ID, i);
 
     /* Initialize the background */
     if (cfg->bg_config.magic == MENU_CONFIG_MAGIC)
         mn->bg = parallax_bg_init(&cfg->bg_config.bg_cfg, renderer);
-    s_log_debug("menu", "(%lu) Initialized the background", cfg->ID);
+    s_log_debug("(%lu) Initialized the background", cfg->ID);
 
     mn->switch_target = MENU_ID_NULL;
     mn->ID = cfg->ID;
     mn->flags = MENU_STATUS_NONE;
 
-    s_log_debug("menu", "OK Initalizing menu with ID %lu", cfg->ID);
+    s_log_debug("OK Initalizing menu with ID %lu", cfg->ID);
     return mn;
 
 err:
@@ -181,10 +185,7 @@ void menu_destroy(struct Menu *mn)
 void menu_init_onevent_obj(struct on_event_obj *oeObj,
     const struct menu_onevent_config *oeCfg, const struct Menu *menu_ptr)
 {
-    if (oeObj == NULL || oeCfg == NULL) {
-        s_log_error("menu", "menu_init_onevent_obj: invalid parameters");
-        return;
-    }
+    u_check_params(oeObj != NULL && oeCfg != NULL);
 
     /* =====> Do not bother reading this, see explanations in the menu.h header file    <=====
      * =====> and the below functions prefixed with `menu_onevent_api_`                 <===== */
@@ -195,11 +196,7 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
             oeObj->fn = NULL;
             break;
         case MENU_ONEVENT_SWITCHMENU:
-            if (menu_ptr == NULL) {
-                s_log_error("menu", "menu_init_onevent_obj: invalid parameters");
-                oeObj->fn = NULL;
-                return;
-            }
+            u_check_params(menu_ptr != NULL);
             oeObj->fn = &menu_onevent_api_switch_menu;
             oeObj->argv_buf[0] = (u64)(void *)&menu_ptr->switch_target;
             oeObj->argv_buf[1] = (u64)(void *)oeCfg->onEventArgs.switch_dest_ID;
@@ -211,11 +208,7 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.bool_ptr;
             break;
         case MENU_ONEVENT_GOBACK:
-            if (menu_ptr == NULL) {
-                s_log_error("menu", "menu_init_onevent_obj: invalid parameters");
-                memset(oeObj, 0, sizeof(struct on_event_obj));
-                return;
-            }
+            u_check_params(menu_ptr != NULL);
             oeObj->fn = &menu_onevent_api_go_back;
             oeObj->argv_buf[0] = (u64)(void *)&menu_ptr->flags;
             break;
