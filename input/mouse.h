@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include "pressable-obj.h"
+#include "core/pressable-obj.h"
 #include "core/int.h"
 
 enum mouse_button {

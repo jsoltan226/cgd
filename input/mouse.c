@@ -1,7 +1,7 @@
 #include "mouse.h"
 #include "core/log.h"
 #include "core/int.h"
-#include "pressable-obj.h"
+#include "core/pressable-obj.h"
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_mouse.h>
 #include <string.h>

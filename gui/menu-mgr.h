@@ -4,6 +4,7 @@
 #include "core/datastruct/vector.h"
 #include "core/int.h"
 #include "event-listener.h"
+#include "platform/keyboard.h"
 #include "menu.h"
 #include <SDL2/SDL_render.h>
 #include <stdbool.h>
@@ -27,10 +28,10 @@ struct menu_manager_config {
 };
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config* cfg,
-    SDL_Renderer* renderer, struct keyboard *keyboard, struct mouse *mouse);
+    SDL_Renderer* renderer, struct p_keyboard *keyboard, struct mouse *mouse);
 
 void menu_mgr_update(struct MenuManager *mmgr,
-    struct keyboard *keyboard, struct mouse *mouse,
+    struct p_keyboard *keyboard, struct mouse *mouse,
     bool paused);
 
 void menu_mgr_draw(struct MenuManager *mmgr, SDL_Renderer *r);

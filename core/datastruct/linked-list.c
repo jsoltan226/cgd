@@ -60,19 +60,20 @@ void linked_list_destroy_node(struct ll_node *node)
     free(node);
 }
 
-void linked_list_destroy(struct linked_list *list)
+void linked_list_destroy(struct linked_list *list, bool free_content)
 {
     if (list == NULL) return;
 
-    linked_list_recursive_destroy_nodes(list->head);
+    linked_list_recursive_destroy_nodes(list->head, free_content);
     free(list);
 }
 
-void linked_list_recursive_destroy_nodes(struct ll_node *head)
+void linked_list_recursive_destroy_nodes(struct ll_node *head, bool free_content)
 {
     struct ll_node *curr_node = head;
     while (curr_node != NULL) {
         struct ll_node *next_node = curr_node->next;
+        if (free_content) free(curr_node->content);
         free(curr_node);
         curr_node = next_node;
     };

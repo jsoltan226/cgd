@@ -85,8 +85,11 @@ void hashmap_delete_record(struct hashmap *map, const char *key)
 void hashmap_destroy(struct hashmap *map)
 {
     for (u32 i = 0; i < map->length; i++) {
-        if (map->bucket_lists[i] != NULL) linked_list_destroy(map->bucket_lists[i]);
+        if (map->bucket_lists[i] != NULL) {
+            linked_list_destroy(map->bucket_lists[i], true);
+        }
     }
+    free(map->bucket_lists);
     map->bucket_lists = NULL;
 
     free(map);

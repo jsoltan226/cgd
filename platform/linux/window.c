@@ -9,26 +9,13 @@
 #include "core/util.h"
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
-
-enum window_type {
-    WINDOW_TYPE_X11,
-    WINDOW_TYPE_FRAMEBUFFER,
-};
-
-struct p_window {
-    enum window_type type;
-
-    i32 x, y, w, h;
-
-    union {
-        struct window_x11 x11;
-        struct window_fb fb;
-    };
-
-    enum p_window_color_type color_type;
-};
+#define P_INTERNAL_GUARD__
+#include "window-internal.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
 

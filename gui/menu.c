@@ -23,7 +23,7 @@ static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
 struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
-    struct keyboard *keyboard, struct mouse *mouse)
+    struct p_keyboard *keyboard, struct mouse *mouse)
 {
     struct Menu *mn = NULL;
 

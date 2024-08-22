@@ -2,7 +2,7 @@
 #define EVENT_LISTENER_H
 
 #include <stdbool.h>
-#include "input/keyboard.h"
+#include "platform/keyboard.h"
 #include "input/mouse.h"
 #include "on-event.h"
 
@@ -18,19 +18,19 @@ enum event_listener_type {
 struct event_listener {
     enum event_listener_type type;
     struct on_event_obj on_event_obj;
-    bool *obj_ptr;
+    const bool *obj_ptr;
     bool detected;
 };
 
 struct event_listener_config {
     enum event_listener_type type;
     union {
-        struct keyboard **keyboard_p;
+        struct p_keyboard **keyboard_p;
         struct mouse **mouse_p;
     } target_obj;
     union {
         enum mouse_button button_type;
-        enum keyboard_keycode keycode;
+        enum p_keyboard_keycode keycode;
     } target_info;
     
     struct on_event_obj on_event;

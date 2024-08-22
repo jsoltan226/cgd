@@ -13,6 +13,7 @@
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "platform/keyboard.h"
 
 #define MENU_CONFIG_MAX_LEN 128
 #define MENU_ID_NULL  ((u64)-1)
@@ -106,7 +107,7 @@ struct menu_config {
 };
 
 struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer *r,
-    struct keyboard *keyboard, struct mouse *mouse);
+    struct p_keyboard *keyboard, struct mouse *mouse);
 
 void menu_update(struct Menu *menu, struct mouse *mouse);
 void menu_draw(struct Menu *menu, SDL_Renderer *r);

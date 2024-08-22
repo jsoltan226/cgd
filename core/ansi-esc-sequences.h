@@ -12,6 +12,17 @@
 #define es_CARRIAGE_RETURN  es_CR
 #define es_CLEAR_SCREEN es_FORMFEED
 
+/* ... and their char variants */
+#define es_BELL_chr     '\07'
+#define es_BACKSPACE_chr '\08'
+#define es_TAB_chr      '\09'
+#define es_LINEFEED_chr '\n'
+#define es_FORMFEED_chr '\12'
+#define es_CR_chr       '\r'
+#define es_ESC_chr      '\033'
+#define es_CARRIAGE_RETURN_chr  es_CR_chr
+#define es_CLEAR_SCREEN_chr es_FORMFEED_chr
+
 /* FE escape sequences */
 #define es_SS2      es_ESC "N"
 #define es_SS3      es_ESC "O"
@@ -30,8 +41,8 @@
 #define es_CUR_DOWN     es_CSI "B"
 #define es_CUR_FORWARD  es_CSI "C"
 #define es_CUR_BACK     es_CSI "D"
-#define es_CUR_RIGHT    es_CUR_BACK
-#define es_CUR_LEFT     es_CUR_FORWARD
+#define es_CUR_LEFT     es_CUR_BACK
+#define es_CUR_RIGHT    es_CUR_FORWARD
 #define es_CUR_NEXTLINE es_CSI "E"
 #define es_CUR_PREVLINE es_CSI "F"
 #define es_GOTO_COLUMN  es_CSI "G"

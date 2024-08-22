@@ -13,7 +13,7 @@
 #define MODULE_NAME "menu-mgr"
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
-    SDL_Renderer *r, struct keyboard *keyboard, struct mouse *mouse)
+    SDL_Renderer *r, struct p_keyboard *keyboard, struct mouse *mouse)
 {
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
     s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
@@ -85,7 +85,7 @@ err:
 
 
 void menu_mgr_update(struct MenuManager *mmgr,
-    struct keyboard *keyboard, struct mouse *mouse,
+    struct p_keyboard *keyboard, struct mouse *mouse,
     bool paused)
 {
     if (mmgr == NULL || keyboard == NULL || mouse == NULL) return;
