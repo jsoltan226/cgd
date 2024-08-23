@@ -20,6 +20,8 @@ static enum p_keyboard_keycode parse_standard_char(char c);
 #define TTYDEV_FILEPATH "/dev/tty"
 i32 tty_keyboard_init(struct keyboard_tty *kb)
 {
+    memset(kb, 0, sizeof(struct keyboard_tty));
+
     kb->fd = -1;
     kb->is_orig_termios_initialized_ = false;
 
@@ -80,7 +82,6 @@ i32 tty_keyboard_next_key(struct keyboard_tty *kb)
 void tty_keyboard_destroy(struct keyboard_tty *kb)
 {
     if (kb->fd >= 0) {
-        /* Try to restore the original configuration upon encountering an error */
         if (kb->is_orig_termios_initialized_) {
             tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
             s_log_debug("Restored original terminal configuration");

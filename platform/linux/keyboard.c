@@ -16,6 +16,9 @@
 #define P_INTERNAL_GUARD__
 #include "keyboard-tty.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "keyboard-devinput.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "keyboard"
 
@@ -42,9 +45,6 @@ static const enum keyboard_mode fallback_modes[N_WINDOW_TYPES][N_KEYBOARD_MODES]
     [WINDOW_TYPE_X11]           = { KB_MODE_FAIL }, // not yet implemented
 };
 
-
-struct keyboard_devinput {};
-
 struct p_keyboard {
     enum keyboard_mode mode;
     
@@ -55,10 +55,6 @@ struct p_keyboard {
 
     pressable_obj_t keys[P_KEYBOARD_N_KEYS];
 };
-
-// not yet implemnted
-static i32 devinput_keyboard_init(struct keyboard_devinput *kb_devinput);
-static void devinput_keyboard_destroy(struct keyboard_devinput *kb_devinput);
 
 struct p_keyboard * p_keyboard_init(struct p_window *win)
 {
@@ -158,23 +154,4 @@ void p_keyboard_destroy(struct p_keyboard *kb)
     }
 
     free(kb);
-}
-
-static i32 devinput_keyboard_init(struct keyboard_devinput *kb_devinput)
-{
-
-    if (kb_devinput == NULL)
-        goto err;
-
-    return 1;
-
-err:
-    devinput_keyboard_destroy(kb_devinput);
-    return 1;
-}
-
-
-static void devinput_keyboard_destroy(struct keyboard_devinput *kb_devinput)
-{
-    if (kb_devinput == NULL) return;
 }

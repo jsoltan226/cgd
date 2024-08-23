@@ -14,7 +14,7 @@ struct keyboard_tty {
     struct termios orig_termios, termios;
     bool is_orig_termios_initialized_;
 
-#define MAX_ESC_SEQUENCE_LEN 30
+#define MAX_ESC_SEQUENCE_LEN 256
     char esc_seq_buf[MAX_ESC_SEQUENCE_LEN + 2];
 };
 

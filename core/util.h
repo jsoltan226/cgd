@@ -20,7 +20,9 @@
 
 #define u_color_arg_expand(color) color.r, color.g, color.b, color.a
 
-#define u_arr_size(arr) sizeof(arr) / sizeof(*arr)
+#define u_arr_size(arr) (sizeof(arr) / sizeof(*arr))
+
+#define u_strlen(str_literal) (sizeof(str_literal) - 1)
 
 /* Pretty simple. Return the path to the asset directory
  * and the directory in which the binary is located, respectively */
