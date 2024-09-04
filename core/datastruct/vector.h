@@ -26,7 +26,7 @@ void * vector_init(u32 item_size);
 /* Append `item` to `v` */
 #define vector_push_back(v, item...) do {                               \
     if (v == NULL)                                                      \
-        s_log_fatal("vector", "vector_push_back", "invalid_parameters");\
+        s_log_fatal("vector", "vector_push_back", "invalid parameters");\
     v = vector_increase_size__(v);                                      \
     v[vector_size(v) - 1] = item;                                       \
 } while (0)

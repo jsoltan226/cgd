@@ -49,7 +49,7 @@ i32 tty_keyboard_init(struct keyboard_tty *kb)
     tcsetattr(kb->fd, TCSANOW, &kb->termios);
     
     /* Make sure that the changes were all successfully applied */
-    struct termios tmp;
+    struct termios tmp = { 0 };
     tcgetattr(kb->fd, &tmp);
     if (memcmp(&tmp, &kb->termios, sizeof(struct termios)))
         goto_error("Failed to set tty to raw mode: %s", strerror(errno));

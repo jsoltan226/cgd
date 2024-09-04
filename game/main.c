@@ -76,7 +76,7 @@ int main(int argc, char **argv)
         goto_error(ERR_INIT_KEYBOARD, "p_window_open() failed");
 
     keyboard = p_keyboard_init(win);
-    if (keyboard == NULL)
+    if (keyboard == NULL || 1)
         goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the keyboard");
 
     s_log_info("Initializing SDL");
