@@ -61,9 +61,22 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
     struct p_keyboard *kb = calloc(1, sizeof(struct p_keyboard));
     s_assert(kb != NULL, "calloc() failed for struct p_keyboard");
 
+    enum window_type win_type;
+#define DEFAULT_WINDOW_FALLBACK_MODE WINDOW_TYPE_FRAMEBUFFER
+    if (win == NULL) {
+        s_log_warn("Cannot get window metadata. Assuming window type is %s",
+            window_type_strings[DEFAULT_WINDOW_FALLBACK_MODE]);
+        win_type = DEFAULT_WINDOW_FALLBACK_MODE;
+    } else {
+        win_type = win->type;
+    }
+
     u32 i = 0;
     do {
-        switch (fallback_modes[win->type][i]) {
+        s_log_debug("Attempting keyboard init with mode \"%s\"...",
+            keyboard_mode_strings[ fallback_modes[win_type][i] ]
+        );
+        switch (fallback_modes[win_type][i]) {
             case KB_MODE_DEV_INPUT:
                 if (devinput_keyboard_init(&kb->devinput))
                     s_log_warn("Failed to set up keyboard using /dev/input");
@@ -83,7 +96,7 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
     } while (++i < N_KEYBOARD_MODES);
 
 keyboard_setup_success:
-    kb->mode = fallback_modes[win->type][i];
+    kb->mode = fallback_modes[win_type][i];
     s_log_info("%s() OK, keyboard is in mode \"%s\"", __func__, keyboard_mode_strings[kb->mode]);
 
     return kb;
@@ -119,6 +132,7 @@ void p_keyboard_update(struct p_keyboard *kb)
                 key_updated[kc] = true;
             }
         case KB_MODE_DEV_INPUT:
+            devinput_update_all_keys(&kb->devinput, kb->keys);
             break;
         default:
             break;

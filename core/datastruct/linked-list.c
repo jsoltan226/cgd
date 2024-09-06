@@ -1,5 +1,5 @@
 #include "linked-list.h"
-#include "core/log.h"
+#include "../log.h"
 #include <stdlib.h>
 
 #define MODULE_NAME "linked-list"

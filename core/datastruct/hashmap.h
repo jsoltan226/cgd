@@ -2,7 +2,7 @@
 #define U_HASHMAP_H_
 
 #include "linked-list.h"
-#include "core/int.h"
+#include "../int.h"
 
 #define HM_TABLE_SIZE  10
 

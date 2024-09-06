@@ -1,59 +1,7 @@
 #include "util.h"
-#include "int.h"
-#include "log.h"
-#include "platform/exe-info.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include "core/shapes.h"
 
 #define MODULE_NAME "util"
-
-static char bin_dir_buf[u_BUF_SIZE] = { 0 };
-static char asset_dir_buf[u_BUF_SIZE] = { 0 };
-
-const char *u_get_asset_dir()
-{
-    if (bin_dir_buf[0] != '/') {
-        if (u_get_bin_dir(bin_dir_buf, u_BUF_SIZE)) {
-            s_log_error("[%s] Failed to get the bin dir", __func__);
-            return NULL;
-        }
-    }
-
-    if (asset_dir_buf[0] != '/') {
-        strncpy(asset_dir_buf, bin_dir_buf, u_BUF_SIZE);
-        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
-        strncat(
-            asset_dir_buf,
-            u_PATH_FROM_BIN_TO_ASSETS,
-            u_BUF_SIZE - strlen(asset_dir_buf) - 1
-        );
-
-        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
-        s_log_debug("[%s] The asset dir is \"%s\"", __func__, asset_dir_buf);
-    }
-
-    return asset_dir_buf;
-}
-
-i32 u_get_bin_dir(char *buf, u32 buf_size)
-{
-    u_check_params(buf != NULL && buf_size > 0);
-
-    memset(buf, 0, buf_size);
-    if (p_get_exe_path(buf, buf_size)) {
-        s_log_error("[%s] Failed to get the path to the executable.\n", __func__);
-        return 1;
-    }
-
-    /* Cut off the string after the last '/' */
-    u32 i = buf_size - 1;
-    while (buf[i] != '/' && i-- >= 0);
-    buf[i + 1] = '\0';
-    s_log_debug("[%s] The bin dir is \"%s\"", __func__, buf);
-
-    return 0;
-}
 
 bool u_collision(const rect_t *r1, const rect_t *r2)
 {

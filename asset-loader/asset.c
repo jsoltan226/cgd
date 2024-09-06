@@ -6,6 +6,7 @@
 #include "core/pixel.h"
 #include "core/util.h"
 #include "core/log.h"
+#include "platform/exe-info.h"
 #include <SDL2/SDL_render.h>
 #include <errno.h>
 #include <stdio.h>
@@ -13,6 +14,9 @@
 #include <string.h>
 
 #define MODULE_NAME "assetld"
+
+const char * asset_get_assets_dir();
+static i32 get_bin_dir(char *buf, u32 buf_size);
 
 struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *r)
 {
@@ -74,7 +78,7 @@ FILE * asset_fopen(const char *rel_file_path, const char *mode)
     FILE *fp = NULL;
     char full_path_buf[u_BUF_SIZE] = { 0 };
 
-    strncpy(full_path_buf, u_get_asset_dir(), u_BUF_SIZE - 1);
+    strncpy(full_path_buf, asset_get_assets_dir(), u_BUF_SIZE - 1);
     strncat(full_path_buf, rel_file_path, u_BUF_SIZE - strlen(full_path_buf) - 1);
 
     fp = fopen(full_path_buf, mode);
@@ -127,4 +131,51 @@ void asset_destroy(struct asset *a)
 
     if (a->texture)
         SDL_DestroyTexture(a->texture);
+}
+
+static char bin_dir_buf[u_BUF_SIZE] = { 0 };
+static char asset_dir_buf[u_BUF_SIZE] = { 0 };
+
+const char * asset_get_assets_dir()
+{
+    if (bin_dir_buf[0] != '/') {
+        if (get_bin_dir(bin_dir_buf, u_BUF_SIZE)) {
+            s_log_error("[%s] Failed to get the bin dir", __func__);
+            return NULL;
+        }
+    }
+
+    if (asset_dir_buf[0] != '/') {
+        strncpy(asset_dir_buf, bin_dir_buf, u_BUF_SIZE);
+        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
+        strncat(
+            asset_dir_buf,
+            u_PATH_FROM_BIN_TO_ASSETS,
+            u_BUF_SIZE - strlen(asset_dir_buf) - 1
+        );
+
+        asset_dir_buf[u_BUF_SIZE - 1] = '\0';
+        s_log_debug("%s: The asset dir is \"%s\"", __func__, asset_dir_buf);
+    }
+
+    return asset_dir_buf;
+}
+
+static i32 get_bin_dir(char *buf, u32 buf_size)
+{
+    u_check_params(buf != NULL && buf_size > 0);
+
+    memset(buf, 0, buf_size);
+    if (p_get_exe_path(buf, buf_size)) {
+        s_log_error("%s: Failed to get the path to the executable.\n", __func__);
+        return 1;
+    }
+
+    /* Cut off the string after the last '/' */
+    u32 i = buf_size - 1;
+    while (buf[i] != '/' && i-- >= 0);
+    buf[i + 1] = '\0';
+
+    return 0;
+
 }

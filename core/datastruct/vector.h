@@ -7,8 +7,8 @@
 
 /* Prevent internal functions from being called by the user */
 
-#include "core/int.h"
-#include "core/log.h"
+#include "../int.h"
+#include "../log.h"
 #include <stdbool.h>
 #include <stdlib.h>
 

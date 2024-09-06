@@ -1,8 +1,8 @@
 #include "vector.h"
-#include "core/int.h"
-#include "core/log.h"
-#include "core/math.h"
-#include "core/util.h"
+#include "../int.h"
+#include "../log.h"
+#include "../math.h"
+#include "../util.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>

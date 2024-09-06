@@ -1,6 +1,6 @@
 #include "fonts.h"
 #include "core/math.h"
-#include "core/util.h"
+#include "asset-loader/asset.h"
 #include "core/log.h"
 #include <SDL2/SDL_error.h>
 #include <ft2build.h>
@@ -38,7 +38,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
         goto_error("Failed to initialize FreeType: %s", FT_Error_String(ft_ret));
 
     char full_filepath[u_BUF_SIZE] = { 0 };
-    strncpy(full_filepath, u_get_asset_dir(), u_BUF_SIZE - 1);
+    strncpy(full_filepath, asset_get_assets_dir(), u_BUF_SIZE - 1);
     strncat(full_filepath, filepath, u_BUF_SIZE - strlen(full_filepath) - 1);
 
     s_log_debug("Initializing font face from \"%s\"...", full_filepath);

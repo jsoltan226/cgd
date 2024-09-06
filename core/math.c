@@ -1,4 +1,4 @@
-#include "core/math.h"
+#include "math.h"
 #include "int.h"
 
 i64 min(i64 a, i64 b)

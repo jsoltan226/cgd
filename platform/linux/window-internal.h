@@ -12,10 +12,21 @@
 #undef P_INTERNAL_GUARD__
 
 #define N_WINDOW_TYPES 2
+#define WINDOW_TYPE_LIST        \
+    X_(WINDOW_TYPE_X11)         \
+    X_(WINDOW_TYPE_FRAMEBUFFER) \
+
+#define X_(name) name,
 enum window_type {
-    WINDOW_TYPE_X11,
-    WINDOW_TYPE_FRAMEBUFFER,
+    WINDOW_TYPE_LIST
 };
+#undef X_
+
+#define X_(name) #name,
+static const char * const window_type_strings[N_WINDOW_TYPES] = {
+    WINDOW_TYPE_LIST
+};
+#undef X_
 
 struct p_window {
     enum window_type type;
@@ -30,5 +41,5 @@ struct p_window {
     enum p_window_color_type color_type;
 };
 
-
+#undef WINDOW_TYPE_LIST
 #endif /* WINDOW_INTERNAL_H_ */

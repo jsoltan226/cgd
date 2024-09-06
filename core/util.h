@@ -24,11 +24,6 @@
 
 #define u_strlen(str_literal) (sizeof(str_literal) - 1)
 
-/* Pretty simple. Return the path to the asset directory
- * and the directory in which the binary is located, respectively */
-const char * u_get_asset_dir();
-i32 u_get_bin_dir(char *buf, u32 buf_size);
-
 /* The simplest collision checking implementation;
  * returns true if 2 rectangles overlap
  */

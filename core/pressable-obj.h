@@ -2,7 +2,7 @@
 #define PRESSABLEOBJ_H
 
 #include <stdbool.h>
-#include "core/int.h"
+#include "int.h"
 
 typedef struct {
     bool up, down, pressed, force_released;

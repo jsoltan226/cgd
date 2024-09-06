@@ -1,5 +1,5 @@
 #include "pressable-obj.h"
-#include "core/log.h"
+#include "log.h"
 #include <stdlib.h>
 
 pressable_obj_t * pressable_obj_create(void)
