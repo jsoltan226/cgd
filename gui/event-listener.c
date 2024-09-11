@@ -23,7 +23,6 @@ struct event_listener * event_listener_init(const struct event_listener_config *
     evl->on_event_obj.fn = cfg->on_event.fn;
     memcpy(evl->on_event_obj.argv_buf, cfg->on_event.argv_buf, ONEVENT_OBJ_ARGV_SIZE);
 
-    /* Copy other info given in configuration */
     evl->type = cfg->type;
     evl->detected = false;
 

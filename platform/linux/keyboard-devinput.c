@@ -34,7 +34,8 @@ static bool keyboard_supported_keys_check(const u64 bits[NBITS(KEY_MAX)]);
 static i32 dev_input_event_scandir_filter(const struct dirent *dirent);
 
 static void read_keyevents_from_evdev(i32 fd,
-    pressable_obj_t keys[P_KEYBOARD_N_KEYS]);
+    pressable_obj_t keys[P_KEYBOARD_N_KEYS],
+    bool updated_keys[P_KEYBOARD_N_KEYS]);
 
 i32 devinput_keyboard_init(struct keyboard_devinput *kb)
 {
@@ -81,9 +82,29 @@ void devinput_update_all_keys(struct keyboard_devinput *kb, pressable_obj_t pobj
         return;
     }
 
+    bool updated_keys[P_KEYBOARD_N_KEYS] = { 0 };
     for (u32 i = 0; i < n_poll_fds; i++) {
         if (!(poll_fds[i].revents & POLLIN)) continue;
-        read_keyevents_from_evdev(kb->kbdevs[i].fd, pobjs);
+        read_keyevents_from_evdev(kb->kbdevs[i].fd, pobjs, updated_keys);
+    }
+
+    /* When a key is pressed, it gets a "pressed" (1) event
+     * and in read_keyevents_from_evdev we update our pressable_objs accordingly.
+     *
+     * However, when the key is being held, it only starts getting
+     * "held" (2) events after some amount of time (which might be several ticks).
+     *
+     * During that moment, the pressable_obj is not updated in the above loop,
+     * and so the key is reported to be "down" for many ticks,
+     * which should not happen. 
+     *
+     * Therefore, we need to update the keys
+     * that are held (but not getting any events) ourselves.
+     */
+
+    for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
+        if (!updated_keys[i] && (pobjs[i].pressed || pobjs[i].up))
+            pressable_obj_update(&pobjs[i], true);
     }
 }
 
@@ -118,7 +139,8 @@ static VECTOR(struct keyboard_devinput_evdev) find_and_load_available_evdevs(voi
         vector_push_back(v, tmp);
     }
 
-    if (vector_size(v) == 0)
+    /* If half of the keyboards failed to load, something is probably wrong */
+    if (vector_size(v) < n_dirents / 2)
         goto_error("No available keyboard devices found.");
 
     /* Cleanup */
@@ -149,7 +171,8 @@ err:
 }
 
 static void read_keyevents_from_evdev(i32 fd,
-    pressable_obj_t keys[P_KEYBOARD_N_KEYS])
+    pressable_obj_t keys[P_KEYBOARD_N_KEYS],
+    bool updated_keys[P_KEYBOARD_N_KEYS])
 {
     struct input_event ev = { 0 };
     i32 n_bytes_read = 0;
@@ -183,6 +206,11 @@ static void read_keyevents_from_evdev(i32 fd,
          * ev.value = 2: key held
          */
         pressable_obj_update(&keys[p_kb_keycode], ev.value > 0);
+        updated_keys[p_kb_keycode] = true;
+
+        /* s_log_debug("Key event %i for keycode %s",
+         * ev.value, p_keyboard_keycode_strings[p_kb_keycode]);
+         */
     }
 }
 
@@ -197,9 +225,9 @@ static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
     u_check_params(rel_path != NULL && out != NULL);
     memset(out, 0, sizeof(struct keyboard_devinput_evdev));
 
-    strncpy(out->path, DEVINPUT_DIR "/", PATH_MAX);
+    strncpy(out->path, DEVINPUT_DIR "/", u_FILEPATH_MAX);
     strncat(out->path, rel_path,
-        PATH_MAX - strlen(out->path) - 1);
+        u_FILEPATH_MAX - strlen(out->path) - 1);
 
     out->fd = open(out->path, O_RDONLY | O_NONBLOCK);
     if (out->fd == -1) {

@@ -20,7 +20,7 @@
 
 #define FBDEV_PATH "/dev/fb0"
 
-i32 window_fb_open(struct window_fb *fb, rect_t *area)
+i32 window_fb_open(struct window_fb *fb, const rect_t *area)
 {
     fb->fd = open(FBDEV_PATH, O_RDWR);
     if (fb->fd == -1)
@@ -62,7 +62,8 @@ err:
     return 1;
 }
 
-i32 window_fb_render_to_display(struct window_fb *fb, pixel_t *buf, rect_t *frame)
+i32 window_fb_render_to_display(struct window_fb *fb,
+    const pixel_t *buf, const rect_t *frame)
 {
     if (fb == NULL || buf == NULL || frame == NULL) {
         s_log_error("invalid parameters");

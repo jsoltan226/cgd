@@ -5,9 +5,9 @@
 #include "gui/menu.h"
 #include "gui/menu-mgr.h"
 #include "gui/buttons.h"
-#include "input/keyboard.h"
 #include "core/int.h"
 #include "core/shapes.h"
+#include "platform/keyboard.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
@@ -168,7 +168,7 @@ static const struct menu_manager_config menu_manager_cfg = {
                 {
                     .magic = MENU_CONFIG_MAGIC,
                     .event_listener_cfg = {
-                        .type = EVL_EVENT_KEYBOARD_KEYPRESS,
+                        .type = EVL_EVENT_KEYBOARD_KEYDOWN,
                         .target_info = { .keycode = KB_KEYCODE_P }
                     },
                     .on_event_cfg = {
@@ -216,6 +216,7 @@ static const struct menu_manager_config menu_manager_cfg = {
                 .onEventArgs = { .bool_ptr = &displayButtonHitboxOutlines },
             },
         },
+        { 0 }
     },
 };
 

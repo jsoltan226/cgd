@@ -8,9 +8,13 @@
 struct p_window;
 
 enum p_window_flags {
-    WINDOW_NORMAL       = 1 << 0,
-    WINDOW_FRAMEBUFFER  = 1 << 1,
+    P_WINDOW_TYPE_NORMAL        = 1 << 0,
+    P_WINDOW_TYPE_FRAMEBUFFER   = 1 << 1,
+    P_WINDOW_POS_CENTERED_X     = 1 << 2,
+    P_WINDOW_POS_CENTERED_Y     = 1 << 3,
 };
+#define P_WINDOW_POS_CENTERED_XY \
+    (P_WINDOW_POS_CENTERED_X | P_WINDOW_POS_CENTERED_Y)
 
 struct p_window_meta {
     i32 x, y, w, h;
@@ -20,10 +24,14 @@ struct p_window_meta {
     } color_type;
 };
 
-struct p_window * p_window_open(i32 x, i32 y, i32 w, i32 h, u32 flags);
+struct p_window * p_window_open(const unsigned char *title,
+    const rect_t *area, const u32 flags);
+
 void p_window_close(struct p_window *win);
 
-void p_window_render(struct p_window *win, pixel_t *frame, rect_t *area);
-i32 p_window_get_meta(struct p_window *win, struct p_window_meta *out);
+void p_window_render(struct p_window *win,
+    const pixel_t *data, const rect_t *area);
+
+i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out);
 
 #endif /* P_WINDOW_H_ */

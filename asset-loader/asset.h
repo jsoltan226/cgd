@@ -6,9 +6,6 @@
 #include "core/pixel.h"
 #include "img-type.h"
 
-#define ASSET_MAX_FILEPATH_LEN 256
-typedef const char filepath_t[ASSET_MAX_FILEPATH_LEN];
-
 struct asset {
     filepath_t rel_file_path;
     enum asset_img_type type;

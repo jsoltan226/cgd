@@ -69,4 +69,12 @@ enum p_keyboard_keycode {
 };
 #undef X_
 
+#define X_(name) #name,
+static const char *const p_keyboard_keycode_strings[] = {
+    P_KEYBOARD_KEYCODE_LIST
+};
+#undef X_
+
+#undef P_KEYBOARD_KEYCODE_LIST
+
 #endif /* P_KEYBOARD_H_ */

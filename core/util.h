@@ -3,12 +3,14 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include "int.h"
 #include "shapes.h"
 #include "log.h"
 
 #define u_BUF_SIZE  1024
 #define u_PATH_FROM_BIN_TO_ASSETS "../assets/"
+
+#define u_FILEPATH_MAX 256
+typedef const char filepath_t[u_FILEPATH_MAX];
 
 
 #define goto_error(...) do {    \

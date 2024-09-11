@@ -197,34 +197,34 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
             break;
         case MENU_ONEVENT_SWITCHMENU:
             u_check_params(menu_ptr != NULL);
-            oeObj->fn = &menu_onevent_api_switch_menu;
+            oeObj->fn = menu_onevent_api_switch_menu;
             oeObj->argv_buf[0] = (u64)(void *)&menu_ptr->switch_target;
             oeObj->argv_buf[1] = (u64)(void *)oeCfg->onEventArgs.switch_dest_ID;
             oeObj->argv_buf[2] = (u64)(void *)&menu_ptr->flags;
             break;
         case MENU_ONEVENT_QUIT: case MENU_ONEVENT_PAUSE:
         case MENU_ONEVENT_FLIPBOOL:
-            oeObj->fn = &menu_onevent_api_flip_bool;
+            oeObj->fn = menu_onevent_api_flip_bool;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.bool_ptr;
             break;
         case MENU_ONEVENT_GOBACK:
             u_check_params(menu_ptr != NULL);
-            oeObj->fn = &menu_onevent_api_go_back;
+            oeObj->fn = menu_onevent_api_go_back;
             oeObj->argv_buf[0] = (u64)(void *)&menu_ptr->flags;
             break;
         case MENU_ONEVENT_MEMCOPY:
-            oeObj->fn = &menu_onevent_api_memcpy;
+            oeObj->fn = menu_onevent_api_memcpy;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.memcpy_info.source;
             oeObj->argv_buf[1] = (u64)(void *)oeCfg->onEventArgs.memcpy_info.dest;
             oeObj->argv_buf[2] = (u64)(void *)oeCfg->onEventArgs.memcpy_info.size;
             break;
         case MENU_ONEVENT_PRINTMESSAGE:
-            oeObj->fn = &menu_onevent_api_print_message;
+            oeObj->fn = menu_onevent_api_print_message;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.message;
             break;
 #ifndef CGD_BUILDTYPE_RELEASE
         case MENU_ONEVENT_EXECUTE_OTHER:
-            oeObj->fn = &menu_onevent_api_execute_other;
+            oeObj->fn = menu_onevent_api_execute_other;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.execute_other;
             break;
 #endif /* CGD_BUILDTYPE_RELEASE */
@@ -315,7 +315,8 @@ static i32 menu_onevent_api_flip_bool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
     if(argv_buf == NULL || (void *)argv_buf[0] == NULL)
         return EXIT_FAILURE;
 
-    /* argv[0] contains the pointer to a boolean variable, so convert it to a bool* and then dereference it */
+    /* argv[0] contains the pointer to a boolean variable,
+     *so convert it to a bool* and then dereference it */
     *(bool *)argv_buf[0] = !(*(bool *)argv_buf[0]);
 
     return EXIT_SUCCESS;

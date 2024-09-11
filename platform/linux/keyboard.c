@@ -106,14 +106,6 @@ err:
     return NULL;
 }
 
-#ifndef CGD_BUILDTYPE_RELEASE
-#define X_(name) #name,
-static const char * const keycode_strings[P_KEYBOARD_N_KEYS] = {
-    P_KEYBOARD_KEYCODE_LIST
-};
-#undef X_
-#endif /* CGD_BUILDTYPE_RELEASE */
-
 void p_keyboard_update(struct p_keyboard *kb)
 {
     if (kb == NULL) return;
@@ -123,25 +115,24 @@ void p_keyboard_update(struct p_keyboard *kb)
 
     switch (kb->mode) {
         case KB_MODE_TTY:
+            /* Update the keys that were pressed */
             while (kc = tty_keyboard_next_key(&kb->tty), kc != -1) {
                 pressable_obj_update(&kb->keys[kc], true);
-#ifndef CGD_BUILDTYPE_RELEASE
-                if (kb->keys[kc].pressed)
-                    s_log_debug("pressed key %s", keycode_strings[kc]);
-#endif /* CGD_BUILDTYPE_RELEASE */
                 key_updated[kc] = true;
+
             }
+
+            /* Update the keys that were not pressed */
+            for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
+                if (key_updated[i]) continue;
+                pressable_obj_update(&kb->keys[i], false);
+            }
+            break;
         case KB_MODE_DEV_INPUT:
             devinput_update_all_keys(&kb->devinput, kb->keys);
             break;
         default:
             break;
-    }
-
-    /* Update the keys that were not pressed */
-    for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
-        if (key_updated[i]) continue;
-        pressable_obj_update(&kb->keys[i], false);
     }
 }
 
@@ -169,3 +160,5 @@ void p_keyboard_destroy(struct p_keyboard *kb)
 
     free(kb);
 }
+
+#undef KB_MODES_LIST

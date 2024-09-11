@@ -1,6 +1,7 @@
 #ifndef KEYBOARD_DEVINPUT_H_
 #define KEYBOARD_DEVINPUT_H_
 
+#include "core/util.h"
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
@@ -18,7 +19,7 @@
 #define DEVINPUT_DIR "/dev/input"
 
 struct keyboard_devinput_evdev {
-    char path[PATH_MAX + 1];
+    char path[u_FILEPATH_MAX + 1];
     char name[MAX_KEYBOARD_EVDEV_NAME_LEN + 1];
     i32 fd;
 };

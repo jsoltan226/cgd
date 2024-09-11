@@ -35,6 +35,7 @@ struct p_window {
 #define WINDOW_Y 200
 #define WINDOW_W 500
 #define WINDOW_H 500
+#define WINDOW_FLAGS P_WINDOW_TYPE_FRAMEBUFFER
 
 #define ASSET_REL_DIR   "tests/window_fb_test"
 
@@ -75,7 +76,9 @@ int main(void)
     s_log_info("test");
 
     struct p_window *win = p_window_open(
-        WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FRAMEBUFFER
+        (const unsigned char *)MODULE_NAME,
+        &(rect_t) { WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H },
+        WINDOW_FLAGS
     );
     if (win == NULL) {
         s_log_error("Failed to open window. Stop.");

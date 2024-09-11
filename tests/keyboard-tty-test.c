@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -15,7 +16,11 @@ int main(void) {
     s_set_log_out_filep(stdout);
     s_set_log_err_filep(stderr);
     
-    struct p_window *win = p_window_open(0, 0, 0, 0, WINDOW_FRAMEBUFFER);
+    struct p_window *win = p_window_open(
+        (const unsigned char *)MODULE_NAME,
+        &(rect_t) { 0 },
+        P_WINDOW_TYPE_FRAMEBUFFER
+    );
     if (win == NULL) {
         s_log_error("Failed to open the window. Stop.");
         return EXIT_FAILURE;

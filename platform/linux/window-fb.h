@@ -22,8 +22,11 @@ struct window_fb {
     u32 padding;
 };
 
-i32 window_fb_open(struct window_fb *fb, rect_t *area);
-i32 window_fb_render_to_display(struct window_fb *fb, pixel_t *frame, rect_t *area);
+i32 window_fb_open(struct window_fb *fb, const rect_t *area);
+
 void window_fb_close(struct window_fb *fb);
+
+i32 window_fb_render_to_display(struct window_fb *fb,
+    const pixel_t *frame, const rect_t *area);
 
 #endif /* P_WINDOW_FB_H_ */

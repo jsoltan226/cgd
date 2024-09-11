@@ -6,6 +6,7 @@
 #include "core/int.h"
 #include "core/log.h"
 #include "core/math.h"
+#include "core/shapes.h"
 #include "core/util.h"
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"
@@ -19,31 +20,34 @@
 
 #define MODULE_NAME "window"
 
-struct p_window * p_window_open(i32 x, i32 y, i32 w, i32 h, u32 flags)
+struct p_window * p_window_open(const unsigned char *title,
+    const rect_t *area, const u32 flags)
 {
+    u_check_params(area != NULL);
+
     struct p_window *win = calloc(1, sizeof(struct p_window));
     s_assert(win != NULL, "calloc() failed for struct window!");
 
-    win->x = x;
-    win->y = y;
-    win->w = w;
-    win->h = h;
+    win->x = area->x;
+    win->y = area->y;
+    win->w = area->w;
+    win->h = area->h;
 
-    if (flags & WINDOW_NORMAL)
+    if (flags & P_WINDOW_TYPE_NORMAL)
         win->type = WINDOW_TYPE_X11;
-    else if (flags & WINDOW_FRAMEBUFFER)
+    else if (flags & P_WINDOW_TYPE_FRAMEBUFFER)
         win->type = WINDOW_TYPE_FRAMEBUFFER;
     else
         win->type = WINDOW_TYPE_X11;
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            if (window_X11_open(&win->x11, x, y, w, h))
+            if (window_X11_open(&win->x11, title, area, flags))
                 goto_error("Failed to open X11 window");
             win->color_type = P_WINDOW_RGBA8888;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            if (window_fb_open(&win->fb, &(rect_t){ x, y, w, h }))
+            if (window_fb_open(&win->fb, area))
                 goto_error("Failed to open framebuffer window");
             win->color_type = P_WINDOW_BGRA8888;
             break;
@@ -71,9 +75,10 @@ void p_window_close(struct p_window *win)
     free(win);
 }
 
-void p_window_render(struct p_window *win, pixel_t *buf, rect_t *frame)
+void p_window_render(struct p_window *win,
+    const pixel_t *data, const rect_t *frame)
 {
-    if (win == NULL || buf == NULL || frame == NULL)
+    if (win == NULL || data == NULL || frame == NULL)
         return;
 
     rect_t clipped_frame;
@@ -81,18 +86,19 @@ void p_window_render(struct p_window *win, pixel_t *buf, rect_t *frame)
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
+            window_X11_render(&win->x11, data, frame);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
             clipped_frame.x += win->x;
             clipped_frame.y += win->y;
             clipped_frame.w = min(win->w, clipped_frame.w);
             clipped_frame.h = min(win->h, clipped_frame.h);
-            window_fb_render_to_display(&win->fb, buf, &clipped_frame);
+            window_fb_render_to_display(&win->fb, data, &clipped_frame);
             break;
     }
 }
 
-i32 p_window_get_meta(struct p_window *win, struct p_window_meta *out)
+i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
 {
     if (win == NULL || out == NULL) {
         s_log_error("%s: invalid parameters", __func__);

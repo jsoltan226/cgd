@@ -15,6 +15,7 @@
 #include "gui/menu-mgr.h"
 #include "config.h"
 #include "core/log.h"
+#include "asset-loader/plugin.h"
 #include "platform/window.h"
 #include "platform/keyboard.h"
 
@@ -71,7 +72,7 @@ int main(int argc, char **argv)
 #endif /* CGD_BUILDTYPE_RELEASE */
 
     s_log_info("Initializing p_window and Keyboard...");
-    struct p_window *win = p_window_open(0, 0, 0, 0, WINDOW_FRAMEBUFFER);
+    struct p_window *win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_FRAMEBUFFER);
     if (win == NULL)
         goto_error(ERR_INIT_KEYBOARD, "p_window_open() failed");
 
@@ -86,7 +87,11 @@ int main(int argc, char **argv)
         goto_error(ERR_INIT_SDL, "Failed to initialize SDL: %s", SDL_GetError());
 
     s_log_debug("Creating SDL Window...");
-    window = SDL_CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_FLAGS);
+    window = SDL_CreateWindow(
+        WINDOW_TITLE,
+        WINDOW_X, WINDOW_Y, WINDOW_WIDTH, WINDOW_HEIGHT,
+        WINDOW_FLAGS
+    );
     if (window == NULL)
         goto_error(ERR_CREATE_WINDOW, "Failed to create SDL Window: %s", SDL_GetError());
 
@@ -132,9 +137,6 @@ int main(int argc, char **argv)
 
         /* EVENT/INPUT HANDLING SECTION */
 
-        p_keyboard_update(keyboard);
-        mouse_update(mouse);
-
         /* Check for input events */
         SDL_Event event;
         while(SDL_PollEvent(&event)){
@@ -143,55 +145,27 @@ int main(int argc, char **argv)
             }
         }
 
+        p_keyboard_update(keyboard);
+        mouse_update(mouse);
+
         /* UPDATE SECTION */
         menu_mgr_update(MenuManager, keyboard, mouse, paused);
 
         if(!paused){
 
-        /* RENDER SECTION */
+            /* RENDER SECTION */
             SDL_SetRenderDrawColor(renderer, u_color_arg_expand(rendererBg));
             SDL_RenderClear(renderer);
 
             menu_mgr_draw(MenuManager, renderer);
 
-            /*
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT1).up)
-                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_TEXT_RECTS;
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT2).up)
-                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_GLYPH_RECTS;
-            if(kb_getKey(keyboard, KB_KEYCODE_DIGIT3).up)
-                sourceCodeProFont->flags ^= FNT_FLAG_DISPLAY_CHAR_RECTS;
-
-            vec2d_t textPos = { .x = mouse->x, .y = mouse->y };
-
-            font_draw_text(sourceCodeProFont, renderer,  &textPos,
-                    "Working text!\nsourceCodeProFont->flags:\v%i%i%i\t(%i)",
-                        (sourceCodeProFont->flags & 4) >> 2,
-                        (sourceCodeProFont->flags & 2) >> 1,
-                         sourceCodeProFont->flags & 1,
-                         sourceCodeProFont->flags);
-
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100);
-            SDL_RenderDrawRect(renderer, &gameRect);
-            */
-
-            /*
-            SDL_Rect mouse_rect = { mouse->x - 10, mouse->y - 10, 20, 20 };
-            if (mouse->buttons[MOUSE_BUTTON_LEFT].pressed)
-                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-            else
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
-            SDL_RenderFillRect(renderer, &mouse_rect);
-            */
-
             SDL_RenderPresent(renderer);
 
-            Uint32 deltaTime = SDL_GetTicks() - startTime;
-
-            if(deltaTime <= FRAME_DURATION)
-                SDL_Delay(FRAME_DURATION - deltaTime);
         }
+
+        Uint32 deltaTime = SDL_GetTicks() - startTime;
+        if(deltaTime <= FRAME_DURATION)
+            SDL_Delay(FRAME_DURATION - deltaTime);
     }
 
     s_log_info("Exited from the main loop, starting cleanup...");
@@ -206,6 +180,7 @@ cleanup:
     SDL_Quit();
     if (keyboard != NULL) p_keyboard_destroy(keyboard);
     if (kb_win != NULL) p_window_close(kb_win);
+    asset_unload_all_plugins();
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
     exit(EXIT_CODE);
