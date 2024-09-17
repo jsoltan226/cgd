@@ -14,78 +14,19 @@
 #include "core/pixel.h"
 #include "core/shapes.h"
 #include "core/util.h"
-#include "core/librtld.h"
 #include "../window.h"
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "libx11_rtld.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
 
-#define X11_LIB_NAME "libX11.so.6"
-
-#define X11_SYM_LIST                                                            \
-    X_(Display *, XOpenDisplay, const char *display_name)                       \
-    X_(int, XCloseDisplay, Display *dpy)                                        \
-    X_(int, XMapWindow, Display *dpy, Window w)                                 \
-    X_(int, XNextEvent, Display *display, XEvent *event_return)                 \
-    X_(XSizeHints *, XAllocSizeHints, void)                                     \
-    X_(void, XSetWMNormalHints, Display *display, Window w, XSizeHints *hints)  \
-    X_(void, XFree, void *data)                                                 \
-    X_(int, XChangeProperty,                                                    \
-        Display *display, Window w, Atom property, Atom type,                   \
-        int format, int mode, _Xconst unsigned char *data, int nelements        \
-    )                                                                           \
-    X_(Atom, XInternAtom,                                                       \
-        Display *display, _Xconst char *atom_name, Bool only_if_exists          \
-    )                                                                           \
-    X_(int, XFlush, Display *dpy)                                               \
-    X_(int, XDisplayWidth, Display *dpy, int screen_number)                     \
-    X_(int, XDisplayHeight, Display *dpy, int screen_number)                    \
-    X_(Status, XMatchVisualInfo,                                                \
-        Display *display, int screen, int depth, int class,                     \
-        XVisualInfo *vinfo_return                                               \
-    )                                                                           \
-    X_(Window, XCreateWindow,                                                   \
-        Display *display, Window parent,                                        \
-        int x, int y, unsigned int width, unsigned int height,                  \
-        unsigned int border_width, int depth,                                   \
-        unsigned int class, Visual *visual,                                     \
-        unsigned long valuemask, XSetWindowAttributes *attributes               \
-    )                                                                           \
-    X_(GC, XDefaultGC, Display *dpy, int scr)                                   \
-    X_(XImage *, XCreateImage,                                                  \
-        Display *display, Visual *visual, unsigned int depth, int format,       \
-        int offset, char *data, unsigned int width, unsigned int height,        \
-        int bitmap_pad, int bytes_per_line                                      \
-    )                                                                           \
-    X_(int, XDestroyWindow, Display *display, Window w)                         \
-    X_(int, XPutImage,                                                          \
-        Display *display, Drawable d, GC gc, XImage *image,                     \
-        int src_x, int src_y, int dest_x, int dest_y,                           \
-        unsigned int width, unsigned int height                                 \
-    )                                                                           \
-    X_(int, XSetErrorHandler, int(*handler)(Display *dpy, XErrorEvent *ev))     \
-    X_(int, XGetErrorText, Display *dpy, int code, char *ret_buf, int buf_size) \
-    X_(int, XSetIOErrorHandler, int(*handler)(Display *dpy))                    \
-    X_(char *, XDisplayName, _Xconst char *string)                              \
-    X_(int, XGetErrorDatabaseText,                                              \
-        Display *display, _Xconst char *name, _Xconst char *message,            \
-        _Xconst char *default_string, char *buffer_return, int length           \
-    )                                                                           \
-    X_(int, XSync, Display *dpy, Bool discard)                                  \
-
-static struct lib *X11_lib = NULL;
 static bool libX11_error = false;
 static pthread_mutex_t libX11_error_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
-static struct {
-    X11_SYM_LIST
-    } X = { 0 };
-#undef X_
-
-static i32 dlopen_libX11();
 static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev);
 static noreturn i32 libX11_IO_error_handler(Display *dpy);
 
@@ -100,11 +41,11 @@ i32 window_X11_open(struct window_x11 *win,
     win->closed = false;
     win->bad_window = false;
 
-    /* Only try loading libX11 if it wasn't already loaded */
-    if (X11_lib == NULL && dlopen_libX11()) {
+    struct libX11 X;
+    if (libX11_load(&X)) {
         /* Don't use `goto_error` as all cleanup done in `err`
          * depends on libX11 being loaded */
-        s_log_error("Failed to dlopen() libX11!");
+        s_log_error("Failed to load libX11!");
         return -1;
     }
 
@@ -275,12 +216,13 @@ void window_X11_close(struct window_x11 *win)
     else if (win->data.buf != NULL)
         free(win->data.buf);
 
-    if (X11_lib != NULL) {
+    struct libX11 X;
+    if (!libX11_load(&X)) {
         if (!win->bad_window)
             X.XDestroyWindow(win->dpy, win->win);
         X.XCloseDisplay(win->dpy);
 
-        librtld_close(X11_lib);
+        libX11_unload();
     }
 
     win->closed = true;
@@ -289,6 +231,9 @@ void window_X11_close(struct window_x11 *win)
 void window_X11_render(struct window_x11 *win,
     const pixel_t *data, const rect_t *area)
 {
+    struct libX11 X;
+    libX11_load(&X);
+
 #define SRC_X 0
 #define SRC_Y 0
 #define DST_X 0
@@ -301,29 +246,14 @@ void window_X11_render(struct window_x11 *win,
         SRC_X, SRC_Y, DST_X, DST_Y, win->data.w, win->data.h);
 }
 
-static i32 dlopen_libX11()
-{
-    static const char *sym_names[] = {
-#define X_(ret_type, name, ...) #name,
-        X11_SYM_LIST
-#undef X_
-        NULL
-    };
-    X11_lib = librtld_load(X11_LIB_NAME, sym_names);
-    if (X11_lib == NULL)
-        return 1;
-    
-#define X_(ret_type, name, ...) X.name = librtld_get_sym_handle(X11_lib, #name);
-    X11_SYM_LIST
-#undef X_
-
-    return 0;
-}
-
 static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
 {
 #define ERR_MSG_BUF_SIZE 512
 #define DEFAULT_STR "<unknown>"
+    /* If this function got called,
+     * we can safely assume that libX11 has already been loaded */
+    struct libX11 X;
+    (void) libX11_load(&X);
 
 
     /* Get the name of the function that failed */
@@ -351,6 +281,10 @@ static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
 
 static noreturn i32 libX11_IO_error_handler(Display *dpy)
 {
+    /* Same as above */
+    struct libX11 X;
+    (void) libX11_load(&X);
+
     s_log_fatal(MODULE_NAME, __func__,
         "Fatal X11 I/O error (display %s)",
         X.XDisplayName(NULL));
