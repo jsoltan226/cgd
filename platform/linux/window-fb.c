@@ -16,16 +16,25 @@
 #include "window-fb.h"
 #undef P_INTERNAL_GUARD__
 
-#define MODULE_NAME "window"
+#define MODULE_NAME "window-fb"
 
 #define FBDEV_PATH "/dev/fb0"
+#define FBDEV_FALLBACK_PATH "/dev/graphics/fb0"
 
 i32 window_fb_open(struct window_fb *fb, const rect_t *area)
 {
+    fb->closed = false;
+
     fb->fd = open(FBDEV_PATH, O_RDWR);
-    if (fb->fd == -1)
-        goto_error("Failed to open framebuffer device '%s': %s",
+    if (fb->fd == -1) {
+        s_log_warn("Failed to open framebuffer device '%s': %s",
             FBDEV_PATH, strerror(errno));
+
+        fb->fd = open(FBDEV_FALLBACK_PATH, O_RDWR);
+        if (fb->fd == -1)
+            goto_error("Failed to open fallback framebuffer device '%s': %s",
+                FBDEV_FALLBACK_PATH, strerror(errno));
+    }
 
     /* Make sure the display is on */
     if (ioctl(fb->fd, FBIOBLANK, FB_BLANK_UNBLANK))
@@ -70,10 +79,10 @@ i32 window_fb_render_to_display(struct window_fb *fb,
         return 1;
     }
 
-    u32 x_offset = min(frame->x, fb->xres);
-    u32 y_offset = min(frame->y, fb->yres);
-    u32 w = min(frame->w, fb->xres - x_offset);
-    u32 h = min(frame->h, fb->yres - y_offset);
+    u32 x_offset = u_min(frame->x, fb->xres);
+    u32 y_offset = u_min(frame->y, fb->yres);
+    u32 w = u_min(frame->w, fb->xres - x_offset);
+    u32 h = u_min(frame->h, fb->yres - y_offset);
 
     for (u32 y = 0; y < h; y++) {
         u32 dst_start_px_offset = (y + y_offset) * (fb->xres + fb->padding) + x_offset;
@@ -89,10 +98,11 @@ i32 window_fb_render_to_display(struct window_fb *fb,
 
 void window_fb_close(struct window_fb *fb)
 {
-    if (fb == NULL) return;
+    if (fb == NULL || fb->closed) return;
 
     s_log_debug("Closing framebuffer window...");
     close(fb->fd);
     munmap(fb->mem, fb->mem_size);
     /* fb is supposed to be allocated on the stack, so no free() */
+    fb->closed = true;
 }

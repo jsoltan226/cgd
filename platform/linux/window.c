@@ -44,7 +44,7 @@ struct p_window * p_window_open(const unsigned char *title,
         case WINDOW_TYPE_X11:
             if (window_X11_open(&win->x11, title, area, flags))
                 goto_error("Failed to open X11 window");
-            win->color_type = P_WINDOW_RGBA8888;
+            win->color_type = P_WINDOW_BGRA8888;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
             if (window_fb_open(&win->fb, area))
@@ -91,8 +91,8 @@ void p_window_render(struct p_window *win,
         case WINDOW_TYPE_FRAMEBUFFER:
             clipped_frame.x += win->x;
             clipped_frame.y += win->y;
-            clipped_frame.w = min(win->w, clipped_frame.w);
-            clipped_frame.h = min(win->h, clipped_frame.h);
+            clipped_frame.w = u_min(win->w, clipped_frame.w);
+            clipped_frame.h = u_min(win->h, clipped_frame.h);
             window_fb_render_to_display(&win->fb, data, &clipped_frame);
             break;
     }

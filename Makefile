@@ -4,7 +4,7 @@ PREFIX?=/usr
 CC?=cc
 AR?=ar
 CCLD?=cc
-COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC
+COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC -pthread
 DEPFLAGS?=-MMD -MP
 LDFLAGS?=-pie
 ARFLAGS=rcs
@@ -139,7 +139,7 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
 
 build-tests: CFLAGS = -ggdb -O0 -Wall
-build-tests: $(TEST_EXE_DIR) compile-tests
+build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)

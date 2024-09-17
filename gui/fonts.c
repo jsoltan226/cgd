@@ -131,7 +131,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
          * and only set the height to be the one of the taller character
          */
         totalW += curr_glyph->src_rect.w;
-        totalH = max(totalH, glyph_slot->metrics.height >> 6);
+        totalH = u_max(totalH, glyph_slot->metrics.height >> 6);
 
         tmp_surfaces[i] = SDL_CreateRGBSurfaceWithFormat(
             0, glyph_slot->bitmap.width, glyph_slot->bitmap.rows, 32, SDL_PIXELFORMAT_RGBA32
@@ -246,7 +246,7 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
                         .w = (i32)(fnt->charW * curr_glyph->scaleX),
                         .h = (i32)(fnt->line_height * curr_glyph->scaleY),
                     };
-                    maxCharH = max(maxCharH, glyphDestRect.h | (i64)fnt->line_height);
+                    maxCharH = u_max(maxCharH, (glyphDestRect.h | (i64)fnt->line_height));
 
                     SDL_RenderCopy(renderer, fnt->texture,
                         (const SDL_Rect *)&fnt->glyphs[i].src_rect,
@@ -283,7 +283,7 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
                     penX += (fnt->tab_width -((i32)(penX / fnt->charW) % fnt->tab_width)) * fnt->charW;
                 break;
             case '\n':
-                maxPenX = max(penX, maxPenX);
+                maxPenX = u_max(penX, maxPenX);
                 penX = 0;
                 penY += fnt->line_height;
                 break;
@@ -293,13 +293,13 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
                 break;
             case '\v': /* Vertical tab (newline + tab) */
                 penY += fnt->line_height;
-                maxPenX = max(penX, maxPenX);
+                maxPenX = u_max(penX, maxPenX);
                 penX = fnt->tab_width * fnt->charW;
                 break;
         }
         c_ptr++;
     }
-    maxPenX = max(penX, maxPenX);
+    maxPenX = u_max(penX, maxPenX);
 
     if (fnt->flags & FNT_FLAG_DISPLAY_TEXT_RECTS) {
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);

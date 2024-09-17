@@ -26,9 +26,4 @@ typedef const char filepath_t[u_FILEPATH_MAX];
 
 #define u_strlen(str_literal) (sizeof(str_literal) - 1)
 
-/* The simplest collision checking implementation;
- * returns true if 2 rectangles overlap
- */
-bool u_collision(const rect_t *r1, const rect_t *r2);
-
 #endif /* UTIL_H_ */

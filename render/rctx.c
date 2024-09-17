@@ -47,6 +47,10 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 
     ctx->current_color = BLACK_PIXEL;
 
+    /* Render 1 empty frame on init
+     * to avoid junk uninitialized data being displayed */
+    r_flush(ctx);
+
     return ctx;
 
 err:

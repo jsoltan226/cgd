@@ -4,6 +4,7 @@
 #include "core/pressable-obj.h"
 #include "core/util.h"
 #include "core/shapes.h"
+#include "core/math.h"
 #include "core/int.h"
 #include "on-event.h"
 #include "sprite.h"

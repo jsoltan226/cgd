@@ -9,6 +9,7 @@
 #include "core/shapes.h"
 #include "core/int.h"
 #include <linux/fb.h>
+#include <stdbool.h>
 
 struct window_fb {
     i32 fd;
@@ -20,6 +21,8 @@ struct window_fb {
 
     u32 xres, yres;
     u32 padding;
+
+    bool closed;
 };
 
 i32 window_fb_open(struct window_fb *fb, const rect_t *area);

@@ -179,7 +179,7 @@ void * vector_resize__(void *v, u32 new_size)
 
     struct vector_metadata *meta = get_metadata_ptr(v);
     meta->capacity = new_size;
-    meta->n_items = min(new_size, meta->n_items);
+    meta->n_items = u_min(new_size, meta->n_items);
 
     return v;
 }
