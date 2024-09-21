@@ -1,16 +1,17 @@
+#include "../window.h"
 #include "core/pixel.h"
 #include "core/shapes.h"
-#include <linux/mman.h>
-#include <unistd.h>
 #include "core/util.h"
 #include "core/log.h"
 #include "core/math.h"
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <linux/mman.h>
 #include <linux/fb.h>
-#include <errno.h>
-#include <string.h>
-#include <fcntl.h>
 
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"
@@ -21,7 +22,7 @@
 #define FBDEV_PATH "/dev/fb0"
 #define FBDEV_FALLBACK_PATH "/dev/graphics/fb0"
 
-i32 window_fb_open(struct window_fb *fb, const rect_t *area)
+i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags)
 {
     fb->closed = false;
 
@@ -61,6 +62,16 @@ i32 window_fb_open(struct window_fb *fb, const rect_t *area)
     fb->yres = fb->var_info.yres;
     fb->padding = (fb->fixed_info.line_length / sizeof(u32)) - fb->var_info.xres;
 
+
+    memcpy(&fb->win_area, area, sizeof(rect_t));
+
+    /* Handle P_WINDOW_POS_CENTERED flags */
+    if (flags & P_WINDOW_POS_CENTERED_X)
+        fb->win_area.x = abs((i32)fb->xres - area->w) / 2;
+
+    if (flags & P_WINDOW_POS_CENTERED_Y)
+        fb->win_area.y = abs((i32)fb->yres - area->h) / 2;
+
     s_log_debug("%s() OK; Screen is %ux%u, with %upx of padding", __func__,
         fb->xres, fb->yres, fb->padding);
 
@@ -79,10 +90,10 @@ i32 window_fb_render_to_display(struct window_fb *fb,
         return 1;
     }
 
-    u32 x_offset = u_min(frame->x, fb->xres);
-    u32 y_offset = u_min(frame->y, fb->yres);
-    u32 w = u_min(frame->w, fb->xres - x_offset);
-    u32 h = u_min(frame->h, fb->yres - y_offset);
+    u32 x_offset = u_min(frame->x + fb->win_area.x, fb->xres);
+    u32 y_offset = u_min(frame->y + fb->win_area.y, fb->yres);
+    u32 w = u_min(u_min(frame->w, fb->win_area.w), fb->xres - x_offset);
+    u32 h = u_min(u_min(frame->h, fb->win_area.h), fb->yres - y_offset);
 
     for (u32 y = 0; y < h; y++) {
         u32 dst_start_px_offset = (y + y_offset) * (fb->xres + fb->padding) + x_offset;

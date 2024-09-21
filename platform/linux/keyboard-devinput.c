@@ -42,7 +42,7 @@ i32 devinput_keyboard_init(struct keyboard_devinput *kb)
     memset(kb, 0, sizeof(struct keyboard_devinput));
     kb->kbdevs = find_and_load_available_evdevs();
     if (kb->kbdevs == NULL)
-        goto_error("Failed to load keyboard devices!");
+        goto err;
 
     return 0;
 
@@ -131,22 +131,36 @@ static VECTOR(struct keyboard_devinput_evdev) find_and_load_available_evdevs(voi
         goto_error("0 devices were found in \"%s\"", DEVINPUT_DIR);
     }
 
+    u32 n_failed = 0;
     for (u32 i = 0; i < n_dirents; i++) {
         struct keyboard_devinput_evdev tmp;
-        if (load_evdev(namelist[i]->d_name, &tmp)) continue;
+        i32 r = load_evdev(namelist[i]->d_name, &tmp);
+        if (r < 0) { /* Opening failed */
+            n_failed++;
+            continue;
+        } else if (r > 0) { /* Opening succeeded but tests failed */
+            continue;
+        }
         
         s_log_debug("Found keyboard: %s (%s)", tmp.path, tmp.name);
         vector_push_back(v, tmp);
     }
 
-    /* If half of the keyboards failed to load, something is probably wrong */
-    if (vector_size(v) < n_dirents / 2)
-        goto_error("No available keyboard devices found.");
+    const u32 fail_threshhold = n_dirents * MINIMAL_SUCCESSFUL_EVDEVS_LOADED;
+
+    /* If half of the devices failed to load, something is probably wrong */
+    if (n_failed > fail_threshhold) {
+        s_log_warn("Too many event devices failed to load (%u/%u)"
+            ", max # of fails was %u",
+            n_failed, n_dirents, fail_threshhold
+        );
+        goto err;
+    }
 
     /* Cleanup */
-    for (u32 i = 0; i < n_dirents; i++) {
+    for (u32 i = 0; i < n_dirents; i++)
         free(namelist[i]);
-    }
+
     free(namelist);
     close(dir_fd);
 
@@ -208,7 +222,8 @@ static void read_keyevents_from_evdev(i32 fd,
         pressable_obj_update(&keys[p_kb_keycode], ev.value > 0);
         updated_keys[p_kb_keycode] = true;
 
-        /* s_log_debug("Key event %i for keycode %s",
+        /*
+         * s_log_debug("Key event %i for keycode %s",
          * ev.value, p_keyboard_keycode_strings[p_kb_keycode]);
          */
     }
@@ -222,6 +237,7 @@ static i32 dev_input_event_scandir_filter(const struct dirent *dirent)
 
 static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
 {
+    bool err_not_keyboard = false;
     u_check_params(rel_path != NULL && out != NULL);
     memset(out, 0, sizeof(struct keyboard_devinput_evdev));
 
@@ -231,6 +247,15 @@ static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
 
     out->fd = open(out->path, O_RDONLY | O_NONBLOCK);
     if (out->fd == -1) {
+        /* Don't spam the user with 'Permission denied' errors
+         * 
+         * Not having permission to read /dev/input/eventXX is the usual case,
+         * but the user might think something is wrong when they get
+         * a full screen of error messages
+         */
+        if (errno == EACCES || errno == EPERM) {
+            goto err;
+        }
         goto_error("%s: Failed to open %s: %s",
             __func__, out->path, strerror(errno));
     }
@@ -241,12 +266,14 @@ static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
             out->path, strerror(errno));
     }
 
-    /* silent fail if device is not a keyboard
+    /* Silently fail if device is a mouse
      * (doesn't support KEY events or
      * supports REL events which are typically only found in mice)
      */
-    if (!(ev_bits[0] & 1 << EV_KEY) || (ev_bits[0] & 1 << EV_REL))
+    if (!(ev_bits[0] & 1 << EV_KEY) || (ev_bits[0] & 1 << EV_REL)) {
+        err_not_keyboard = true;
         goto err;
+    }
 
     u64 key_bits[NBITS(KEY_MAX)];
     if (ioctl(out->fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
@@ -254,10 +281,12 @@ static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
             out->path, strerror(errno));
     }
 
-    /* Silent fail if device doesn't support keys
+    /* Silently fail if device doesn't support keys
      * typically present in keyboards */
-    if (!keyboard_supported_keys_check(key_bits))
+    if (!keyboard_supported_keys_check(key_bits)) {
+        err_not_keyboard = true;
         goto err;
+    }
 
     if (ioctl(out->fd, EVIOCGNAME(MAX_KEYBOARD_EVDEV_NAME_LEN), out->name) < 0) {
         s_log_warn("Failed to get name for event device %s: %s",
@@ -268,14 +297,16 @@ static i32 load_evdev(const char *rel_path, struct keyboard_devinput_evdev *out)
 
 err:
     if (out->fd != -1) close(out->fd);
-    return 1;
+
+    if (err_not_keyboard) return 1;
+    else return -1;
 }
 
 static bool keyboard_supported_keys_check(const u64 bits[NBITS(KEY_MAX)])
 {
     static const i32 key_checks[] = {
         KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0,
-        KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y,
+        KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_H, KEY_J, KEY_L, KEY_Z,
         KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
         KEY_SPACE, KEY_ESC, KEY_ENTER, KEY_BACKSPACE, KEY_TAB
     };

@@ -22,10 +22,12 @@ struct window_fb {
     u32 xres, yres;
     u32 padding;
 
+    rect_t win_area;
+
     bool closed;
 };
 
-i32 window_fb_open(struct window_fb *fb, const rect_t *area);
+i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags);
 
 void window_fb_close(struct window_fb *fb);
 

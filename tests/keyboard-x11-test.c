@@ -3,6 +3,7 @@
 #include "core/util.h"
 #include "platform/window.h"
 #include "platform/keyboard.h"
+#include "platform/event.h"
 #include "render/rctx.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +13,7 @@
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 500, 500 }
-#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY | P_WINDOW_TYPE_NORMAL)
+#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY | P_WINDOW_TYPE_AUTO)
 
 #define FPS 60
 
@@ -22,9 +23,7 @@ static struct p_keyboard *kb = NULL;
 
 int main(void)
 {
-    s_set_log_level(LOG_DEBUG);
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
+    s_configure_log(LOG_DEBUG, stdout, stderr);
 
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
     if (win == NULL)
@@ -38,12 +37,19 @@ int main(void)
     if (kb == NULL)
         goto_error("Failed to init keyboard. Stop.");
 
-    while (!p_keyboard_get_key(kb, KB_KEYCODE_Q)->up) {
+    struct p_event ev = { 0 };
+    while (ev.type != P_EVENT_QUIT &&
+        !p_keyboard_get_key(kb, KB_KEYCODE_Q)->up
+    ) {
+        p_event_poll(&ev);
         p_keyboard_update(kb);
         usleep(1000000 / FPS);
     }
 
-    s_log_debug("Key 'Q' Pressed. Exiting...");
+    if (ev.type == P_EVENT_QUIT)
+        s_log_debug("Received QUIT event. Exiting...");
+    else
+        s_log_debug("Key 'Q' Pressed. Exiting...");
     
     p_keyboard_destroy(kb);
     r_ctx_destroy(rctx);

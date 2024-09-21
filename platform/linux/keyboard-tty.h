@@ -6,6 +6,7 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "core/int.h"
+#include "core/pressable-obj.h"
 #include <termios.h>
 #include <stdbool.h>
 
@@ -19,7 +20,10 @@ struct keyboard_tty {
 };
 
 i32 tty_keyboard_init(struct keyboard_tty *kb);
-i32 tty_keyboard_next_key(struct keyboard_tty *kb);
+
+void tty_keyboard_update_all_keys(struct keyboard_tty *kb,
+    pressable_obj_t *pobjs);
+
 void tty_keyboard_destroy(struct keyboard_tty *kb);
 
 #endif /* KEYBOARD_TTY_H_ */

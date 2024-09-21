@@ -139,8 +139,13 @@ int main(void)
 
     pixel_data_RGBA32_to_BGRA32(&amogus_pixel_data);
 
-    rect_t amogus_area = { AMOGUS_X, AMOGUS_Y, amogus_pixel_data.w, amogus_pixel_data.h };
-    window_fb_render_to_display(&win->fb, amogus_pixel_data.buf, &amogus_area);
+    win->fb.win_area.x = AMOGUS_X;
+    win->fb.win_area.y = AMOGUS_Y;
+    win->fb.win_area.w = amogus_pixel_data.w;
+    win->fb.win_area.h = amogus_pixel_data.h;
+
+    const rect_t amogus_rel_area = { 0, 0, amogus_pixel_data.w, amogus_pixel_data.h };
+    window_fb_render_to_display(&win->fb, amogus_pixel_data.buf, &amogus_rel_area);
 
     free(amogus_pixel_data.buf);
     sleep(2);

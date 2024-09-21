@@ -17,18 +17,18 @@
 #undef P_INTERNAL_GUARD__
 
 struct keyboard_x11 {
-    Display *dpy;
+    struct window_x11 *win;
     struct libX11 Xlib;
 };
 
-i32 keyboard_X11_init(struct keyboard_x11 *kb, struct window_x11 *win);
+i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win);
 
-void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
+void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
     pressable_obj_t pobj[P_KEYBOARD_N_KEYS]);
 
-void keyboard_X11_destroy(struct keyboard_x11 *kb);
+void X11_keyboard_destroy(struct keyboard_x11 *kb);
 
-static const i32 x11_keycode_2_p_keycode_map[P_KEYBOARD_N_KEYS][2] = {
+static const i32 libX11_keycode_map[P_KEYBOARD_N_KEYS][2] = {
     { XK_Return,    KB_KEYCODE_ENTER },
     { XK_space,     KB_KEYCODE_SPACE },
     { XK_e,         KB_KEYCODE_ESCAPE },

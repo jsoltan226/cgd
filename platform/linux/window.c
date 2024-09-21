@@ -20,6 +20,8 @@
 
 #define MODULE_NAME "window"
 
+static enum window_type detect_environment();
+
 struct p_window * p_window_open(const unsigned char *title,
     const rect_t *area, const u32 flags)
 {
@@ -37,8 +39,8 @@ struct p_window * p_window_open(const unsigned char *title,
         win->type = WINDOW_TYPE_X11;
     else if (flags & P_WINDOW_TYPE_FRAMEBUFFER)
         win->type = WINDOW_TYPE_FRAMEBUFFER;
-    else
-        win->type = WINDOW_TYPE_X11;
+    else /* if (flags & P_WINDOW_TYPE_AUTO) */
+        win->type = detect_environment();
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
@@ -47,7 +49,7 @@ struct p_window * p_window_open(const unsigned char *title,
             win->color_type = P_WINDOW_BGRA8888;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            if (window_fb_open(&win->fb, area))
+            if (window_fb_open(&win->fb, area, flags))
                 goto_error("Failed to open framebuffer window");
             win->color_type = P_WINDOW_BGRA8888;
             break;
@@ -81,19 +83,12 @@ void p_window_render(struct p_window *win,
     if (win == NULL || data == NULL || frame == NULL)
         return;
 
-    rect_t clipped_frame;
-    memcpy(&clipped_frame, frame, sizeof(rect_t));
-
     switch (win->type) {
         case WINDOW_TYPE_X11:
             window_X11_render(&win->x11, data, frame);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            clipped_frame.x += win->x;
-            clipped_frame.y += win->y;
-            clipped_frame.w = u_min(win->w, clipped_frame.w);
-            clipped_frame.h = u_min(win->h, clipped_frame.h);
-            window_fb_render_to_display(&win->fb, data, &clipped_frame);
+            window_fb_render_to_display(&win->fb, data, frame);
             break;
     }
 }
@@ -113,4 +108,14 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->color_type = win->color_type;
 
     return 0;
+}
+
+static enum window_type detect_environment()
+{
+    /* Try X11 first. If X is active, writing to framebuffer is useless */
+    if (getenv("DISPLAY"))
+        return WINDOW_TYPE_X11;
+
+    /* If nothing is detected, framebuffer is the only choice */
+    return WINDOW_TYPE_FRAMEBUFFER;
 }

@@ -18,6 +18,11 @@
 #define MAX_KEYBOARD_EVDEV_NAME_LEN   512
 #define DEVINPUT_DIR "/dev/input"
 
+/* `keyboard_devinput_init()` will fail
+ * if less than this fraction of event devices load successfully 
+*/
+#define MINIMAL_SUCCESSFUL_EVDEVS_LOADED 0.5f
+
 struct keyboard_devinput_evdev {
     char path[u_FILEPATH_MAX + 1];
     char name[MAX_KEYBOARD_EVDEV_NAME_LEN + 1];

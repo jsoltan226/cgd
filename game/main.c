@@ -59,16 +59,11 @@ int WinMain(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    s_set_user_fault(NO_USER_FAULT);
+    s_configure_log(LOG_INFO, stdout, stderr);
+
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
         s_set_log_level(LOG_DEBUG);
-    else
-        s_set_log_level(LOG_INFO);
-#else
-    s_set_log_level(LOG_INFO);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
     s_log_info("Initializing p_window and Keyboard...");

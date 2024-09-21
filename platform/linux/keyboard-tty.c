@@ -14,6 +14,7 @@
 
 #define MODULE_NAME "keyboard-tty"
 
+static i32 tty_keyboard_next_key(struct keyboard_tty *kb);
 static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE_LEN]);
 static enum p_keyboard_keycode parse_standard_char(char c);
 
@@ -61,7 +62,37 @@ err:
     return 1;
 }
 
-i32 tty_keyboard_next_key(struct keyboard_tty *kb)
+void tty_keyboard_update_all_keys(struct keyboard_tty *kb, pressable_obj_t *pobjs)
+{
+    enum p_keyboard_keycode kc = 0;
+    bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
+
+    /* Update the keys that were pressed */
+    while (kc = tty_keyboard_next_key(kb), kc != -1) {
+        pressable_obj_update(&pobjs[kc], true);
+        key_updated[kc] = true;
+    }
+
+    /* Update the keys that were not pressed */
+    for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
+        if (key_updated[i]) continue;
+        pressable_obj_update(&pobjs[i], false);
+    }
+}
+
+void tty_keyboard_destroy(struct keyboard_tty *kb)
+{
+    if (kb->fd >= 0) {
+        if (kb->is_orig_termios_initialized_) {
+            tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
+            s_log_debug("Restored original terminal configuration");
+        }
+
+        close(kb->fd);
+    }
+}
+
+static i32 tty_keyboard_next_key(struct keyboard_tty *kb)
 {
     if (kb->esc_seq_buf[0])
         return parse_buffered_sequence(kb->esc_seq_buf);
@@ -77,18 +108,6 @@ i32 tty_keyboard_next_key(struct keyboard_tty *kb)
     }
 
     return parse_standard_char(c);
-}
-
-void tty_keyboard_destroy(struct keyboard_tty *kb)
-{
-    if (kb->fd >= 0) {
-        if (kb->is_orig_termios_initialized_) {
-            tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
-            s_log_debug("Restored original terminal configuration");
-        }
-
-        close(kb->fd);
-    }
 }
 
 static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE_LEN])

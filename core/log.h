@@ -62,4 +62,11 @@ i32 s_set_log_err_filep(FILE *fp);
 void s_set_user_fault(bool is_user_fault);
 bool s_get_user_fault();
 
+/* A shortcut for configuring logging, especially in tests */
+#define s_configure_log(level, outfilep, errfilep) do { \
+    s_set_log_level(level);                             \
+    s_set_log_out_filep(outfilep);                      \
+    s_set_log_err_filep(errfilep);                      \
+} while (0);
+
 #endif /* LOG_H_ */

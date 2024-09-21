@@ -1,6 +1,7 @@
 #ifndef P_WINDOW_X11_H_
 #define P_WINDOW_X11_H_
 
+#include <X11/X.h>
 #include <X11/Xutil.h>
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
@@ -24,6 +25,8 @@ struct window_x11 {
     GC gc;
     struct pixel_flat_data data;
     XImage *Ximg;
+
+    Atom WM_DELETE_WINDOW;
 
     bool bad_window;
     bool closed;

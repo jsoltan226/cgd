@@ -1,8 +1,9 @@
 #include "core/int.h"
 #include "../keyboard.h"
-#include "core/log.h"
+#include "../event.h"
 #include "core/pressable-obj.h"
 #include "core/util.h"
+#include "event.h"
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <pthread.h>
@@ -20,7 +21,7 @@
 
 #define MODULE_NAME "keyboard-x11"
 
-i32 keyboard_X11_init(struct keyboard_x11 *kb, struct window_x11 *win)
+i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
 {
     u_check_params(win != NULL);
     memset(kb, 0, sizeof(struct keyboard_x11));
@@ -28,29 +29,41 @@ i32 keyboard_X11_init(struct keyboard_x11 *kb, struct window_x11 *win)
     if (libX11_load(&kb->Xlib))
         goto_error("Failed to load libX11!");
 
-    kb->dpy = win->dpy;
+    kb->win = win;
 
     return 0;
 
 err:
-    keyboard_X11_destroy(kb);
+    X11_keyboard_destroy(kb);
     return 1;
 }
 
-void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
+void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
     pressable_obj_t pobjs[P_KEYBOARD_N_KEYS])
 {
-    bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
     XEvent ev = { 0 };
-    while (kb->Xlib.XCheckMaskEvent(
-            kb->dpy, KeyPressMask | KeyReleaseMask, &ev
+
+    /* Check for WM_DELETE_WINDOW message */
+    if (kb->Xlib.XCheckTypedWindowEvent(
+            kb->win->dpy, kb->win->win, ClientMessage, &ev
+    )) {
+        if (ev.xclient.data.l[0] == kb->win->WM_DELETE_WINDOW) {
+            const struct p_event quit_ev = { .type = P_EVENT_QUIT };
+            p_event_send(&quit_ev);
+        }
+    }
+
+    bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
+    
+    while (kb->Xlib.XCheckWindowEvent(
+            kb->win->dpy, kb->win->win, KeyPressMask | KeyReleaseMask, &ev
         )
     ) {
         enum p_keyboard_keycode code = -1;
+        KeySym sym = kb->Xlib.XLookupKeysym(&ev.xkey, 0);
         for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
-            s_log_debug("Pressed key 0x00%x", ev.xkey.keycode);
-            if (ev.xkey.keycode == x11_keycode_2_p_keycode_map[i][0]) {
-                code = x11_keycode_2_p_keycode_map[i][1];
+            if (sym == libX11_keycode_map[i][0]) {
+                code = libX11_keycode_map[i][1];
                 break;
             }
         }
@@ -58,7 +71,10 @@ void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
         if (code == -1)
             continue;
 
-        pressable_obj_update(&pobjs[code], true);
+        /* ev.type == KeyPress -> update with `true`
+         * ev.type == KeyRelease (or anything else) -> update with `false`
+         */
+        pressable_obj_update(&pobjs[code], ev.type == KeyPress);
         key_updated[code] = true;
     }
 
@@ -71,10 +87,10 @@ void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
     }
 }
 
-void keyboard_X11_destroy(struct keyboard_x11 *kb)
+void X11_keyboard_destroy(struct keyboard_x11 *kb)
 {
     if (kb == NULL) return;
 
-    /* Don't try to unload libX11 herem
+    /* Don't try to unload libX11 here
      * it should be done in p_window_close()! */
 }

@@ -107,6 +107,13 @@ i32 window_X11_open(struct window_x11 *win,
         goto err;
     }
 
+    /* Enable handling of window-close events */
+    win->WM_DELETE_WINDOW = X.XInternAtom(win->dpy, "WM_DELETE_WINDOW", false);
+    if (libX11_error) goto err;
+
+    if (X.XSetWMProtocols(win->dpy, win->win, &win->WM_DELETE_WINDOW, 1) == 0)
+        goto_error("Failed to set WM_DELETE_WINDOW property");
+
     /* Make the window non-resizeable */
     hints = X.XAllocSizeHints();
     s_assert(hints != NULL, "Failed to allocate XSizeHints");

@@ -66,6 +66,16 @@
     X_(Bool, XCheckMaskEvent,                                                   \
         Display *display, long event_mask, XEvent *event_return                 \
     )                                                                           \
+    X_(KeySym, XLookupKeysym, XKeyEvent *key_event, int index)                  \
+    X_(Status, XSetWMProtocols,                                                 \
+        Display *display, Window w, Atom *protocols, int count                  \
+    )                                                                           \
+    X_(Bool, XCheckTypedWindowEvent,                                            \
+        Display *display, Window w, int event_type, XEvent *event_return        \
+    )                                                                           \
+    X_(Bool, XCheckWindowEvent,                                                 \
+        Display *display, Window w, long event_mask, XEvent *event_return       \
+    )                                                                           \
 
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libX11 {
