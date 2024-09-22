@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 #endif /* CGD_BUILDTYPE_RELEASE */
 
     s_log_info("Initializing p_window and Keyboard...");
-    struct p_window *win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_FRAMEBUFFER);
+    struct p_window *win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_DUMMY);
     if (win == NULL)
         goto_error(ERR_INIT_KEYBOARD, "p_window_open() failed");
 

@@ -46,6 +46,7 @@ static const char *keyboard_mode_strings[N_KEYBOARD_MODES] = {
 static const enum keyboard_mode fallback_modes[N_WINDOW_TYPES][N_KEYBOARD_MODES] = {
     [WINDOW_TYPE_FRAMEBUFFER]   = { KB_MODE_DEV_INPUT, KB_MODE_TTY, KB_MODE_FAIL },
     [WINDOW_TYPE_X11]           = { KB_MODE_DEV_INPUT, KB_MODE_X11, KB_MODE_FAIL },
+    [WINDOW_TYPE_DUMMY]         = { KB_MODE_DEV_INPUT, KB_MODE_TTY, KB_MODE_FAIL },
 };
 
 struct p_keyboard {

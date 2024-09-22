@@ -5,17 +5,19 @@
 #include <string.h>
 #include "core/int.h"
 #include "core/log.h"
-#include "core/math.h"
 #include "core/shapes.h"
 #include "core/util.h"
 #define P_INTERNAL_GUARD__
-#include "window-fb.h"
+#include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-internal.h"
+#include "window-fb.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
@@ -39,7 +41,9 @@ struct p_window * p_window_open(const unsigned char *title,
         win->type = WINDOW_TYPE_X11;
     else if (flags & P_WINDOW_TYPE_FRAMEBUFFER)
         win->type = WINDOW_TYPE_FRAMEBUFFER;
-    else /* if (flags & P_WINDOW_TYPE_AUTO) */
+    else if (flags & P_WINDOW_TYPE_DUMMY) {
+        win->type = WINDOW_TYPE_DUMMY;
+    } else /* if (flags & P_WINDOW_TYPE_AUTO) */
         win->type = detect_environment();
 
     switch (win->type) {
@@ -52,6 +56,14 @@ struct p_window * p_window_open(const unsigned char *title,
             if (window_fb_open(&win->fb, area, flags))
                 goto_error("Failed to open framebuffer window");
             win->color_type = P_WINDOW_BGRA8888;
+            break;
+        case WINDOW_TYPE_DUMMY:
+            if (dummy_window_init(&win->dummy,
+                    detect_environment() == WINDOW_TYPE_X11)
+            ) {
+                goto_error("Failed to init dummy window");
+            }
+            win->color_type = P_WINDOW_RGBA8888;
             break;
     }
     
@@ -72,6 +84,9 @@ void p_window_close(struct p_window *win)
         case WINDOW_TYPE_FRAMEBUFFER:
             window_fb_close(&win->fb);
             break;
+        case WINDOW_TYPE_DUMMY:
+            dummy_window_destroy(&win->dummy);
+            break;
     }
 
     free(win);
@@ -89,6 +104,9 @@ void p_window_render(struct p_window *win,
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
             window_fb_render_to_display(&win->fb, data, frame);
+            break;
+        case WINDOW_TYPE_DUMMY:
+            /* Do nothing, it's a dummy lol */
             break;
     }
 }

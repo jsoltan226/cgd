@@ -76,6 +76,11 @@
     X_(Bool, XCheckWindowEvent,                                                 \
         Display *display, Window w, long event_mask, XEvent *event_return       \
     )                                                                           \
+    X_(int, XGrabKeyboard,                                                      \
+        Display *display, Window grab_window, Bool owner_events,                \
+        int pointer_mode, int keyboard_mode, Time time                          \
+    )                                                                           \
+    X_(int, XUngrabKeyboard, Display *display, Time time)                       \
 
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libX11 {

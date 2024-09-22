@@ -30,6 +30,15 @@ i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
         goto_error("Failed to load libX11!");
 
     kb->win = win;
+    
+    /*
+#define GRAB_WINDOW win->root
+#define OWNER_EVENTS True
+#define POINTER_GRAB_MODE GrabModeAsync
+#define KEYBOARD_GRAB_MODE GrabModeAsync
+    (void)kb->Xlib.XGrabKeyboard(win->dpy, GRAB_WINDOW, OWNER_EVENTS,
+        POINTER_GRAB_MODE, KEYBOARD_GRAB_MODE, CurrentTime);
+        */
 
     return 0;
 
@@ -90,6 +99,10 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
 void X11_keyboard_destroy(struct keyboard_x11 *kb)
 {
     if (kb == NULL) return;
+
+    /*
+    kb->Xlib.XUngrabKeyboard(kb->win->dpy, CurrentTime);
+    */
 
     /* Don't try to unload libX11 here
      * it should be done in p_window_close()! */

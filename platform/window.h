@@ -11,6 +11,7 @@ enum p_window_flags {
     P_WINDOW_TYPE_NORMAL        = 1 << 0,
     P_WINDOW_TYPE_FRAMEBUFFER   = 1 << 1,
     P_WINDOW_TYPE_AUTO          = 1 << 2,
+    P_WINDOW_TYPE_DUMMY         = 1 << 3,
 
     P_WINDOW_POS_CENTERED_X     = 1 << 10,
     P_WINDOW_POS_CENTERED_Y     = 1 << 11,

@@ -19,7 +19,7 @@ int main(void) {
     struct p_window *win = p_window_open(
         (const unsigned char *)MODULE_NAME,
         &(rect_t) { 0 },
-        P_WINDOW_TYPE_FRAMEBUFFER
+        P_WINDOW_TYPE_DUMMY
     );
     if (win == NULL) {
         s_log_error("Failed to open the window. Stop.");

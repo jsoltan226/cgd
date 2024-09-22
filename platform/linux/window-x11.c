@@ -91,15 +91,29 @@ i32 window_X11_open(struct window_x11 *win,
 
     /* Create the window */
 #define BORDER_W 0
+
+    if (flags & P_WINDOW_TYPE_DUMMY ) {
+#define DUMMY_WINDOW_CLASS InputOnly
+
+#define DUMMY_WINDOW_ATTR_VALUE_MASK (CWEventMask)
+        XSetWindowAttributes attr = { 0 };
+        attr.event_mask = KeyPressMask | KeyReleaseMask;
+
+        win->win = X.XCreateWindow(win->dpy, win->root, x, y, w, h,
+            BORDER_W, CopyFromParent, DUMMY_WINDOW_CLASS, NULL,
+            DUMMY_WINDOW_ATTR_VALUE_MASK, &attr);
+
+    } else {
 #define WINDOW_CLASS InputOutput
 
 #define ATTR_VALUE_MASK (CWEventMask)
-    XSetWindowAttributes attr = { 0 };
-    attr.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask;
+        XSetWindowAttributes attr = { 0 };
+        attr.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask;
 
-    win->win = X.XCreateWindow(win->dpy, win->root, x, y, w, h,
-        BORDER_W, win->vis_info.depth, WINDOW_CLASS, win->vis_info.visual,
-        ATTR_VALUE_MASK, &attr);
+        win->win = X.XCreateWindow(win->dpy, win->root, x, y, w, h,
+            BORDER_W, win->vis_info.depth, WINDOW_CLASS, win->vis_info.visual,
+            ATTR_VALUE_MASK, &attr);
+    }
 
     X.XSync(win->dpy, true);
     if (libX11_error) {
@@ -159,8 +173,13 @@ i32 window_X11_open(struct window_x11 *win,
         if (libX11_error) goto err;
     }
 
+    /* Anything beyond this point is related to graphics,
+     * and we don't want that in a dummy window */
+    if (flags & P_WINDOW_TYPE_DUMMY)
+        goto ret;
+
     /* "Show" the window (if we don't do this it will be hidden) */
-    if(X.XMapWindow(win->dpy, win->win), libX11_error) goto err;
+    if (X.XMapWindow(win->dpy, win->win), libX11_error) goto err;
 
     /* Initialize the framebuffer */
     win->data.w = area->w;
@@ -186,6 +205,7 @@ i32 window_X11_open(struct window_x11 *win,
         goto err;
     }
 
+ret:
     /* Flush all the commands */
     X.XFlush(win->dpy);
 
@@ -280,7 +300,7 @@ static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
         error_description_buf, ERR_MSG_BUF_SIZE);
 
 
-    s_log_error("An X11 error occured (in function \"%s\"): %s",
+    s_log_error("An X11 error occured (in call to \"%s\"): %s",
         function_name_buf, error_description_buf);
     libX11_error = true;
     return 0;
