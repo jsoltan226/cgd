@@ -9,6 +9,8 @@
 #include "parallax-bg.h"
 #include "sprite.h"
 #include "core/datastruct/vector.h"
+#include "platform/keyboard.h"
+#include "platform/mouse.h"
 
 #define MODULE_NAME "menu"
 
@@ -23,7 +25,7 @@ static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
 struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
-    struct p_keyboard *keyboard, struct mouse *mouse)
+    struct p_keyboard *keyboard, struct p_mouse *mouse)
 {
     struct Menu *mn = NULL;
 
@@ -128,7 +130,7 @@ err:
     return NULL;
 }
 
-void menu_update(struct Menu *mn, struct mouse *mouse)
+void menu_update(struct Menu *mn, struct p_mouse *mouse)
 {
     if (mn == NULL || mouse == NULL) return;
 

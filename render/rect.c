@@ -14,7 +14,7 @@
 #include "putpixel_fast.h"
 #undef R_INTERNAL_GUARD__
 
-void r_draw_rect(struct r_ctx *ctx, rect_t *r)
+void r_draw_rect(struct r_ctx *ctx, const rect_t *r)
 {
     if (ctx == NULL || r == NULL) return;
     
@@ -57,7 +57,7 @@ void r_draw_rect(struct r_ctx *ctx, rect_t *r)
     }
 }
 
-void r_fill_rect(struct r_ctx *ctx, rect_t *r)
+void r_fill_rect(struct r_ctx *ctx, const rect_t *r)
 {
     
     if (ctx == NULL || r == NULL) return;

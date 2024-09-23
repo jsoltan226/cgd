@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include "platform/keyboard.h"
-#include "input/mouse.h"
+#include "platform/mouse.h"
 #include "on-event.h"
 
 enum event_listener_type {
@@ -26,10 +26,10 @@ struct event_listener_config {
     enum event_listener_type type;
     union {
         struct p_keyboard **keyboard_p;
-        struct mouse **mouse_p;
+        struct p_mouse **mouse_p;
     } target_obj;
     union {
-        enum mouse_button button_type;
+        enum p_mouse_button button_type;
         enum p_keyboard_keycode keycode;
     } target_info;
     

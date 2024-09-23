@@ -5,7 +5,7 @@
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include "input/mouse.h"
+#include "platform/mouse.h"
 #include "on-event.h"
 #include "sprite.h"
 #include "core/int.h"
@@ -32,7 +32,7 @@ struct button {
 struct button * button_init(const struct sprite_config *sprite_cfg,
     const struct on_event_obj *on_click, u32 flags, SDL_Renderer *renderer);
 
-void button_update(struct button *btn, struct mouse *mouse);
+void button_update(struct button *btn, struct p_mouse *mouse);
 
 void button_draw(struct button *btn, SDL_Renderer *r);
 

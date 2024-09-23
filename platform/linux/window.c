@@ -130,10 +130,11 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
 
 static enum window_type detect_environment()
 {
-    /* Try X11 first. If X is active, writing to framebuffer is useless */
+    /* Try X11 first. If X is active,
+     * writing to framebuffer device is at best useless */
     if (getenv("DISPLAY"))
         return WINDOW_TYPE_X11;
 
-    /* If nothing is detected, framebuffer is the only choice */
+    /* If nothing is detected, framebuffer dev is the only choice */
     return WINDOW_TYPE_FRAMEBUFFER;
 }

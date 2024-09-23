@@ -4,7 +4,8 @@
 #include "core/int.h"
 #include "event-listener.h"
 #include "menu.h"
-#include "input/mouse.h"
+#include "platform/keyboard.h"
+#include "platform/mouse.h"
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <error.h>
@@ -13,7 +14,7 @@
 #define MODULE_NAME "menu-mgr"
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
-    SDL_Renderer *r, struct p_keyboard *keyboard, struct mouse *mouse)
+    SDL_Renderer *r, struct p_keyboard *keyboard, struct p_mouse *mouse)
 {
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
     s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
@@ -85,7 +86,7 @@ err:
 
 
 void menu_mgr_update(struct MenuManager *mmgr,
-    struct p_keyboard *keyboard, struct mouse *mouse,
+    struct p_keyboard *keyboard, struct p_mouse *mouse,
     bool paused)
 {
     if (mmgr == NULL || keyboard == NULL || mouse == NULL) return;
@@ -106,13 +107,13 @@ void menu_mgr_update(struct MenuManager *mmgr,
     {
         mmgr->curr_menu->flags ^= MENU_STATUS_SWITCH;
         menu_mgr_push_menu(mmgr, mmgr->curr_menu->switch_target);
-        mouse_force_release(mouse, MOUSE_EVERYBUTTONMASK);
+        p_mouse_force_release(mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 
     if(mmgr->curr_menu->flags & MENU_STATUS_GOBACK){
         mmgr->curr_menu->flags ^= MENU_STATUS_GOBACK;
         menu_mgr_pop_menu(mmgr);
-        mouse_force_release(mouse, MOUSE_EVERYBUTTONMASK);
+        p_mouse_force_release(mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 }
 

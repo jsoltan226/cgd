@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "core/util.h"
-#include "input/mouse.h"
 #include "gui/fonts.h"
 #include "gui/menu-mgr.h"
 #include "config.h"
 #include "core/log.h"
 #include "asset-loader/plugin.h"
+#include "platform/mouse.h"
 #include "platform/window.h"
 #include "platform/keyboard.h"
 
@@ -47,9 +47,9 @@ static enum EXIT_CODES EXIT_CODE;
 static struct MenuManager *MenuManager = NULL;
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
-static struct mouse *mouse = NULL;
+static struct p_window *win = NULL;
 static struct p_keyboard *keyboard = NULL;
-static struct p_window *kb_win = NULL;
+static struct p_mouse *mouse = NULL;
 static struct font *sourceCodeProFont = NULL;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
@@ -66,14 +66,18 @@ int main(int argc, char **argv)
         s_set_log_level(LOG_DEBUG);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-    s_log_info("Initializing p_window and Keyboard...");
-    struct p_window *win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_DUMMY);
+    s_log_info("Initializing platform window, keyboard and mouse...");
+    win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_DUMMY);
     if (win == NULL)
         goto_error(ERR_INIT_KEYBOARD, "p_window_open() failed");
 
     keyboard = p_keyboard_init(win);
     if (keyboard == NULL)
         goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the keyboard");
+
+    mouse = p_mouse_init(win, 0);
+    if (mouse == NULL)
+        goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the mouse");
 
     s_log_info("Initializing SDL");
 
@@ -98,12 +102,6 @@ int main(int argc, char **argv)
     s_log_debug("Setting SDL blend mode to BLEND");
     if (SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND))
         goto_error(ERR_SET_RENDERER_BLENDMODE, "Failed to set SDL blend mode to BLEND: %s", SDL_GetError());
-
-    s_log_info("Initializing the mouse...");
-
-    mouse = mouse_init();
-    if (mouse == NULL)
-        goto_error(ERR_INIT_MOUSE, "Failed to initialize the mouse!");
 
     s_log_info("Initializing the GUI...");
     s_log_debug("Initializing the menu manager");
@@ -141,7 +139,7 @@ int main(int argc, char **argv)
         }
 
         p_keyboard_update(keyboard);
-        mouse_update(mouse);
+        p_mouse_update(mouse);
 
         /* UPDATE SECTION */
         menu_mgr_update(MenuManager, keyboard, mouse, paused);
@@ -169,12 +167,12 @@ int main(int argc, char **argv)
 cleanup:
     if (sourceCodeProFont != NULL) font_destroy(sourceCodeProFont);
     if (MenuManager != NULL) menu_mgr_destroy(MenuManager);
-    if (mouse != NULL) mouse_destroy(mouse);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     if (window != NULL) SDL_DestroyWindow(window);
     SDL_Quit();
+    if (mouse != NULL) p_mouse_destroy(mouse);
     if (keyboard != NULL) p_keyboard_destroy(keyboard);
-    if (kb_win != NULL) p_window_close(kb_win);
+    if (win != NULL) p_window_close(win);
     asset_unload_all_plugins();
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);

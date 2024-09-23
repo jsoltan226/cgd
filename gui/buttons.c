@@ -1,6 +1,6 @@
 #include "buttons.h"
 #include "core/log.h"
-#include "input/mouse.h"
+#include "platform/mouse.h"
 #include "core/pressable-obj.h"
 #include "core/util.h"
 #include "core/shapes.h"
@@ -38,16 +38,19 @@ struct button *button_init(const struct sprite_config *sprite_cfg,
     return btn;
 }
 
-void button_update(struct button *btn, struct mouse *mouse)
+void button_update(struct button *btn, struct p_mouse *mouse)
 {
     if (btn == NULL || mouse == NULL) return;
 
+    struct p_mouse_state mouse_state;
+    p_mouse_get_state(mouse, &mouse_state, false);
+
     btn->hovering = u_collision(
-        &(rect_t) { mouse->x, mouse->y, 0, 0 },
+        &(rect_t) { mouse_state.x, mouse_state.y, 0, 0 },
         &btn->sprite->hitbox
     );
 
-    const pressable_obj_t *mouse_button = &mouse->buttons[MOUSE_BUTTON_LEFT];
+    const pressable_obj_t *mouse_button = &mouse_state.buttons[P_MOUSE_BUTTON_LEFT];
 
     if (btn->held && (mouse_button->up || mouse_button->force_released)) {
         btn->held = false;

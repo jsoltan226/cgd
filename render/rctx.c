@@ -1,4 +1,5 @@
 #include "rctx.h"
+#include "rect.h"
 #include "core/int.h"
 #include "core/log.h"
 #include "core/pixel.h"
@@ -49,6 +50,7 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 
     /* Render 1 empty frame on init
      * to avoid junk uninitialized data being displayed */
+    r_reset(ctx);
     r_flush(ctx);
 
     return ctx;
@@ -75,6 +77,14 @@ void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 
 void r_flush(struct r_ctx *ctx)
 {
-    rect_t area = { 0, 0, ctx->pixels.w, ctx->pixels.h };
+    const rect_t area = { 0, 0, ctx->pixels.w, ctx->pixels.h };
     p_window_render(ctx->win, ctx->pixels.buf, &area);
+}
+
+void r_reset(struct r_ctx *ctx)
+{
+    /* The background color should already be 
+     * set by the user with `r_ctx_set_color()` */
+    const rect_t r = { 0, 0, ctx->pixels.w, ctx->pixels.h };
+    r_fill_rect(ctx, &r);
 }

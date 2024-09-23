@@ -39,7 +39,6 @@ struct p_window {
     enum window_type type;
 
     i32 x, y, w, h;
-    bool is_dummy;
 
     union {
         struct window_x11 x11;

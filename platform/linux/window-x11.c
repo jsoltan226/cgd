@@ -24,16 +24,24 @@
 
 #define MODULE_NAME "window-x11"
 
-static bool libX11_error = false;
-static pthread_mutex_t libX11_error_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+/* libX11 error handlers */
 static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev);
 static noreturn i32 libX11_IO_error_handler(Display *dpy);
+
+/* Used by our X11 error handler */
+static bool libX11_error = false;
+
+/* Used to keep track of how many windows are open,
+ * so that we call `libX11_unload()` only if there are 0 windows left */
+static u32 n_open_windows = 0; 
+
+/* For thread safety. Used to protect the above 2 variables */
+static pthread_mutex_t libX11_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 i32 window_X11_open(struct window_x11 *win,
     const unsigned char *title, const rect_t *area, const u32 flags)
 {
-    pthread_mutex_lock(&libX11_error_mutex);
+    pthread_mutex_lock(&libX11_mutex);
 
     memset(win, 0, sizeof(struct window_x11));
     XSizeHints *hints = NULL;
@@ -115,6 +123,7 @@ i32 window_X11_open(struct window_x11 *win,
             ATTR_VALUE_MASK, &attr);
     }
 
+    /* Wait for the requests to be processed by the X server */
     X.XSync(win->dpy, true);
     if (libX11_error) {
         win->bad_window = true;
@@ -187,7 +196,7 @@ i32 window_X11_open(struct window_x11 *win,
     win->data.buf = calloc(area->w * area->h, sizeof(pixel_t));
     s_assert(win->data.buf != NULL, "calloc() failed for pixel data");
 
-    /* Create the X Image and bind it with our framebuffer */
+    /* Create the X Image and bind it to our framebuffer */
 #define BIT_DEPTH 32
 #define BUF_OFFSET 0
 #define XIMAGE_FORMAT ZPixmap
@@ -212,7 +221,8 @@ ret:
     s_log_debug("%s() OK; Screen is %ux%u", __func__,
         win->screen_w, win->screen_h);
 
-    pthread_mutex_unlock(&libX11_error_mutex);
+    n_open_windows++;
+    pthread_mutex_unlock(&libX11_mutex);
     return 0;
 
 err:
@@ -220,7 +230,7 @@ err:
     if (hints != NULL) X.XFree(hints);
     /* window_X11_close() will later be called by p_window_close();
      * no need to do it here */
-    pthread_mutex_unlock(&libX11_error_mutex);
+    pthread_mutex_unlock(&libX11_mutex);
     return 1;
 }
 
@@ -243,14 +253,19 @@ void window_X11_close(struct window_x11 *win)
     else if (win->data.buf != NULL)
         free(win->data.buf);
 
+    pthread_mutex_lock(&libX11_mutex);
     struct libX11 X;
     if (!libX11_load(&X)) {
         if (!win->bad_window)
             X.XDestroyWindow(win->dpy, win->win);
         X.XCloseDisplay(win->dpy);
 
-        libX11_unload();
+        if (n_open_windows == 0)
+            libX11_unload();
+        else
+            n_open_windows--;
     }
+    pthread_mutex_unlock(&libX11_mutex);
 
     win->closed = true;
 }
@@ -259,7 +274,7 @@ void window_X11_render(struct window_x11 *win,
     const pixel_t *data, const rect_t *area)
 {
     struct libX11 X;
-    libX11_load(&X);
+    (void) libX11_load(&X);
 
 #define SRC_X 0
 #define SRC_Y 0

@@ -7,13 +7,13 @@
 #include "on-event.h"
 #include "sprite.h"
 #include "parallax-bg.h"
-#include "input/mouse.h"
 #include "core/int.h"
 #include "core/datastruct/vector.h"
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include "platform/keyboard.h"
+#include "platform/mouse.h"
 
 #define MENU_CONFIG_MAX_LEN 128
 #define MENU_ID_NULL  ((u64)-1)
@@ -107,9 +107,9 @@ struct menu_config {
 };
 
 struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer *r,
-    struct p_keyboard *keyboard, struct mouse *mouse);
+    struct p_keyboard *keyboard, struct p_mouse *mouse);
 
-void menu_update(struct Menu *menu, struct mouse *mouse);
+void menu_update(struct Menu *menu, struct p_mouse *mouse);
 void menu_draw(struct Menu *menu, SDL_Renderer *r);
 void menu_destroy(struct Menu *menu);
 void menu_init_onevent_obj(struct on_event_obj *on_event_obj,

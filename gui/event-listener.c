@@ -2,6 +2,7 @@
 #include "core/util.h"
 #include "core/pressable-obj.h"
 #include "platform/keyboard.h"
+#include "platform/mouse.h"
 #include "on-event.h"
 #include "core/log.h"
 #include <stdio.h>
@@ -27,7 +28,7 @@ struct event_listener * event_listener_init(const struct event_listener_config *
     evl->detected = false;
 
     struct p_keyboard *keyboard = *cfg->target_obj.keyboard_p;
-    struct mouse *mouse = *cfg->target_obj.mouse_p;
+    struct p_mouse *mouse = *cfg->target_obj.mouse_p;
 
     evl->obj_ptr = NULL;
     switch(cfg->type){
@@ -41,13 +42,13 @@ struct event_listener * event_listener_init(const struct event_listener_config *
             evl->obj_ptr = &p_keyboard_get_key(keyboard, cfg->target_info.keycode)->up;
             break;
         case EVL_EVENT_MOUSE_BUTTONPRESS:
-            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].pressed;
+            evl->obj_ptr = &p_mouse_get_button(mouse, cfg->target_info.button_type)->pressed;
             break;
         case EVL_EVENT_MOUSE_BUTTONDOWN:
-            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].down;
+            evl->obj_ptr = &p_mouse_get_button(mouse, cfg->target_info.button_type)->down;
             break;
         case EVL_EVENT_MOUSE_BUTTONUP:
-            evl->obj_ptr = &mouse->buttons[cfg->target_info.button_type].up;
+            evl->obj_ptr = &p_mouse_get_button(mouse, cfg->target_info.button_type)->up;
             break;
     }
 

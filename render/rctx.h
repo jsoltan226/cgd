@@ -18,6 +18,7 @@ void r_ctx_destroy(struct r_ctx *rctx);
 
 void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color);
 
+void r_reset(struct r_ctx *ctx);
 void r_flush(struct r_ctx *ctx);
 
 #endif /* RCTX_H_ */
