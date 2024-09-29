@@ -16,20 +16,23 @@
 #include "keyboard-tty.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "keyboard-devinput.h"
+#include "keyboard-evdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "keyboard-x11.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "keyboard"
 
 #define N_KEYBOARD_MODES 4
-#define KB_MODES_LIST       \
-    X_(KB_MODE_FAIL)        \
-    X_(KB_MODE_DEV_INPUT)   \
-    X_(KB_MODE_TTY)         \
-    X_(KB_MODE_X11)         \
+#define KB_MODES_LIST   \
+    X_(KB_MODE_FAIL)    \
+    X_(KB_MODE_EVDEV)   \
+    X_(KB_MODE_TTY)     \
+    X_(KB_MODE_X11)     \
 
 #define X_(name) name,
 enum keyboard_mode {
@@ -45,17 +48,16 @@ static const char *keyboard_mode_strings[N_KEYBOARD_MODES] = {
 
 static const enum keyboard_mode fallback_modes[N_WINDOW_TYPES][N_KEYBOARD_MODES] = {
     [WINDOW_TYPE_FRAMEBUFFER] = {
-        KB_MODE_DEV_INPUT,
+        KB_MODE_EVDEV,
         KB_MODE_TTY,
         KB_MODE_FAIL
     },
     [WINDOW_TYPE_X11] = {
-        KB_MODE_DEV_INPUT,
         KB_MODE_X11,
         KB_MODE_FAIL
     },
     [WINDOW_TYPE_DUMMY] = {
-        KB_MODE_DEV_INPUT,
+        KB_MODE_EVDEV,
         KB_MODE_TTY,
         KB_MODE_FAIL
     },
@@ -65,7 +67,7 @@ struct p_keyboard {
     enum keyboard_mode mode;
     
     union {
-        struct keyboard_devinput devinput;
+        struct keyboard_evdev evdev;
         struct keyboard_tty tty;
         struct keyboard_x11 x11;
     };
@@ -94,8 +96,8 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
             keyboard_mode_strings[ fallback_modes[win_type][i] ]
         );
         switch (fallback_modes[win_type][i]) {
-            case KB_MODE_DEV_INPUT:
-                if (devinput_keyboard_init(&kb->devinput))
+            case KB_MODE_EVDEV:
+                if (evdev_keyboard_init(&kb->evdev))
                     s_log_warn("Failed to set up keyboard using /dev/input");
                 else
                     goto keyboard_setup_success;
@@ -137,8 +139,8 @@ void p_keyboard_update(struct p_keyboard *kb)
         case KB_MODE_TTY:
             tty_keyboard_update_all_keys(&kb->tty, kb->keys);
             break;
-        case KB_MODE_DEV_INPUT:
-            devinput_update_all_keys(&kb->devinput, kb->keys);
+        case KB_MODE_EVDEV:
+            evdev_keyboard_update_all_keys(&kb->evdev, kb->keys);
             break;
         case KB_MODE_X11:
             X11_keyboard_update_all_keys(&kb->x11, kb->keys);
@@ -160,8 +162,8 @@ void p_keyboard_destroy(struct p_keyboard *kb)
 
     s_log_debug("Destroying keyboard (mode \"%s\")...", keyboard_mode_strings[kb->mode]);
     switch(kb->mode) {
-        case KB_MODE_DEV_INPUT:
-            devinput_keyboard_destroy(&kb->devinput);
+        case KB_MODE_EVDEV:
+            evdev_keyboard_destroy(&kb->evdev);
             break;
         case KB_MODE_TTY:
             tty_keyboard_destroy(&kb->tty);

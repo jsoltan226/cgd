@@ -103,13 +103,13 @@ int main(void)
     }
 
     r_ctx_set_color(ctx, (color_RGBA32_t) { 128, 128, 0, 255 });
-    r_fill_rect(ctx, &(rect_t) { 100, 100, 600, 300 });
+    r_fill_rect(ctx, 100, 100, 600, 300);
     r_ctx_set_color(ctx, (color_RGBA32_t) { 0, 255, 128, 255 });
-    r_draw_rect(ctx, &(rect_t) { -50, -50, 400, 400 });
+    r_draw_rect(ctx, -50, -50, 400, 400);
 
     /* window border */
     r_ctx_set_color(ctx, WHITE_PIXEL);
-    r_draw_rect(ctx, &(rect_t) { 0, 0, WINDOW_W - 1, WINDOW_H - 1 });
+    r_draw_rect(ctx, 0, 0, WINDOW_W - 1, WINDOW_H - 1);
 
     r_flush(ctx);
     sleep(2);
@@ -143,11 +143,15 @@ int main(void)
     win->fb.win_area.y = AMOGUS_Y;
     win->fb.win_area.w = amogus_pixel_data.w;
     win->fb.win_area.h = amogus_pixel_data.h;
+    win->x = AMOGUS_X;
+    win->y = AMOGUS_Y;
+    win->w = amogus_pixel_data.w;
+    win->h = amogus_pixel_data.h;
 
-    const rect_t amogus_rel_area = { 0, 0, amogus_pixel_data.w, amogus_pixel_data.h };
-    window_fb_render_to_display(&win->fb, amogus_pixel_data.buf, &amogus_rel_area);
+    p_window_bind_fb(win, &amogus_pixel_data);
+    window_fb_render_to_display(&win->fb);
+    p_window_unbind_fb(win, true);
 
-    free(amogus_pixel_data.buf);
     sleep(2);
 skip_img_test:
 

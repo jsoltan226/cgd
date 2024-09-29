@@ -16,7 +16,7 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libx11_rtld.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "keyboard-x11"
@@ -51,17 +51,6 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
     pressable_obj_t pobjs[P_KEYBOARD_N_KEYS])
 {
     XEvent ev = { 0 };
-
-    /* Check for WM_DELETE_WINDOW message */
-    if (kb->Xlib.XCheckTypedWindowEvent(
-            kb->win->dpy, kb->win->win, ClientMessage, &ev
-    )) {
-        if (ev.xclient.data.l[0] == kb->win->WM_DELETE_WINDOW) {
-            const struct p_event quit_ev = { .type = P_EVENT_QUIT };
-            p_event_send(&quit_ev);
-        }
-    }
-
     bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
     
     while (kb->Xlib.XCheckWindowEvent(
@@ -87,8 +76,8 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
         key_updated[code] = true;
     }
 
-    /* This is basically the same as in `devinput_update_all_keys()`
-     * in keyboard-devinput.c. Look there for explanations.
+    /* This is basically the same as in `evdev_keyboard_update_all_keys()`
+     * in keyboard-evdev.c. Look there for explanations.
      */
     for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
         if (!key_updated[i] && (pobjs[i].pressed || pobjs[i].down))

@@ -1,43 +1,32 @@
-#ifndef KEYBOARD_DEVINPUT_H_
-#define KEYBOARD_DEVINPUT_H_
+#ifndef KEYBOARD_EVDEV_H_
+#define KEYBOARD_EVDEV_H_
 
-#include "core/util.h"
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../keyboard.h"
 #include "core/int.h"
+#include "core/util.h"
 #include "core/datastruct/vector.h"
 #include "core/pressable-obj.h"
 #include <sys/poll.h>
 #include <poll.h>
 #include <linux/limits.h>
 #include <linux/input-event-codes.h>
+#define P_INTERNAL_GUARD__
+#include "evdev.h"
+#undef P_INTERNAL_GUARD__
 
-#define MAX_KEYBOARD_EVDEV_NAME_LEN   512
-#define DEVINPUT_DIR "/dev/input"
-
-/* `keyboard_devinput_init()` will fail
- * if less than this fraction of event devices load successfully 
-*/
-#define MINIMAL_SUCCESSFUL_EVDEVS_LOADED 0.5f
-
-struct keyboard_devinput_evdev {
-    char path[u_FILEPATH_MAX + 1];
-    char name[MAX_KEYBOARD_EVDEV_NAME_LEN + 1];
-    i32 fd;
+struct keyboard_evdev {
+    VECTOR(struct evdev) kbdevs;
+    VECTOR(struct pollfd) poll_fds;
 };
 
-struct keyboard_devinput {
-    VECTOR(struct keyboard_devinput_evdev) kbdevs;
-};
+i32 evdev_keyboard_init(struct keyboard_evdev *kb);
+void evdev_keyboard_destroy(struct keyboard_evdev *kb);
 
-i32 devinput_keyboard_init(struct keyboard_devinput *kb);
-void devinput_keyboard_destroy(struct keyboard_devinput *kb);
-
-void devinput_update_all_keys(struct keyboard_devinput *kb, pressable_obj_t pobjs[P_KEYBOARD_N_KEYS]);
-
+void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb, pressable_obj_t pobjs[P_KEYBOARD_N_KEYS]);
 
 static const i32 linux_input_code_2_kb_keycode_map[P_KEYBOARD_N_KEYS][2] = {
     { KB_KEYCODE_ENTER, KEY_ENTER },
@@ -85,4 +74,4 @@ static const i32 linux_input_code_2_kb_keycode_map[P_KEYBOARD_N_KEYS][2] = {
     { KB_KEYCODE_ARROWRIGHT, KEY_RIGHT },
 };
 
-#endif /* KEYBOARD_DEVINPUT_H_ */
+#endif /* KEYBOARD_EVDEV_H_ */

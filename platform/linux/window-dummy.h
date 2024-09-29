@@ -12,11 +12,9 @@
 #undef P_INTERNAL_GUARD__
 
 struct window_dummy {
-    bool is_X11;
-    struct window_x11 x11;
 };
 
-i32 dummy_window_init(struct window_dummy *win, bool is_x11);
+void dummy_window_init(struct window_dummy *win);
 void dummy_window_destroy(struct window_dummy *win);
 
 #endif /* WINDOW_DUMMY_H_ */

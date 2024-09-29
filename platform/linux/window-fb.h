@@ -19,6 +19,8 @@ struct window_fb {
     void *mem;
     u64 mem_size;
 
+    struct pixel_flat_data pixel_data;
+
     u32 xres, yres;
     u32 padding;
 
@@ -31,7 +33,9 @@ i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags);
 
 void window_fb_close(struct window_fb *fb);
 
-i32 window_fb_render_to_display(struct window_fb *fb,
-    const pixel_t *frame, const rect_t *area);
+i32 window_fb_render_to_display(struct window_fb *fb);
+
+void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb);
+void window_fb_unbind_fb(struct window_fb *win, bool free_buf);
 
 #endif /* P_WINDOW_FB_H_ */

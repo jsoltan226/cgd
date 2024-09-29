@@ -72,6 +72,10 @@ i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags)
     if (flags & P_WINDOW_POS_CENTERED_Y)
         fb->win_area.y = abs((i32)fb->yres - area->h) / 2;
 
+    fb->pixel_data.buf = NULL;
+    fb->pixel_data.w = 0;
+    fb->pixel_data.h = 0;
+
     s_log_debug("%s() OK; Screen is %ux%u, with %upx of padding", __func__,
         fb->xres, fb->yres, fb->padding);
 
@@ -82,25 +86,20 @@ err:
     return 1;
 }
 
-i32 window_fb_render_to_display(struct window_fb *fb,
-    const pixel_t *buf, const rect_t *frame)
+i32 window_fb_render_to_display(struct window_fb *fb)
 {
-    if (fb == NULL || buf == NULL || frame == NULL) {
-        s_log_error("invalid parameters");
-        return 1;
-    }
-
-    u32 x_offset = u_min(frame->x + fb->win_area.x, fb->xres);
-    u32 y_offset = u_min(frame->y + fb->win_area.y, fb->yres);
-    u32 w = u_min(u_min(frame->w, fb->win_area.w), fb->xres - x_offset);
-    u32 h = u_min(u_min(frame->h, fb->win_area.h), fb->yres - y_offset);
+    u_check_params(fb->pixel_data.buf != NULL);
+    u32 x_offset = u_min(fb->win_area.x, fb->xres);
+    u32 y_offset = u_min(fb->win_area.y, fb->yres);
+    u32 w = u_min(u_min(fb->pixel_data.w, fb->win_area.w), fb->xres - x_offset);
+    u32 h = u_min(u_min(fb->pixel_data.h, fb->win_area.h), fb->yres - y_offset);
 
     for (u32 y = 0; y < h; y++) {
         u32 dst_start_px_offset = (y + y_offset) * (fb->xres + fb->padding) + x_offset;
-        u32 src_start_px_offset = y * frame->w;
+        u32 src_start_px_offset = y * fb->win_area.w;
         memcpy(
             fb->mem + dst_start_px_offset * sizeof(pixel_t), 
-            buf + src_start_px_offset,
+            fb->pixel_data.buf + src_start_px_offset,
             w * sizeof(pixel_t)
         );
     }
@@ -112,8 +111,45 @@ void window_fb_close(struct window_fb *fb)
     if (fb == NULL || fb->closed) return;
 
     s_log_debug("Closing framebuffer window...");
-    close(fb->fd);
-    munmap(fb->mem, fb->mem_size);
+    if (fb->fd != -1) {
+        close(fb->fd);
+        fb->fd = -1;
+    }
+    if (fb->mem != NULL) {
+        munmap(fb->mem, fb->mem_size);
+        fb->mem = NULL;
+        fb->mem_size = 0;
+    }
+    if (fb->pixel_data.buf != NULL) {
+        free(fb->pixel_data.buf);
+        fb->pixel_data.buf = NULL;
+        fb->pixel_data.w = 0;
+        fb->pixel_data.h = 0;
+    }
+
     /* fb is supposed to be allocated on the stack, so no free() */
     fb->closed = true;
+}
+
+void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb)
+{
+    if (win->pixel_data.buf != NULL) {
+        s_log_warn("A framebuffer is already bound to this window. "
+                "Unbinding without free...");
+        window_fb_unbind_fb(win, false);
+    }
+    win->pixel_data.buf = fb->buf;
+    win->pixel_data.w = fb->w;
+    win->pixel_data.h = fb->h;
+}
+
+void window_fb_unbind_fb(struct window_fb *win, bool free_buf)
+{
+    if (win->pixel_data.buf != NULL) {
+        if (free_buf) free(win->pixel_data.buf);
+
+        win->pixel_data.buf = NULL;
+        win->pixel_data.w = 0;
+        win->pixel_data.h = 0;
+    }
 }

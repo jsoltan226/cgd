@@ -5,63 +5,21 @@
 #include "core/util.h"
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
+#define P_INTERNAL_GUARD__
+#include "mouse-internal.h"
+#undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "mouse-devinput.h"
+#include "mouse-evdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "mouse"
-
-#define N_MOUSE_TYPES 3
-#define MOUSE_TYPES_LIST    \
-    X_(MOUSE_TYPE_FAIL)     \
-    X_(MOUSE_TYPE_X11)      \
-    X_(MOUSE_TYPE_DEVINPUT) \
-
-#define X_(name) name,
-enum mouse_type {
-    MOUSE_TYPES_LIST
-};
-#undef X_
-
-#define X_(name) #name,
-static const char * const mouse_type_strings[N_MOUSE_TYPES] = {
-    MOUSE_TYPES_LIST
-};
-#undef X_
-
-static const enum mouse_type
-    mouse_fallback_modes[N_WINDOW_TYPES][N_MOUSE_TYPES] = {
-    [WINDOW_TYPE_X11] = {
-        MOUSE_TYPE_DEVINPUT,
-        MOUSE_TYPE_X11,
-        MOUSE_TYPE_FAIL
-    },
-    [WINDOW_TYPE_FRAMEBUFFER] = {
-        MOUSE_TYPE_DEVINPUT,
-        MOUSE_TYPE_FAIL
-    },
-    [WINDOW_TYPE_DUMMY] = {
-        MOUSE_TYPE_DEVINPUT,
-        MOUSE_TYPE_X11,
-        MOUSE_TYPE_FAIL
-    }
-};
-
-struct p_mouse {
-    enum mouse_type type;
-    union {
-        struct mouse_x11 x11;
-        struct mouse_devinput devinput;
-    };
-
-    pressable_obj_t buttons[P_MOUSE_N_BUTTONS];
-};
 
 struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
 {
@@ -80,8 +38,11 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
                 else
                     goto mouse_setup_success;
                 break;
-            case MOUSE_TYPE_DEVINPUT:
-                if (mouse_devinput_init(&m->devinput, flags))
+            case MOUSE_TYPE_EVDEV:
+                /* Set the mouse X and Y to the middle of the window */
+                m->x = (win->x + win->w) / 2;
+                m->y = (win->y + win->h) / 2;
+                if (mouse_evdev_init(&m->evdev, flags))
                     s_log_warn("Failed to set up mouse using /dev/input");
                 else
                     goto mouse_setup_success;
@@ -93,7 +54,8 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
     } while (mouse_fallback_modes[win->type][i++] != MOUSE_TYPE_FAIL);
 
 mouse_setup_success:
-    s_log_debug("%s() OK, mouse is type \"%s\"", __func__, m->type);
+    s_log_info("%s() OK, mouse is type \"%s\"",
+        __func__, mouse_type_strings[m->type]);
     
     return m;
 
@@ -106,15 +68,24 @@ void p_mouse_get_state(struct p_mouse *mouse,
     struct p_mouse_state *o, bool update)
 {
     u_check_params(mouse != NULL);
-    switch (mouse->type) {
-        case MOUSE_TYPE_X11:
-            mouse_X11_get_state(&mouse->x11, o, update);
-            break;
-        case MOUSE_TYPE_DEVINPUT:
-            mouse_devinput_get_state(&mouse->devinput, o, update);
-            break;
-        default:
-            break;
+
+    if (update) {
+        switch (mouse->type) {
+            case MOUSE_TYPE_X11:
+                mouse_X11_update(mouse);
+                break;
+            case MOUSE_TYPE_EVDEV:
+                mouse_evdev_update(mouse);
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (o != NULL) {
+        memcpy(o->buttons, mouse->buttons, sizeof(mouse->buttons));
+        o->x = mouse->x;
+        o->y = mouse->y;
     }
 }
 
@@ -150,8 +121,8 @@ void p_mouse_destroy(struct p_mouse *mouse)
         case MOUSE_TYPE_X11:
             mouse_X11_destroy(&mouse->x11);
             break;
-        case MOUSE_TYPE_DEVINPUT:
-            mouse_devinput_destroy(&mouse->devinput);
+        case MOUSE_TYPE_EVDEV:
+            mouse_evdev_destroy(&mouse->evdev);
             break;
         default: case MOUSE_TYPE_FAIL:
             break;

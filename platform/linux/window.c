@@ -5,8 +5,10 @@
 #include <string.h>
 #include "core/int.h"
 #include "core/log.h"
+#include "core/pixel.h"
 #include "core/shapes.h"
 #include "core/util.h"
+#include "../event.h"
 #define P_INTERNAL_GUARD__
 #include "window-internal.h"
 #undef P_INTERNAL_GUARD__
@@ -58,19 +60,52 @@ struct p_window * p_window_open(const unsigned char *title,
             win->color_type = P_WINDOW_BGRA8888;
             break;
         case WINDOW_TYPE_DUMMY:
-            if (dummy_window_init(&win->dummy,
-                    detect_environment() == WINDOW_TYPE_X11)
-            ) {
-                goto_error("Failed to init dummy window");
-            }
+            dummy_window_init(&win->dummy);
             win->color_type = P_WINDOW_RGBA8888;
             break;
     }
     
+    /* Init the event subsystem so that the user doesn't have to */
+    p_event_send(&(struct p_event) { .type = P_EVENT_CTL_INIT_ });
     return win;
 err:
     p_window_close(win);
     return NULL;
+}
+
+void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
+{
+    u_check_params(win != NULL && fb != NULL);
+    s_assert(fb->w == win->w && fb->h == win->h,
+        "%s: Invalid framebuffer size", __func__);
+
+    switch(win->type) {
+        case WINDOW_TYPE_X11:
+            window_X11_bind_fb(&win->x11, fb);
+            break;
+        case WINDOW_TYPE_FRAMEBUFFER:
+            window_fb_bind_fb(&win->fb, fb);
+            break;
+        default: case WINDOW_TYPE_DUMMY:
+            s_log_fatal(MODULE_NAME, __func__,
+                "Attempt to bind framebuffer to a window of invalid type");
+            break;
+    }
+}
+
+void p_window_unbind_fb(struct p_window *win, bool free_buf)
+{
+    u_check_params(win != NULL);
+    switch(win->type) {
+        case WINDOW_TYPE_X11:
+            window_X11_unbind_fb(&win->x11, free_buf);
+            break;
+        case WINDOW_TYPE_FRAMEBUFFER:
+            window_fb_unbind_fb(&win->fb, free_buf);
+            break;
+        default: case WINDOW_TYPE_DUMMY:
+            break;
+    }
 }
 
 void p_window_close(struct p_window *win)
@@ -90,20 +125,19 @@ void p_window_close(struct p_window *win)
     }
 
     free(win);
+    p_event_send(&(struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 }
 
-void p_window_render(struct p_window *win,
-    const pixel_t *data, const rect_t *frame)
+void p_window_render(struct p_window *win)
 {
-    if (win == NULL || data == NULL || frame == NULL)
-        return;
+    u_check_params(win != NULL);
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            window_X11_render(&win->x11, data, frame);
+            window_X11_render(&win->x11);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_render_to_display(&win->fb, data, frame);
+            window_fb_render_to_display(&win->fb);
             break;
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */

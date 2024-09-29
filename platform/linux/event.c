@@ -15,7 +15,8 @@
 static VECTOR(struct p_event) g_event_queue = NULL;
 static pthread_mutex_t g_event_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static i32 setup_event_queue();
+static void setup_event_queue(bool warn);
+static void destroy_event_queue();
 static void SIGTERM_handler(i32 sig_num);
 
 i32 p_event_poll(struct p_event *o)
@@ -25,8 +26,8 @@ i32 p_event_poll(struct p_event *o)
 
     pthread_mutex_lock(&g_event_queue_mutex);
 
-    if (g_event_queue == NULL && setup_event_queue() != 0)
-        s_log_fatal(MODULE_NAME, __func__, "Failed to set up the event queue!");
+    if (g_event_queue == NULL)
+        setup_event_queue(true);
 
     n_events = vector_size(g_event_queue);
     if (n_events == 0)
@@ -38,11 +39,8 @@ i32 p_event_poll(struct p_event *o)
     );
     vector_pop_back(g_event_queue);
 
-    if (o->type == P_EVENT_QUIT) {
-        s_log_info("Caught QUIT event");
-        vector_destroy(g_event_queue);
-        g_event_queue = NULL;
-    }
+    if (o->type == P_EVENT_QUIT)
+        s_log_debug("Caught QUIT event");
 
 ret:
     pthread_mutex_unlock(&g_event_queue_mutex);
@@ -54,47 +52,74 @@ void p_event_send(const struct p_event *ev)
     u_check_params(ev != NULL);
 
     pthread_mutex_lock(&g_event_queue_mutex);
-    if (g_event_queue == NULL)
-        g_event_queue = vector_new(struct p_event);
 
-    vector_push_back(g_event_queue, *ev);
+    switch (ev->type) {
+        case P_EVENT_CTL_INIT_:
+            setup_event_queue(false);
+            break;
+        case P_EVENT_CTL_DESTROY_:
+            destroy_event_queue();
+            break;
+        default:
+            if (g_event_queue == NULL)
+                setup_event_queue(true);
+            vector_push_back(g_event_queue, *ev);
+            break;
+    }
 
     pthread_mutex_unlock(&g_event_queue_mutex);
 }
 
-static i32 setup_event_queue()
+static void setup_event_queue(bool warn)
 {
-    s_log_debug("Event queue does not exist, initializing...");
+    if (g_event_queue != NULL) {
+        s_log_warn("%s: Event queue already initialized!", __func__);
+        return;
+    } else if (warn) {
+        s_log_warn("Event queue does not exist, initializing...");
+    }
+
     g_event_queue = vector_new(struct p_event);
 
     /** Set the signal handler for SIGTERM and SIGINT **/
-    struct sigaction sa;
+    struct sigaction sa = { 0 };
 
     /* Set the handler */
     sa.sa_handler = SIGTERM_handler;
 
-    /* Empty the set of signals being blocked while our handler is running */
+    /* Block SIGTERM and SIGINT while our handler is running */
     sigemptyset(&sa.sa_mask);
-
-    /* Add SIGTERM to the set of blocked signals */
     sigaddset(&sa.sa_mask, SIGTERM);
+    sigaddset(&sa.sa_mask, SIGINT);
 
     /* We don't want to set any special flags */
     sa.sa_flags = 0;
 
-    /* Don't leave anything uninitialized */
-    sa.sa_restorer = NULL;
-
     /* Finally, set the configuration for both SIGTERM and SIGINT  */
-    if (
-        sigaction(SIGTERM, &sa, NULL) ||
-        sigaction(SIGINT, &sa, NULL)
-    ) {
+    if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) {
         s_log_error("Failed to set signal handler: %s", strerror(errno));
-        return 1;
+        s_log_fatal(MODULE_NAME, __func__, "Failed to set up the event queue!");
     }
+}
 
-    return 0;
+static void destroy_event_queue()
+{
+    if (g_event_queue == NULL) {
+        s_log_warn("%s: Event queue already destroyed!", __func__);
+        return;
+    }
+    s_log_debug("Destroying event queue...");
+
+    vector_destroy(g_event_queue);
+    g_event_queue = NULL;
+
+    /* Restore default signal handlers */
+    struct sigaction sa = { .sa_handler = SIG_DFL };
+    if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) {
+        s_log_fatal(MODULE_NAME, __func__,
+            "Failed to deregister signal handlers for SIGINT and SIGTERM: %s",
+            strerror(errno));
+    }
 }
 
 static void SIGTERM_handler(i32 sig_num)

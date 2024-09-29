@@ -81,6 +81,12 @@
         int pointer_mode, int keyboard_mode, Time time                          \
     )                                                                           \
     X_(int, XUngrabKeyboard, Display *display, Time time)                       \
+    X_(Status, XInitImage, XImage *image)                                       \
+    X_(GC, XCreateGC,                                                           \
+        Display *display, Drawable d, unsigned long valuemask, XGCValues *vals  \
+    )                                                                           \
+    X_(int, XWindowEvent, Display *display, XEvent *event_return)               \
+    X_(int, XFreeGC, Display *display, GC gc)                                   \
 
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libX11 {

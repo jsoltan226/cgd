@@ -11,12 +11,15 @@
 #include "core/shapes.h"
 #include "core/pixel.h"
 #include <stdbool.h>
+#include <pthread.h>
 
 #define P_INTERNAL_GUARD__
-#include "libx11_rtld.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 struct window_x11 {
+    struct libX11 Xlib; /* Runtime-loaded libX11 functions */
+
     Display *dpy; /* The connection to the X server */
 
     Window root; /* A handle to the root window (the "background") */
@@ -32,9 +35,9 @@ struct window_x11 {
     /* The framebuffer (i.e. where the renderer writes raw pixel data) */
     struct pixel_flat_data data;
 
-    /* A handle to an XImage bound to our framebuffer.
+    /* The XImage struct bound to our framebuffer.
      * used for rendering with XPutImage */
-    XImage *Ximg; 
+    XImage Ximg; 
 
     /* Used for detecting "window-close" events */
     Atom WM_DELETE_WINDOW;
@@ -47,6 +50,12 @@ struct window_x11 {
     /* Whether the window has already been destroyed.
      * A safeguard against double-frees and stuff */
     bool closed;
+
+    /* Thread that handles window-close events */
+    struct {
+        pthread_t thread;
+        bool running;
+    } listener;
 };
 
 
@@ -60,7 +69,9 @@ i32 window_X11_open(struct window_x11 *x11,
 void window_X11_close(struct window_x11 *x11);
 
 /* Does not perform any parameter validation! */
-void window_X11_render(struct window_x11 *x11,
-    const pixel_t *data, const rect_t *area);
+void window_X11_render(struct window_x11 *x11);
+
+void window_X11_bind_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
+void window_X11_unbind_fb(struct window_x11 *win, bool free_buf);
 
 #endif /* P_WINDOW_X11_H_ */

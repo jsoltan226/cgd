@@ -7,6 +7,7 @@
 #include "core/util.h"
 #include "platform/window.h"
 #include <stdlib.h>
+#include <string.h>
 #include <threads.h>
 
 #define R_INTERNAL_GUARD__
@@ -46,6 +47,8 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     ctx->pixels.w = ctx->win_meta.w;
     ctx->pixels.h = ctx->win_meta.h;
 
+    p_window_bind_fb(win, &ctx->pixels);
+
     ctx->current_color = BLACK_PIXEL;
 
     /* Render 1 empty frame on init
@@ -63,28 +66,25 @@ err:
 void r_ctx_destroy(struct r_ctx *ctx)
 {
     if (ctx == NULL) return;
-
-    free(ctx->pixels.buf);
+    p_window_unbind_fb(ctx->win, true);
     free(ctx);
 }
 
 void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 {
-    if (ctx == NULL) return;
+    u_check_params(ctx != NULL);
 
     ctx->current_color = color;
 }
 
 void r_flush(struct r_ctx *ctx)
 {
-    const rect_t area = { 0, 0, ctx->pixels.w, ctx->pixels.h };
-    p_window_render(ctx->win, ctx->pixels.buf, &area);
+    u_check_params(ctx != NULL);
+    p_window_render(ctx->win);
 }
 
 void r_reset(struct r_ctx *ctx)
 {
-    /* The background color should already be 
-     * set by the user with `r_ctx_set_color()` */
-    const rect_t r = { 0, 0, ctx->pixels.w, ctx->pixels.h };
-    r_fill_rect(ctx, &r);
+    u_check_params(ctx != NULL);
+    memset(ctx->pixels.buf, 0, ctx->pixels.w * ctx->pixels.h * sizeof(pixel_t));
 }

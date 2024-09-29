@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "platform/keyboard.h"
 #include "platform/window.h"
+#include "platform/event.h"
 
 #define MODULE_NAME "keyboard-tty-test"
 
@@ -34,8 +35,17 @@ int main(void) {
     }
 
     u32 i = 0;
-    while (!p_keyboard_get_key(kb, KB_KEYCODE_Q)->pressed && i++ < SECONDS_TO_LIVE * FPS) {
+    bool running = true;
+    struct p_event ev;
+    while (running) {
+        while (p_event_poll(&ev)) {
+            if (ev.type == P_EVENT_QUIT) running = false;
+        }
+        if (p_keyboard_get_key(kb, KB_KEYCODE_Q)->pressed) running = false;
+        if (i++ >= SECONDS_TO_LIVE * FPS) running = false;
+
         p_keyboard_update(kb);
+
         usleep(1000000 / FPS);
     }
 

@@ -14,14 +14,15 @@
 #include "putpixel_fast.h"
 #undef R_INTERNAL_GUARD__
 
-void r_draw_rect(struct r_ctx *ctx, const rect_t *r)
+/* "u_" for "user-provided" */
+void r_draw_rect(struct r_ctx *ctx, i32 u_x, i32 u_y, i32 u_w, i32 u_h)
 {
-    if (ctx == NULL || r == NULL) return;
+    if (ctx == NULL || u_w < 0 || u_h < 0) return;
     
-    u32 start_x = u_clamp(r->x,         0, ctx->pixels.w - 1);
-    u32 end_x   = u_clamp(r->x + r->w,  0, ctx->pixels.w - 1);
-    u32 start_y = u_clamp(r->y,         0, ctx->pixels.h - 1);
-    u32 end_y   = u_clamp(r->y + r->h,  0, ctx->pixels.h - 1);
+    u32 start_x = u_clamp(0, u_x,        ctx->pixels.w - 1);
+    u32 end_x   = u_clamp(0, u_x + u_w,  ctx->pixels.w - 1);
+    u32 start_y = u_clamp(0, u_y,        ctx->pixels.h - 1);
+    u32 end_y   = u_clamp(0, u_y + u_h,  ctx->pixels.h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;
@@ -32,40 +33,41 @@ void r_draw_rect(struct r_ctx *ctx, const rect_t *r)
     register u32 x, y;
     register u32 w = ctx->pixels.w;
 
-    if (start_y == r->y) {
+    if (start_y == u_y) {
         y = start_y;
         for (x = start_x; x < end_x; x++)
             r_putpixel_fast_(buf, x, y, w, color, color_type);
     }
 
-    if (end_y == r->y + r->h) {
+    if (end_y == u_y + u_h) {
         y = end_y;
         for (u32 x = start_x; x < end_x; x++)
             r_putpixel_fast_(buf, x, y, w, color, color_type);
     }
 
-    if (start_x == r->x) {
+    if (start_x == u_x) {
         x = start_x;
         for (y = start_y + 1; y < end_y; y++)
             r_putpixel_fast_(buf, x, y, w, color, color_type);
     }
 
-    if (end_x == r->x + r->w) {
+    if (end_x == u_x + u_w) {
         x = end_x - 1;
         for (y = start_y + 1; y < end_y; y++)
             r_putpixel_fast_(buf, x, y, w, color, color_type);
     }
 }
 
-void r_fill_rect(struct r_ctx *ctx, const rect_t *r)
+/* "u_" for "user-provided" */
+void r_fill_rect(struct r_ctx *ctx, i32 u_x, i32 u_y, i32 u_w, i32 u_h)
 {
     
-    if (ctx == NULL || r == NULL) return;
+    if (ctx == NULL || u_w < 0 || u_h < 0) return;
     
-    u32 start_x = u_min(r->x,           ctx->pixels.w - 1);
-    u32 end_x   = u_min(r->x + r->w,    ctx->pixels.w - 1);
-    u32 start_y = u_min(r->y,           ctx->pixels.h - 1);
-    u32 end_y   = u_min(r->y + r->h,    ctx->pixels.h - 1);
+    u32 start_x = u_clamp(0, u_x,        ctx->pixels.w - 1);
+    u32 end_x   = u_clamp(0, u_x + u_w,  ctx->pixels.w - 1);
+    u32 start_y = u_clamp(0, u_y,        ctx->pixels.h - 1);
+    u32 end_y   = u_clamp(0, u_y + u_h,  ctx->pixels.h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;

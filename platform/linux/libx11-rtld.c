@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <string.h>
 #define P_INTERNAL_GUARD__
-#include "libx11_rtld.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 static struct lib *X11_lib = NULL;

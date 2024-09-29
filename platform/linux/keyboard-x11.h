@@ -13,7 +13,7 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libx11_rtld.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 struct keyboard_x11 {

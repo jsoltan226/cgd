@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <unistd.h>
 #include <X11/X.h>
 #include <X11/Xfuncproto.h>
 #include <X11/Xlib.h>
@@ -9,17 +11,19 @@
 #include <stdnoreturn.h>
 #include <string.h>
 #include <pthread.h>
+#include <signal.h>
+#include <errno.h>
 #include "core/log.h"
-#include "core/math.h"
 #include "core/pixel.h"
 #include "core/shapes.h"
 #include "core/util.h"
 #include "../window.h"
+#include "../event.h"
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libx11_rtld.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
@@ -38,12 +42,16 @@ static u32 n_open_windows = 0;
 /* For thread safety. Used to protect the above 2 variables */
 static pthread_mutex_t libX11_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static void * listening_thread_fn(void *arg);
+
 i32 window_X11_open(struct window_x11 *win,
     const unsigned char *title, const rect_t *area, const u32 flags)
 {
+    memset(win, 0, sizeof(struct window_x11));
+
+    /* Set up multi-threading */
     pthread_mutex_lock(&libX11_mutex);
 
-    memset(win, 0, sizeof(struct window_x11));
     XSizeHints *hints = NULL;
 
     win->closed = false;
@@ -56,6 +64,7 @@ i32 window_X11_open(struct window_x11 *win,
         s_log_error("Failed to load libX11!");
         return -1;
     }
+    memcpy(&win->Xlib, &X, sizeof(struct libX11));
 
     /* Open connection with X server */
     win->dpy = X.XOpenDisplay(NULL);
@@ -75,9 +84,6 @@ i32 window_X11_open(struct window_x11 *win,
 
     /* Get the screen on which our window will spawn */
     win->scr = DefaultScreen(win->dpy);
-
-    /* Get the Graphics Context */
-    win->gc = X.XDefaultGC(win->dpy, win->scr);
 
     /* Obtain display visual info */
 #define SCREEN_DEPTH 24
@@ -105,7 +111,9 @@ i32 window_X11_open(struct window_x11 *win,
 
 #define DUMMY_WINDOW_ATTR_VALUE_MASK (CWEventMask)
         XSetWindowAttributes attr = { 0 };
-        attr.event_mask = KeyPressMask | KeyReleaseMask;
+        attr.event_mask = KeyPressMask | KeyReleaseMask |
+            PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+            EnterWindowMask | LeaveWindowMask;
 
         win->win = X.XCreateWindow(win->dpy, win->root, x, y, w, h,
             BORDER_W, CopyFromParent, DUMMY_WINDOW_CLASS, NULL,
@@ -116,7 +124,9 @@ i32 window_X11_open(struct window_x11 *win,
 
 #define ATTR_VALUE_MASK (CWEventMask)
         XSetWindowAttributes attr = { 0 };
-        attr.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask;
+        attr.event_mask = KeyPressMask | KeyReleaseMask |
+            PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+            EnterWindowMask | LeaveWindowMask;
 
         win->win = X.XCreateWindow(win->dpy, win->root, x, y, w, h,
             BORDER_W, win->vis_info.depth, WINDOW_CLASS, win->vis_info.visual,
@@ -182,37 +192,32 @@ i32 window_X11_open(struct window_x11 *win,
         if (libX11_error) goto err;
     }
 
+    /* Start the event-listning thread */
+    win->listener.running = true;
+    if (pthread_create(&win->listener.thread, NULL, listening_thread_fn, win))
+        goto_error("Failed to create listener thread: %s", strerror(errno));
+
     /* Anything beyond this point is related to graphics,
      * and we don't want that in a dummy window */
     if (flags & P_WINDOW_TYPE_DUMMY)
         goto ret;
 
+    /* Create the Graphics Context */
+#define GCV_MASK GCGraphicsExposures
+    XGCValues gcv = {
+        .graphics_exposures = 0
+    };
+    win->gc = X.XCreateGC(win->dpy, win->win, GCV_MASK, &gcv);
+    if (libX11_error) goto err;
+
     /* "Show" the window (if we don't do this it will be hidden) */
     if (X.XMapWindow(win->dpy, win->win), libX11_error) goto err;
 
-    /* Initialize the framebuffer */
-    win->data.w = area->w;
-    win->data.h = area->h;
-    win->data.buf = calloc(area->w * area->h, sizeof(pixel_t));
-    s_assert(win->data.buf != NULL, "calloc() failed for pixel data");
-
-    /* Create the X Image and bind it to our framebuffer */
-#define BIT_DEPTH 32
-#define BUF_OFFSET 0
-#define XIMAGE_FORMAT ZPixmap
-#define XIMAGE_BITMAP_PAD 0
-#define BYTES_PER_PIXEL (BIT_DEPTH / 8)
-
-    win->Ximg = X.XCreateImage(win->dpy, win->vis_info.visual,
-        win->vis_info.depth, XIMAGE_FORMAT, BUF_OFFSET,
-        (char *)win->data.buf, win->data.w, win->data.h,
-        BIT_DEPTH, XIMAGE_BITMAP_PAD
-    );
-    if (win->Ximg == NULL) {
-        goto_error("Failed to create X11 image");
-    } else if (libX11_error) {
-        goto err;
-    }
+    /* Initialize the framebuffer to 0 */
+    win->data.buf = NULL;
+    win->data.w = 0;
+    win->data.h = 0;
+    memset(&win->Ximg, 0, sizeof(XImage));
 
 ret:
     /* Flush all the commands */
@@ -239,25 +244,19 @@ void window_X11_close(struct window_x11 *win)
     if (win == NULL || win->closed) return;
 
     s_log_debug("Destroying X11 window...");
+    window_X11_unbind_fb(win, true);
 
-    /* We don't need to free win->data.buf if win->Ximg is initialized -
-     * From the Xlib manual:
-     *
-     * Note that when the image is created using XCreateImage, XGetImage,
-     * or XSubImage, the destroy procedure that the XDestroyImage function calls
-     * frees both the image structure and 
-     * the data pointed to by the image structure.
-     */
-    if (win->Ximg != NULL)
-        XDestroyImage(win->Ximg);
-    else if (win->data.buf != NULL)
-        free(win->data.buf);
+    /* Delete the thread BEFORE closing the connection to X */
+    win->listener.running = false;
+    pthread_join(win->listener.thread, NULL);
 
     pthread_mutex_lock(&libX11_mutex);
     struct libX11 X;
     if (!libX11_load(&X)) {
-        if (!win->bad_window)
+        if (!win->bad_window) {
+            X.XFreeGC(win->dpy, win->gc);
             X.XDestroyWindow(win->dpy, win->win);
+        }
         X.XCloseDisplay(win->dpy);
 
         if (n_open_windows == 0)
@@ -267,25 +266,73 @@ void window_X11_close(struct window_x11 *win)
     }
     pthread_mutex_unlock(&libX11_mutex);
 
+    /* Avoid use-after-free */
+    memset(win, 0, sizeof(struct window_x11));
     win->closed = true;
 }
 
-void window_X11_render(struct window_x11 *win,
-    const pixel_t *data, const rect_t *area)
+void window_X11_render(struct window_x11 *win)
 {
-    struct libX11 X;
-    (void) libX11_load(&X);
+    s_assert(win->data.buf != NULL,
+        "Attempt to render an unintialized framebuffer");
 
 #define SRC_X 0
 #define SRC_Y 0
 #define DST_X 0
 #define DST_Y 0
-    memcpy(win->data.buf, data,
-        u_min(win->data.w * win->data.h, area->w * area->h) * sizeof(pixel_t)
-    );
-
-    X.XPutImage(win->dpy, win->win, win->gc, win->Ximg,
+    pthread_mutex_lock(&libX11_mutex);
+    win->Xlib.XPutImage(win->dpy, win->win, win->gc, &win->Ximg,
         SRC_X, SRC_Y, DST_X, DST_Y, win->data.w, win->data.h);
+    pthread_mutex_unlock(&libX11_mutex);
+}
+
+void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
+{
+    if (win->data.buf != NULL) {
+        s_log_warn("A framebuffer is already bound to this window. "
+                "Unbinding without free...");
+        window_X11_unbind_fb(win, false);
+    }
+    win->data.buf = fb->buf;
+    win->data.w = fb->w;
+    win->data.h = fb->h;
+
+    /* Create the X Image and bind it to our framebuffer */
+    win->Ximg.width             = win->data.w;
+    win->Ximg.height            = win->data.h;
+    win->Ximg.xoffset           = 0;
+    win->Ximg.format            = ZPixmap;
+    win->Ximg.data              = (char *)win->data.buf;
+    win->Ximg.byte_order        = LSBFirst;
+    win->Ximg.bitmap_unit       = 32,
+    win->Ximg.bitmap_bit_order  = LSBFirst;
+    win->Ximg.bitmap_pad        = 32;
+    win->Ximg.depth             = win->vis_info.depth;
+    win->Ximg.bytes_per_line    = 0;
+    win->Ximg.bits_per_pixel    = 32;
+    win->Ximg.red_mask          = 0xff0000;
+    win->Ximg.green_mask        = 0x00ff00;
+    win->Ximg.blue_mask         = 0x0000ff;
+
+    pthread_mutex_lock(&libX11_mutex);
+    if (win->Xlib.XInitImage(&win->Ximg) == 0)
+        s_log_fatal(MODULE_NAME, __func__, "Failed to create XImage!");
+    pthread_mutex_unlock(&libX11_mutex);
+}
+
+void window_X11_unbind_fb(struct window_x11 *win, bool free_buf)
+{
+    if (win->data.buf != NULL) {
+        if (free_buf) {
+            free(win->data.buf);
+        }
+
+        win->data.buf = NULL;
+        win->data.w = 0;
+        win->data.h = 0;
+
+        memset(&win->Ximg, 0, sizeof(XImage));
+    }
 }
 
 static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
@@ -294,6 +341,8 @@ static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
 #define DEFAULT_STR "<unknown>"
     /* If this function got called,
      * we can safely assume that libX11 has already been loaded */
+
+    pthread_mutex_lock(&libX11_mutex);
     struct libX11 X;
     (void) libX11_load(&X);
 
@@ -314,6 +363,7 @@ static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev)
     X.XGetErrorDatabaseText(dpy, "XProtoError", error_code_str, DEFAULT_STR,
         error_description_buf, ERR_MSG_BUF_SIZE);
 
+    pthread_mutex_unlock(&libX11_mutex);
 
     s_log_error("An X11 error occured (in call to \"%s\"): %s",
         function_name_buf, error_description_buf);
@@ -327,7 +377,31 @@ static noreturn i32 libX11_IO_error_handler(Display *dpy)
     struct libX11 X;
     (void) libX11_load(&X);
 
+    pthread_mutex_lock(&libX11_mutex);
     s_log_fatal(MODULE_NAME, __func__,
         "Fatal X11 I/O error (display %s)",
         X.XDisplayName(NULL));
+}
+
+static void *listening_thread_fn(void *arg)
+{
+    struct window_x11 *win = (struct window_x11 *)arg;
+
+    XEvent ev;
+    /* Check for WM_DELETE_WINDOW message */
+    while (win->listener.running) {
+        pthread_mutex_lock(&libX11_mutex);
+        while (win->Xlib.XCheckTypedWindowEvent(
+                    win->dpy, win->win, ClientMessage, &ev
+                    )) {
+            if (ev.xclient.data.l[0] == win->WM_DELETE_WINDOW) {
+                const struct p_event quit_ev = { .type = P_EVENT_QUIT };
+                p_event_send(&quit_ev);
+            }
+        }
+        pthread_mutex_unlock(&libX11_mutex);
+        usleep(10000); /* sleep for 10 ms */
+    }
+
+    pthread_exit(NULL);
 }

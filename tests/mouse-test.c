@@ -41,7 +41,6 @@ int main(void)
     rctx = r_ctx_init(win, R_TYPE_SOFTWARE, 0);
     if (rctx == NULL)
         goto_error("Failed to initialize the renderer. Stop.");
-    r_ctx_set_color(rctx, BLACK_PIXEL);
 
     /* Initialize the mouse */
     mouse = p_mouse_init(win, MOUSE_FLAGS);
@@ -51,19 +50,22 @@ int main(void)
     /* Main loop */
     struct p_mouse_state mouse_state = { 0 };
     while (!mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
+        /** Update section **/
         struct p_event ev;
         while (p_event_poll(&ev)) {
             if (ev.type == P_EVENT_QUIT)
                 goto main_loop_breakout;
         }
+
         p_mouse_get_state(mouse, &mouse_state, true);
 
+        /** Render section **/
         r_ctx_set_color(rctx, BLACK_PIXEL);
         r_reset(rctx);
 
-        r_ctx_set_color(rctx, RECT_COLOR);
-        const rect_t rect = { mouse_state.x, mouse_state.y, RECT_W, RECT_H };
-        r_fill_rect(rctx, &rect);
+        /* Draw a rectangle following the mouse */
+        r_ctx_set_color(rctx, RECT_COLOR); 
+        r_fill_rect(rctx, mouse_state.x, mouse_state.y, RECT_W, RECT_H);
 
         r_flush(rctx);
 
@@ -78,12 +80,14 @@ main_loop_breakout:
         s_log_info("Received QUIT event. Exiting...");
 
     /* Cleanup */
+    r_ctx_destroy(rctx);
     p_mouse_destroy(mouse);
     p_window_close(win);
 
     return EXIT_SUCCESS;
 
 err:
+    if (rctx != NULL) r_ctx_destroy(rctx);
     if (mouse != NULL) p_mouse_destroy(mouse);
     if (win != NULL) p_window_close(win);
     return EXIT_FAILURE;

@@ -4,6 +4,7 @@
 #include "core/int.h"
 #include "core/pixel.h"
 #include "core/shapes.h"
+#include <stdbool.h>
 
 struct p_window;
 
@@ -30,10 +31,12 @@ struct p_window_meta {
 struct p_window * p_window_open(const unsigned char *title,
     const rect_t *area, const u32 flags);
 
-void p_window_close(struct p_window *win);
+void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb);
+void p_window_unbind_fb(struct p_window *win, bool free_buf);
 
-void p_window_render(struct p_window *win,
-    const pixel_t *data, const rect_t *area);
+void p_window_render(struct p_window *win);
+
+void p_window_close(struct p_window *win);
 
 i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out);
 
