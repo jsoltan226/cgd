@@ -1,13 +1,13 @@
-#include "asset-loader/img-type.h"
-#include "asset-loader/plugin.h"
-#include "core/pixel.h"
-#include "platform/window.h"
-#include "core/log.h"
-#include "core/shapes.h"
-#include "asset-loader/asset.h"
-#include "asset-loader/io-PNG.h"
-#include "render/rctx.h"
-#include "render/rect.h"
+#include <core/log.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <asset-loader/img-type.h>
+#include <asset-loader/plugin.h>
+#include <asset-loader/asset.h>
+#include <asset-loader/io-PNG.h>
+#include <platform/window.h>
+#include <render/rctx.h>
+#include <render/rect.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,11 +15,8 @@
 #include <unistd.h>
 
 #define P_INTERNAL_GUARD__
-#include "platform/linux/window-fb.h"
+#include <platform/linux/window-fb.h>
 #undef P_INTERNAL_GUARD__
-#define R_INTERNAL_GUARD__
-#include "render/rctx_internal.h"
-#undef R_INTERNAL_GUARD__
 
 #define MODULE_NAME "fb-windowtest"
 

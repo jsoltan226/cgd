@@ -1,10 +1,10 @@
-#include "core/datastruct/vector.h"
-#include "core/log.h"
-#include "core/util.h"
-#include <sys/time.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #define MODULE_NAME "vectortest"
 
@@ -27,9 +27,7 @@ static u32 random_u32();
 
 int main(void)
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stdout);
-    s_set_log_level(LOG_DEBUG);
+    s_configure_log(LOG_DEBUG, stdout, stderr);
 
     struct timeval start = { 0 }, stop = { 0 };
     gettimeofday(&start, NULL);

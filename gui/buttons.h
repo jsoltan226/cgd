@@ -1,15 +1,15 @@
 #ifndef BUTTONS_H_
 #define BUTTONS_H_
 
+#include "on-event.h"
+#include "sprite.h"
+#include <core/int.h>
+#include <platform/mouse.h>
+#include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include "platform/mouse.h"
-#include "on-event.h"
-#include "sprite.h"
-#include "core/int.h"
-#include <stdbool.h>
 
 enum button_flags {
     BTN_DISPLAY_HITBOX_OUTLINE  = 1 << 0,

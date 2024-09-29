@@ -1,8 +1,8 @@
 #ifndef RCTX_H_
 #define RCTX_H_
 
-#include "core/shapes.h"
-#include "platform/window.h"
+#include <core/shapes.h>
+#include <platform/window.h>
 
 struct r_ctx;
 

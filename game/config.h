@@ -1,13 +1,13 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "gui/event-listener.h"
-#include "gui/menu.h"
-#include "gui/menu-mgr.h"
-#include "gui/buttons.h"
-#include "core/int.h"
-#include "core/shapes.h"
-#include "platform/keyboard.h"
+#include <gui/event-listener.h>
+#include <gui/menu.h>
+#include <gui/menu-mgr.h>
+#include <gui/buttons.h>
+#include <core/int.h>
+#include <core/shapes.h>
+#include <platform/keyboard.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>

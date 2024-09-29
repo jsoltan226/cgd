@@ -1,9 +1,9 @@
 #ifndef P_WINDOW_H_
 #define P_WINDOW_H_
 
-#include "core/int.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
+#include <core/int.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
 #include <stdbool.h>
 
 struct p_window;

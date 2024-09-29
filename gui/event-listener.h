@@ -1,10 +1,10 @@
 #ifndef EVENT_LISTENER_H
 #define EVENT_LISTENER_H
 
-#include <stdbool.h>
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
 #include "on-event.h"
+#include <platform/keyboard.h>
+#include <platform/mouse.h>
+#include <stdbool.h>
 
 enum event_listener_type {
     EVL_EVENT_KEYBOARD_KEYPRESS,

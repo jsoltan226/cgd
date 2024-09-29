@@ -1,7 +1,7 @@
 #ifndef P_EVENT_H_
 #define P_EVENT_H_
 
-#include "core/int.h"
+#include <core/int.h>
 
 enum p_event_type {
     P_EVENT_NONE = 0,

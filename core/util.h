@@ -1,7 +1,6 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include "shapes.h"
 #include "log.h"

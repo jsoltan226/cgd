@@ -1,12 +1,11 @@
 #include "raw2sdl.h"
-#include "core/pixel.h"
-#include "core/int.h"
-#include "core/log.h"
-#include "core/util.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <string.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_render.h>
-#include <string.h>
 
 #define MODULE_NAME "raw2sdl"
 

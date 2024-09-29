@@ -1,16 +1,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include "menu.h"
-#include "core/log.h"
-#include "core/util.h"
 #include "event-listener.h"
 #include "buttons.h"
 #include "on-event.h"
 #include "parallax-bg.h"
 #include "sprite.h"
-#include "core/datastruct/vector.h"
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
+#include <platform/keyboard.h>
+#include <platform/mouse.h>
 
 #define MODULE_NAME "menu"
 

@@ -1,14 +1,14 @@
 #define _GNU_SOURCE
 #include "../event.h"
-#include "core/datastruct/vector.h"
-#include "core/int.h"
-#include "core/log.h"
-#include "core/util.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <pthread.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define MODULE_NAME "event"
 

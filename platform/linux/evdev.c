@@ -1,12 +1,11 @@
-#include <linux/input-event-codes.h>
 #define _GNU_SOURCE
 #define P_INTERNAL_GUARD__
 #include "evdev.h"
 #undef P_INTERNAL_GUARD__
-#include "core/int.h"
-#include "core/datastruct/vector.h"
-#include "core/log.h"
-#include "core/util.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,6 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <linux/input.h>
+#include <linux/input-event-codes.h>
 
 #define MODULE_NAME "evdev"
 

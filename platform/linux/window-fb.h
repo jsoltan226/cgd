@@ -5,11 +5,11 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "core/int.h"
-#include <linux/fb.h>
+#include <core/int.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
 #include <stdbool.h>
+#include <linux/fb.h>
 
 struct window_fb {
     i32 fd;

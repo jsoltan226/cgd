@@ -6,8 +6,8 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../mouse.h"
-#include "core/int.h"
-#include "core/datastruct/vector.h"
+#include <core/int.h>
+#include <core/datastruct/vector.h>
 #include <poll.h>
 
 struct mouse_evdev {

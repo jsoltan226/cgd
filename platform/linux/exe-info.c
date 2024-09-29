@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
-#include "core/util.h"
+#include "../exe-info.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
 #include <errno.h>
 #include <string.h>
-#include "core/log.h"
-#include "../exe-info.h"
-#include "core/int.h"
 #include <unistd.h>
 
 #define SELF_EXE_FILE "/proc/self/exe"

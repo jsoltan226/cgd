@@ -1,10 +1,9 @@
-#include "core/int.h"
 #include "../mouse.h"
-#include "core/pressable-obj.h"
-#include <X11/X.h>
-#include <X11/Xlib.h>
-#include <stdbool.h>
+#include <core/int.h>
+#include <core/pressable-obj.h>
 #include <string.h>
+#include <stdbool.h>
+#include <X11/Xlib.h>
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -12,10 +11,10 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "mouse-internal.h"
+#include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libx11-rtld.h"
+#include "mouse-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "mouse-x11"

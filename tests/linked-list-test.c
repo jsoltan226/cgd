@@ -1,6 +1,6 @@
-#include "core/datastruct/linked-list.h"
-#include "core/int.h"
-#include "core/log.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/datastruct/linked-list.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +15,7 @@ static char item_str_table[ITEM_STR_LEN * LIST_LENGTH] = { 0 };
 
 int main(void)
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stdout);
-    s_set_log_level(LOG_DEBUG);
+    s_configure_log(LOG_DEBUG, stdout, stderr);
 
     s_log_debug("Creating linked list...");
     ll = linked_list_create("item0");

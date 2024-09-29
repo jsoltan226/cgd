@@ -1,10 +1,10 @@
 #include "plugin.h"
-#include "core/int.h"
-#include "core/log.h"
 #include "img-type.h"
-#include "core/util.h"
-#include <stdbool.h>
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define ASSET_PLUGIN_INTERNAL_GUARD__
 #include "plugin_registry.h"

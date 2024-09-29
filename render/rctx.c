@@ -1,11 +1,10 @@
 #include "rctx.h"
-#include "rect.h"
-#include "core/int.h"
-#include "core/log.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "core/util.h"
-#include "platform/window.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <platform/window.h>
 #include <stdlib.h>
 #include <string.h>
 #include <threads.h>

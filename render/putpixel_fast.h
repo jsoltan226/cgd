@@ -1,9 +1,9 @@
 #ifndef R_PUTPIXEL_FAST__
 #define R_PUTPIXEL_FAST__
 
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "platform/window.h"
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <platform/window.h>
 #ifndef R_INTERNAL_GUARD__
 #error This header is internal to the cgd renderer module and is not intented to be used elsewhere
 #endif /* R_INTERNAL_GUARD__ */

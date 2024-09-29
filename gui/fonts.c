@@ -1,14 +1,15 @@
 #include "fonts.h"
-#include "core/math.h"
-#include "asset-loader/asset.h"
-#include "core/log.h"
+#include <core/log.h>
+#include <core/int.h>
+#include <core/math.h>
+#include <asset-loader/asset.h>
+#include <stdlib.h>
+#include <string.h>
 #include <SDL2/SDL_error.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_blendmode.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define MODULE_NAME "fonts"
 

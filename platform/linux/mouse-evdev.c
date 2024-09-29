@@ -1,22 +1,22 @@
 #include "../mouse.h"
-#include "core/int.h"
-#include <fcntl.h>
-#include <string.h>
+#include <core/int.h>
+#include <core/pressable-obj.h>
+#include <core/datastruct/vector.h>
 #include <errno.h>
+#include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include "core/datastruct/vector.h"
-#include "core/pressable-obj.h"
 #include <sys/poll.h>
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
 #define P_INTERNAL_GUARD__
-#include "mouse-internal.h"
+#include "evdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "mouse-evdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "evdev.h"
+#include "mouse-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "mouse-evdev"

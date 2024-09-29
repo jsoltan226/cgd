@@ -6,8 +6,8 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../keyboard.h"
-#include "core/int.h"
-#include "core/pressable-obj.h"
+#include <core/int.h>
+#include <core/pressable-obj.h>
 #include <X11/Xlib.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"

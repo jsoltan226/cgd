@@ -4,8 +4,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
-#include "core/shapes.h"
-#include "asset-loader/asset.h"
+#include <core/shapes.h>
+#include <asset-loader/asset.h>
 
 typedef struct {
     rect_t hitbox;

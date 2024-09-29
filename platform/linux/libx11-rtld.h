@@ -5,10 +5,10 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
+#include <core/int.h>
+#include <stdbool.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <stdbool.h>
-#include "core/int.h"
 
 #define X11_LIB_NAME "libX11.so.6"
 
@@ -16,7 +16,6 @@
     X_(Display *, XOpenDisplay, const char *display_name)                       \
     X_(int, XCloseDisplay, Display *dpy)                                        \
     X_(int, XMapWindow, Display *dpy, Window w)                                 \
-    X_(int, XNextEvent, Display *display, XEvent *event_return)                 \
     X_(XSizeHints *, XAllocSizeHints, void)                                     \
     X_(void, XSetWMNormalHints, Display *display, Window w, XSizeHints *hints)  \
     X_(void, XFree, void *data)                                                 \
@@ -41,12 +40,6 @@
         unsigned int class, Visual *visual,                                     \
         unsigned long valuemask, XSetWindowAttributes *attributes               \
     )                                                                           \
-    X_(GC, XDefaultGC, Display *dpy, int scr)                                   \
-    X_(XImage *, XCreateImage,                                                  \
-        Display *display, Visual *visual, unsigned int depth, int format,       \
-        int offset, char *data, unsigned int width, unsigned int height,        \
-        int bitmap_pad, int bytes_per_line                                      \
-    )                                                                           \
     X_(int, XDestroyWindow, Display *display, Window w)                         \
     X_(int, XPutImage,                                                          \
         Display *display, Drawable d, GC gc, XImage *image,                     \
@@ -54,7 +47,6 @@
         unsigned int width, unsigned int height                                 \
     )                                                                           \
     X_(int, XSetErrorHandler, int(*handler)(Display *dpy, XErrorEvent *ev))     \
-    X_(int, XGetErrorText, Display *dpy, int code, char *ret_buf, int buf_size) \
     X_(int, XSetIOErrorHandler, int(*handler)(Display *dpy))                    \
     X_(char *, XDisplayName, _Xconst char *string)                              \
     X_(int, XGetErrorDatabaseText,                                              \
@@ -62,10 +54,6 @@
         _Xconst char *default_string, char *buffer_return, int length           \
     )                                                                           \
     X_(int, XSync, Display *dpy, Bool discard)                                  \
-    X_(int, XPeekEvent, Display *display, XEvent *event_return)                 \
-    X_(Bool, XCheckMaskEvent,                                                   \
-        Display *display, long event_mask, XEvent *event_return                 \
-    )                                                                           \
     X_(KeySym, XLookupKeysym, XKeyEvent *key_event, int index)                  \
     X_(Status, XSetWMProtocols,                                                 \
         Display *display, Window w, Atom *protocols, int count                  \
@@ -76,17 +64,32 @@
     X_(Bool, XCheckWindowEvent,                                                 \
         Display *display, Window w, long event_mask, XEvent *event_return       \
     )                                                                           \
+    X_(Status, XInitImage, XImage *image)                                       \
+    X_(GC, XCreateGC,                                                           \
+        Display *display, Drawable d, unsigned long valuemask, XGCValues *vals  \
+    )                                                                           \
+    X_(int, XFreeGC, Display *display, GC gc)                                   \
+
+/*
+    X_(GC, XDefaultGC, Display *dpy, int scr)                                   \
+    X_(XImage *, XCreateImage,                                                  \
+        Display *display, Visual *visual, unsigned int depth, int format,       \
+        int offset, char *data, unsigned int width, unsigned int height,        \
+        int bitmap_pad, int bytes_per_line                                      \
+    )                                                                           \
+    X_(int, XGetErrorText, Display *dpy, int code, char *ret_buf, int buf_size) \
+    X_(int, XNextEvent, Display *display, XEvent *event_return)                 \
+    X_(int, XWindowEvent, Display *display, XEvent *event_return)               \
+    X_(int, XPeekEvent, Display *display, XEvent *event_return)                 \
+    X_(Bool, XCheckMaskEvent,                                                   \
+        Display *display, long event_mask, XEvent *event_return                 \
+    )                                                                           \
     X_(int, XGrabKeyboard,                                                      \
         Display *display, Window grab_window, Bool owner_events,                \
         int pointer_mode, int keyboard_mode, Time time                          \
     )                                                                           \
     X_(int, XUngrabKeyboard, Display *display, Time time)                       \
-    X_(Status, XInitImage, XImage *image)                                       \
-    X_(GC, XCreateGC,                                                           \
-        Display *display, Drawable d, unsigned long valuemask, XGCValues *vals  \
-    )                                                                           \
-    X_(int, XWindowEvent, Display *display, XEvent *event_return)               \
-    X_(int, XFreeGC, Display *display, GC gc)                                   \
+*/
 
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libX11 {

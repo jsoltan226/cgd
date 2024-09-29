@@ -1,6 +1,7 @@
 #ifndef ON_EVENT_H_
 #define ON_EVENT_H_
-#include "core/int.h"
+
+#include <core/int.h>
 #include <stdlib.h>
 
 #define ONEVENT_OBJ_ARGV_LEN    16

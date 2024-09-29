@@ -6,10 +6,10 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../keyboard.h"
-#include "core/int.h"
-#include "core/util.h"
-#include "core/datastruct/vector.h"
-#include "core/pressable-obj.h"
+#include <core/int.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
+#include <core/pressable-obj.h>
 #include <sys/poll.h>
 #include <poll.h>
 #include <linux/limits.h>

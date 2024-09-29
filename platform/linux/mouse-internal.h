@@ -14,7 +14,7 @@
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
-#include "core/pressable-obj.h"
+#include <core/pressable-obj.h>
 
 #define N_MOUSE_TYPES 3
 #define MOUSE_TYPES_LIST    \

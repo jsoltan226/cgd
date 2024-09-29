@@ -1,8 +1,8 @@
 #ifndef IMG_TYPE_H_
 #define IMG_TYPE_H_
 
+#include <core/util.h>
 #include <stdio.h>
-#include "core/util.h"
 
 #define ASSET_IMG_TYPES_LIST    \
     X_(IMG_TYPE_UNKNOWN)        \

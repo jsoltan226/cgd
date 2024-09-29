@@ -1,10 +1,10 @@
 #ifndef ASSET_H_
 #define ASSET_H_
 
-#include <SDL2/SDL_render.h>
-#include "core/int.h"
-#include "core/pixel.h"
 #include "img-type.h"
+#include <core/int.h>
+#include <core/pixel.h>
+#include <SDL2/SDL_render.h>
 
 struct asset {
     filepath_t rel_file_path;

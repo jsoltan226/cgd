@@ -1,10 +1,11 @@
 #ifndef P_KEYBOARD_H_
 #define P_KEYBOARD_H_
 
-#include "core/pressable-obj.h"
+#include "window.h"
+#include <core/pressable-obj.h>
+
 #define P_KEYBOARD_N_KEYS 43
 
-#include "window.h"
 struct p_keyboard;
 enum p_keyboard_keycode;
 

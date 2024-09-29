@@ -1,13 +1,13 @@
 #define _GNU_SOURCE
-#include "core/log.h"
-#include "core/util.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "platform/mouse.h"
-#include "platform/window.h"
-#include "platform/event.h"
-#include "render/rctx.h"
-#include "render/rect.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <platform/mouse.h>
+#include <platform/window.h>
+#include <platform/event.h>
+#include <render/rctx.h>
+#include <render/rect.h>
 #include <stdlib.h>
 #include <unistd.h>
 

@@ -3,9 +3,9 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
-#include "core/datastruct/vector.h"
-#include "core/int.h"
-#include "asset-loader/asset.h"
+#include <core/int.h>
+#include <core/datastruct/vector.h>
+#include <asset-loader/asset.h>
 
 struct parallax_bg_layer {
     struct asset *asset;

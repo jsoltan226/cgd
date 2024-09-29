@@ -1,5 +1,5 @@
 #include "putpixel.h"
-#include "platform/window.h"
+#include <platform/window.h>
 #include <stdlib.h>
 #define R_INTERNAL_GUARD__
 #include "rctx_internal.h"

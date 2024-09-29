@@ -6,8 +6,8 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../mouse.h"
-#include "core/int.h"
-#include "core/shapes.h"
+#include <core/int.h>
+#include <core/shapes.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__

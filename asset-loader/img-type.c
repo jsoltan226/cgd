@@ -1,7 +1,6 @@
 #include "img-type.h"
-#include "core/log.h"
-#include "core/int.h"
 #include "io-PNG.h"
+#include <core/log.h>
 #include <stdio.h>
 #include <string.h>
 

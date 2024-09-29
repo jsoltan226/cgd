@@ -1,25 +1,24 @@
-#include "../window.h"
-#include <stdlib.h>
-#include <X11/X.h>
-#include <X11/Xlib.h>
-#include <string.h>
-#include "core/int.h"
-#include "core/log.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "core/util.h"
 #include "../event.h"
+#include "../window.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <stdlib.h>
+#include <string.h>
+#include <X11/Xlib.h>
 #define P_INTERNAL_GUARD__
-#include "window-internal.h"
+#include "window-fb.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-fb.h"
+#include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-dummy.h"
+#include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"

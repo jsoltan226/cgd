@@ -1,7 +1,7 @@
 #ifndef P_TIME_H_
 #define P_TIME_H_
 
-#include "core/int.h"
+#include <core/int.h>
 
 typedef struct {
     i64 ns;

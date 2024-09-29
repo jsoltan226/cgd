@@ -1,13 +1,13 @@
 #include "parallax-bg.h"
-#include "core/datastruct/vector.h"
-#include "core/log.h"
-#include "asset-loader/asset.h"
-#include "core/util.h"
 #include "menu.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
+#include <asset-loader/asset.h>
+#include <stdio.h>
 #include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
-#include <stdio.h>
 
 #define MODULE_NAME "parallax-bg"
 

@@ -1,11 +1,11 @@
 #include "menu-mgr.h"
-#include "core/datastruct/vector.h"
-#include "core/log.h"
-#include "core/int.h"
-#include "event-listener.h"
 #include "menu.h"
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
+#include "event-listener.h"
+#include <core/log.h>
+#include <core/int.h>
+#include <core/datastruct/vector.h>
+#include <platform/keyboard.h>
+#include <platform/mouse.h>
 #include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <error.h>

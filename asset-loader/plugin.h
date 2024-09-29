@@ -1,8 +1,8 @@
 #ifndef ASSET_PLUGIN_H_
 #define ASSET_PLUGIN_H_
 
-#include "core/int.h"
 #include "img-type.h"
+#include <core/int.h>
 #include <stdbool.h>
 
 typedef i32 (*asset_plugin_load_fn_t)();

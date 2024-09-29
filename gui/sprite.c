@@ -1,8 +1,8 @@
 #include "sprite.h"
-#include "asset-loader/asset.h"
-#include "core/log.h"
-#include "core/util.h"
 #include "menu.h"
+#include <asset-loader/asset.h>
+#include <core/log.h>
+#include <core/util.h>
 #include <SDL2/SDL_render.h>
 
 #define MODULE_NAME "sprite"

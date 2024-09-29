@@ -1,23 +1,23 @@
-#include <SDL2/SDL_blendmode.h>
-#include <SDL2/SDL_error.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_keyboard.h>
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_timer.h>
-#include <SDL2/SDL_video.h>
-#include <SDL2/SDL.h>
+#include "config.h"
+#include <core/util.h>
+#include <gui/fonts.h>
+#include <gui/menu-mgr.h>
+#include <core/log.h>
+#include <asset-loader/plugin.h>
+#include <platform/mouse.h>
+#include <platform/window.h>
+#include <platform/keyboard.h>
 #include <stdlib.h>
 #include <string.h>
-#include "core/util.h"
-#include "gui/fonts.h"
-#include "gui/menu-mgr.h"
-#include "config.h"
-#include "core/log.h"
-#include "asset-loader/plugin.h"
-#include "platform/mouse.h"
-#include "platform/window.h"
-#include "platform/keyboard.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_error.h>
+#include <SDL2/SDL_timer.h>
+#include <SDL2/SDL_video.h>
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL_pixels.h>
+#include <SDL2/SDL_render.h>
+#include <SDL2/SDL_keyboard.h>
+#include <SDL2/SDL_blendmode.h>
 
 #define MODULE_NAME "main"
 

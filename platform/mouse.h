@@ -2,9 +2,9 @@
 #define P_MOUSE_H_
 
 #include "window.h"
-#include "core/int.h"
-#include "core/shapes.h"
-#include "core/pressable-obj.h"
+#include <core/int.h>
+#include <core/shapes.h>
+#include <core/pressable-obj.h>
 
 struct p_mouse;
 

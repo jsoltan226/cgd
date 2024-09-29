@@ -1,7 +1,7 @@
-#include "core/int.h"
-#include "core/librtld.h"
-#include <pthread.h>
+#include <core/int.h>
+#include <core/librtld.h>
 #include <string.h>
+#include <pthread.h>
 #define P_INTERNAL_GUARD__
 #include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__

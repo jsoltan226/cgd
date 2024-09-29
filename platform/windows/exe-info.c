@@ -1,6 +1,5 @@
 #include "../exe-info.h"
-#include "core/int.h"
-
+#include <core/int.h>
 #include <stdio.h>
 #include <windows.h>
 

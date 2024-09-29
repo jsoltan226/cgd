@@ -2,18 +2,18 @@
 #define MENU_H
 
 #include "buttons.h"
-#include "core/util.h"
 #include "event-listener.h"
 #include "on-event.h"
 #include "sprite.h"
 #include "parallax-bg.h"
-#include "core/int.h"
-#include "core/datastruct/vector.h"
+#include <core/int.h>
+#include <core/util.h>
+#include <core/datastruct/vector.h>
+#include <platform/keyboard.h>
+#include <platform/mouse.h>
 #include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
 
 #define MENU_CONFIG_MAX_LEN 128
 #define MENU_ID_NULL  ((u64)-1)

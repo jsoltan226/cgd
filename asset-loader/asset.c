@@ -1,17 +1,18 @@
 #include "asset.h"
-#include "img-type.h"
 #include "io-PNG.h"
 #include "plugin.h"
 #include "raw2sdl.h"
-#include "core/pixel.h"
-#include "core/util.h"
-#include "core/log.h"
-#include "platform/exe-info.h"
-#include <SDL2/SDL_render.h>
+#include "img-type.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <platform/exe-info.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_render.h>
 
 #define MODULE_NAME "assetld"
 

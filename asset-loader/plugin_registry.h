@@ -7,7 +7,6 @@
 
 #include "plugin.h"
 #include "img-type.h"
-
 #include "io-PNG.h"
 
 static struct asset_plugin plugin_registry[] = {

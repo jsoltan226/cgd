@@ -1,11 +1,13 @@
 #include "event-listener.h"
-#include "core/util.h"
-#include "core/pressable-obj.h"
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
 #include "on-event.h"
-#include "core/log.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pressable-obj.h>
+#include <platform/keyboard.h>
+#include <platform/mouse.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define MODULE_NAME "event-listener"
 

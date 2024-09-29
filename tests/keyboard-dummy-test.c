@@ -1,11 +1,11 @@
 #define _GNU_SOURCE
+#include <core/log.h>
+#include <platform/keyboard.h>
+#include <platform/window.h>
+#include <platform/event.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "core/log.h"
-#include "platform/keyboard.h"
-#include "platform/window.h"
-#include "platform/event.h"
 
 #define MODULE_NAME "keyboard-tty-test"
 

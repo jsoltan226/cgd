@@ -1,9 +1,9 @@
 #include "rect.h"
-#include "core/int.h"
-#include "core/math.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "platform/window.h"
+#include <core/int.h>
+#include <core/math.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <platform/window.h>
 #include <SDL2/SDL_pixels.h>
 #include <stdlib.h>
 

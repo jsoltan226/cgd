@@ -1,13 +1,10 @@
-#include "core/int.h"
 #include "../keyboard.h"
-#include "../event.h"
-#include "core/pressable-obj.h"
-#include "core/util.h"
-#include "event.h"
-#include <X11/X.h>
-#include <X11/Xlib.h>
-#include <pthread.h>
+#include <core/int.h>
+#include <core/pressable-obj.h>
+#include <core/util.h>
 #include <string.h>
+#include <pthread.h>
+#include <X11/Xlib.h>
 
 #define P_INTERNAL_GUARD__
 #include "keyboard-x11.h"

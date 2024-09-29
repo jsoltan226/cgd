@@ -1,17 +1,18 @@
 #include "../window.h"
-#include "core/pixel.h"
-#include "core/shapes.h"
-#include "core/util.h"
-#include "core/log.h"
-#include "core/math.h"
-#include <string.h>
+#include <core/log.h>
+#include <core/math.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
 #include <errno.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
+#include <unistd.h>
 #include <sys/mman.h>
-#include <linux/mman.h>
+#include <sys/ioctl.h>
 #include <linux/fb.h>
+#include <linux/mman.h>
 
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"

@@ -1,16 +1,16 @@
 #include "buttons.h"
-#include "core/log.h"
-#include "platform/mouse.h"
-#include "core/pressable-obj.h"
-#include "core/util.h"
-#include "core/shapes.h"
-#include "core/math.h"
-#include "core/int.h"
 #include "on-event.h"
 #include "sprite.h"
-#include <SDL2/SDL_render.h>
+#include <core/log.h>
+#include <core/int.h>
+#include <core/util.h>
+#include <core/math.h>
+#include <core/shapes.h>
+#include <core/pressable-obj.h>
+#include <platform/mouse.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <SDL2/SDL_render.h>
 
 #define MODULE_NAME "button"
 

@@ -1,6 +1,6 @@
-#include "core/datastruct/hashmap.h"
-#include "core/int.h"
-#include "core/log.h"
+#include <core/int.h>
+#include <core/log.h>
+#include <core/datastruct/hashmap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

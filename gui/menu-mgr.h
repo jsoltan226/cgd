@@ -1,14 +1,14 @@
 #ifndef MENUMGR_H
 #define MENUMGR_H
 
-#include "core/datastruct/vector.h"
-#include "core/int.h"
-#include "event-listener.h"
-#include "platform/keyboard.h"
-#include "platform/mouse.h"
 #include "menu.h"
-#include <SDL2/SDL_render.h>
+#include "event-listener.h"
+#include <core/int.h>
+#include <core/datastruct/vector.h>
+#include <platform/mouse.h>
+#include <platform/keyboard.h>
 #include <stdbool.h>
+#include <SDL2/SDL_render.h>
 
 #define MENUMGR_MAX_MENU_COUNT  32
 

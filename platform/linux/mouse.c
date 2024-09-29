@@ -1,14 +1,11 @@
 #include "../mouse.h"
-#include "core/int.h"
-#include "core/log.h"
-#include "core/pressable-obj.h"
-#include "core/util.h"
-#include <stdbool.h>
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pressable-obj.h>
 #include <stdlib.h>
 #include <string.h>
-#define P_INTERNAL_GUARD__
-#include "mouse-internal.h"
-#undef P_INTERNAL_GUARD__
+#include <stdbool.h>
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -17,6 +14,9 @@
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-internal.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "mouse-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "mouse"

@@ -1,11 +1,11 @@
 #define _POSIX_C_SOURCE 199309L
 #include "../time.h"
-#include "core/int.h"
-#include "core/log.h"
+#include <core/int.h>
+#include <core/log.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <linux/time.h>
 #include <string.h>
+#include <linux/time.h>
 
 #define MODULE_NAME "time"
 

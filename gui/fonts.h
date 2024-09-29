@@ -1,9 +1,9 @@
 #ifndef FONTS_H
 #define FONTS_H
 
-#include "asset-loader/asset.h"
-#include "core/shapes.h"
-#include "core/int.h"
+#include <core/int.h>
+#include <core/shapes.h>
+#include <asset-loader/asset.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>

@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
-#include "core/log.h"
-#include "core/util.h"
-#include "platform/window.h"
-#include "platform/keyboard.h"
-#include "platform/event.h"
-#include "render/rctx.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <platform/window.h>
+#include <platform/keyboard.h>
+#include <platform/event.h>
+#include <render/rctx.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -54,7 +54,7 @@ int main(void)
     p_keyboard_destroy(kb);
     r_ctx_destroy(rctx);
     p_window_close(win);
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 
 err:
     if (kb != NULL) p_keyboard_destroy(kb);

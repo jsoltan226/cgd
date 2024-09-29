@@ -1,16 +1,16 @@
 #include "../keyboard.h"
-#include "core/log.h"
+#include <core/log.h>
+#include <core/util.h>
+#include <core/ansi-esc-sequences.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <termios.h>
 #include <sys/types.h>
 #define P_INTERNAL_GUARD__
 #include "keyboard-tty.h"
 #undef P_INTERNAL_GUARD__
-#include <fcntl.h>
-#include "core/util.h"
-#include <termios.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include "core/ansi-esc-sequences.h"
 
 #define MODULE_NAME "keyboard-tty"
 

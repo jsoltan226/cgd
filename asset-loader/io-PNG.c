@@ -1,14 +1,12 @@
 #include "io-PNG.h"
-#include "core/librtld.h"
-#include "core/log.h"
-#include "core/int.h"
-#include "core/pixel.h"
-#include <err.h>
-#include <limits.h>
-#include <png.h>
-#include <setjmp.h>
+#include <core/log.h>
+#include <core/int.h>
+#include <core/pixel.h>
+#include <core/librtld.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
+#include <png.h>
 
 #define MODULE_NAME "io-PNG"
 

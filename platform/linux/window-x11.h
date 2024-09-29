@@ -5,13 +5,13 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include "core/int.h"
-#include "core/shapes.h"
-#include "core/pixel.h"
+#include <core/int.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 #define P_INTERNAL_GUARD__
 #include "libx11-rtld.h"
