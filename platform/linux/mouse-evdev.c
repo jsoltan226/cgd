@@ -1,4 +1,5 @@
 #include "../mouse.h"
+#include "core/math.h"
 #include <core/int.h>
 #include <core/pressable-obj.h>
 #include <core/datastruct/vector.h>

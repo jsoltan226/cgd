@@ -37,6 +37,9 @@ int main(void)
     if (kb == NULL)
         goto_error("Failed to init keyboard. Stop.");
 
+    r_reset(rctx);
+    r_flush(rctx);
+
     struct p_event ev = { 0 };
     while (ev.type != P_EVENT_QUIT &&
         !p_keyboard_get_key(kb, KB_KEYCODE_Q)->up

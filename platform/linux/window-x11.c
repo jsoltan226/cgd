@@ -13,10 +13,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/Xfuncproto.h>
+#include <X11/extensions/XShm.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -29,6 +32,9 @@
 /* libX11 error handlers */
 static i32 libX11_error_handler(Display *dpy, XErrorEvent *ev);
 static noreturn i32 libX11_IO_error_handler(Display *dpy);
+
+static i32 attach_shm(struct window_x11_shm *shm, Display *dpy, u64 size);
+static void detach_shm(struct window_x11_shm *shm, Display *dpy);
 
 /* Used by our X11 error handler */
 static bool libX11_error = false;
@@ -72,6 +78,18 @@ i32 window_X11_open(struct window_x11 *win,
     /* Set error handlers */
     X.XSetErrorHandler(libX11_error_handler);
     X.XSetIOErrorHandler(libX11_IO_error_handler);
+
+    /* Query and load extensions */
+    struct libXExt Xe;
+    if (libXExt_load(&Xe)) {
+        win->shm.has_shm_extension = false;
+    } else if (!Xe.XShmQueryExtension(win->dpy)) {
+        win->shm.has_shm_extension = false;
+        libXExt_unload();
+    } else {
+        win->shm.has_shm_extension = true;
+        memcpy(&win->shm.XExt, &Xe, sizeof(struct libXExt));
+    }
 
     /* Get screen parameters */
     win->screen_w = X.XDisplayWidth(win->dpy, win->scr);
@@ -212,17 +230,15 @@ i32 window_X11_open(struct window_x11 *win,
     if (X.XMapWindow(win->dpy, win->win), libX11_error) goto err;
 
     /* Initialize the framebuffer to 0 */
-    win->data.buf = NULL;
-    win->data.w = 0;
-    win->data.h = 0;
+    win->data = NULL;
     memset(&win->Ximg, 0, sizeof(XImage));
 
 ret:
     /* Flush all the commands */
     X.XFlush(win->dpy);
 
-    s_log_debug("%s() OK; Screen is %ux%u", __func__,
-        win->screen_w, win->screen_h);
+    s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
+        win->screen_w, win->screen_h, win->shm.attached);
 
     n_open_windows++;
     pthread_mutex_unlock(&libX11_mutex);
@@ -242,7 +258,7 @@ void window_X11_close(struct window_x11 *win)
     if (win == NULL || win->closed) return;
 
     s_log_debug("Destroying X11 window...");
-    window_X11_unbind_fb(win, true);
+    window_X11_unbind_fb(win);
 
     /* Delete the thread BEFORE closing the connection to X */
     win->listener.running = false;
@@ -257,9 +273,10 @@ void window_X11_close(struct window_x11 *win)
         }
         X.XCloseDisplay(win->dpy);
 
-        if (n_open_windows == 0)
+        if (n_open_windows == 0) {
             libX11_unload();
-        else
+            libXExt_unload();
+        } else
             n_open_windows--;
     }
     pthread_mutex_unlock(&libX11_mutex);
@@ -271,7 +288,7 @@ void window_X11_close(struct window_x11 *win)
 
 void window_X11_render(struct window_x11 *win)
 {
-    s_assert(win->data.buf != NULL,
+    s_assert(win->data->buf != NULL,
         "Attempt to render an unintialized framebuffer");
 
 #define SRC_X 0
@@ -279,57 +296,81 @@ void window_X11_render(struct window_x11 *win)
 #define DST_X 0
 #define DST_Y 0
     pthread_mutex_lock(&libX11_mutex);
-    win->Xlib.XPutImage(win->dpy, win->win, win->gc, &win->Ximg,
-        SRC_X, SRC_Y, DST_X, DST_Y, win->data.w, win->data.h);
+    if (win->shm.attached) {
+        win->shm.XExt.XShmPutImage(win->dpy, win->win, win->gc, &win->Ximg,
+            SRC_X, SRC_Y, DST_X, DST_Y, win->data->w, win->data->h, False);
+    } else {
+        win->Xlib.XPutImage(win->dpy, win->win, win->gc, &win->Ximg,
+            SRC_X, SRC_Y, DST_X, DST_Y, win->data->w, win->data->h);
+    }
+    win->Xlib.XSync(win->dpy, true);
     pthread_mutex_unlock(&libX11_mutex);
 }
 
 void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
 {
-    if (win->data.buf != NULL) {
-        s_log_warn("A framebuffer is already bound to this window. "
-                "Unbinding without free...");
-        window_X11_unbind_fb(win, false);
+    if (win->data != NULL) {
+        s_log_error("A framebuffer is already bound to this window.");
+        return;
     }
-    win->data.buf = fb->buf;
-    win->data.w = fb->w;
-    win->data.h = fb->h;
+    win->data = fb;
 
     /* Create the X Image and bind it to our framebuffer */
-    win->Ximg.width             = win->data.w;
-    win->Ximg.height            = win->data.h;
+    win->Ximg.width             = win->data->w;
+    win->Ximg.height            = win->data->h;
     win->Ximg.xoffset           = 0;
     win->Ximg.format            = ZPixmap;
-    win->Ximg.data              = (char *)win->data.buf;
+    win->Ximg.data              = (char *)win->data->buf;
     win->Ximg.byte_order        = LSBFirst;
     win->Ximg.bitmap_unit       = 32,
     win->Ximg.bitmap_bit_order  = LSBFirst;
     win->Ximg.bitmap_pad        = 32;
     win->Ximg.depth             = win->vis_info.depth;
-    win->Ximg.bytes_per_line    = 0;
+    win->Ximg.bytes_per_line    = win->data->w * sizeof(pixel_t);
     win->Ximg.bits_per_pixel    = 32;
     win->Ximg.red_mask          = 0xff0000;
     win->Ximg.green_mask        = 0x00ff00;
     win->Ximg.blue_mask         = 0x0000ff;
 
+    u64 size = win->data->w * win->data->h * sizeof(*win->data->buf);
+
     pthread_mutex_lock(&libX11_mutex);
-    if (win->Xlib.XInitImage(&win->Ximg) == 0)
-        s_log_fatal(MODULE_NAME, __func__, "Failed to create XImage!");
+    if (win->shm.has_shm_extension && !attach_shm(&win->shm, win->dpy, size)) {
+        free(win->data->buf);
+        win->data->buf = (pixel_t *)win->shm.info.shmaddr;
+        win->Ximg.data = win->shm.info.shmaddr;
+
+        XImage *tmp = win->shm.XExt.XShmCreateImage(win->dpy, win->vis_info.visual,
+            win->vis_info.depth, ZPixmap, (char *)win->data->buf,
+            &win->shm.info, win->data->w, win->data->h);
+        if (tmp == NULL)
+            s_log_fatal(MODULE_NAME, __func__, "Failed to create shm XImage!");
+
+        memcpy(&win->Ximg, tmp, sizeof(XImage));
+        XDestroyImage(tmp);
+
+    } else {
+        if (win->Xlib.XInitImage(&win->Ximg) == 0)
+            s_log_fatal(MODULE_NAME, __func__, "Failed to create XImage!");
+    }
+
+    win->Xlib.XSync(win->dpy, true);
     pthread_mutex_unlock(&libX11_mutex);
 }
 
-void window_X11_unbind_fb(struct window_x11 *win, bool free_buf)
+void window_X11_unbind_fb(struct window_x11 *win)
 {
-    if (win->data.buf != NULL) {
-        if (free_buf) {
-            free(win->data.buf);
-        }
+    if (win->data != NULL) {
+        if (win->shm.attached)
+            detach_shm(&win->shm, win->dpy);
+        else if (win->data->buf != NULL)
+            free(win->data->buf);
 
-        win->data.buf = NULL;
-        win->data.w = 0;
-        win->data.h = 0;
+        win->data->buf = NULL;
 
         memset(&win->Ximg, 0, sizeof(XImage));
+
+        win->data = NULL;
     }
 }
 
@@ -381,7 +422,7 @@ static noreturn i32 libX11_IO_error_handler(Display *dpy)
         X.XDisplayName(NULL));
 }
 
-static void *listening_thread_fn(void *arg)
+static void * listening_thread_fn(void *arg)
 {
     struct window_x11 *win = (struct window_x11 *)arg;
 
@@ -402,4 +443,49 @@ static void *listening_thread_fn(void *arg)
     }
 
     pthread_exit(NULL);
+}
+
+static i32 attach_shm(struct window_x11_shm *shm, Display *dpy, u64 size)
+{
+    shm->info.shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0600);
+    if (shm->info.shmid == -1)
+        goto_error("Failed to create shared memory block for XImage: %s. "
+                "Falling back to XPutImage().", strerror(errno));
+
+    shm->info.shmaddr = shmat(shm->info.shmid, NULL, 0);
+    if (shm->info.shmaddr == (void *)-1)
+        goto_error("Failed to map shared memory for XImage: %s. "
+            "Falling back to XPutImage().", strerror(errno));
+
+    shm->info.shmseg = shm->info.shmid;
+    shm->info.readOnly = False;
+
+    shm->attached = true;
+    if (shm->XExt.XShmAttach(dpy, &shm->info) == 0)
+        goto_error("Failed to attach shared memory for XImage. "
+            "Falling back to XPutImage().");
+
+    return 0;
+err:
+    detach_shm(shm, dpy);
+    shm->has_shm_extension = false;
+    return 1;
+}
+
+static void detach_shm(struct window_x11_shm *shm, Display *dpy)
+{
+    if (!shm->has_shm_extension) return;
+
+    if (shm->info.shmaddr != (void *)-1) {
+        shmdt(shm->info.shmaddr);
+        shm->info.shmaddr = (void *) -1;
+    }
+    if (shm->info.shmid != -1) {
+        shmctl(shm->info.shmid, IPC_RMID, NULL);
+        shm->info.shmid = -1;
+    }
+    if (shm->attached) {
+        shm->XExt.XShmDetach(dpy, &shm->info);
+        shm->attached = false;
+    }
 }

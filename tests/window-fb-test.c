@@ -147,7 +147,7 @@ int main(void)
 
     p_window_bind_fb(win, &amogus_pixel_data);
     window_fb_render_to_display(&win->fb);
-    p_window_unbind_fb(win, true);
+    p_window_unbind_fb(win);
 
     sleep(2);
 skip_img_test:

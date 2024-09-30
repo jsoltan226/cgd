@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/XShm.h>
 
 #define P_INTERNAL_GUARD__
 #include "libx11-rtld.h"
@@ -33,7 +34,7 @@ struct window_x11 {
     GC gc; /* Graphics context. Used for graphics-related operations */
 
     /* The framebuffer (i.e. where the renderer writes raw pixel data) */
-    struct pixel_flat_data data;
+    struct pixel_flat_data *data;
 
     /* The XImage struct bound to our framebuffer.
      * used for rendering with XPutImage */
@@ -56,6 +57,16 @@ struct window_x11 {
         pthread_t thread;
         bool running;
     } listener;
+
+    /* Used for rendering with the faster XShmPutImage (instead of XputImage) */
+    struct window_x11_shm {
+        struct libXExt XExt; /* Runtime-loaded X11 extension functions */
+
+        bool has_shm_extension;
+
+        XShmSegmentInfo info;
+        bool attached;
+    } shm;
 };
 
 
@@ -72,6 +83,6 @@ void window_X11_close(struct window_x11 *x11);
 void window_X11_render(struct window_x11 *x11);
 
 void window_X11_bind_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
-void window_X11_unbind_fb(struct window_x11 *win, bool free_buf);
+void window_X11_unbind_fb(struct window_x11 *win);
 
 #endif /* P_WINDOW_X11_H_ */

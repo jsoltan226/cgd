@@ -62,7 +62,7 @@ GREEN=
 COL_RESET=
 
 .PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
-.NOTPARALLEL: all release br bdr
+.NOTPARALLEL: all release br bdr build-tests
 
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
@@ -77,7 +77,7 @@ $(EXE): $(OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
-$(TEST_LIB): $(OBJS) $(BINDIR)
+$(TEST_LIB): $(OBJS)
 	@$(PRINTF) "AR 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
 	@$(AR) $(ARFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) >/dev/null
 
@@ -139,13 +139,14 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
 
 build-tests: CFLAGS = -ggdb -O0 -Wall
-build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) compile-tests
+build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
 run-tests: tests
 
+$(TEST_EXE_DIR)/%: CFLAGS = -ggdb -O0 -Wall
 $(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c $(TEST_LIB) Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)

@@ -50,6 +50,8 @@ static const enum mouse_type
 };
 
 struct p_mouse {
+    struct p_window *win;
+
     enum mouse_type type;
     union {
         struct mouse_x11 x11;

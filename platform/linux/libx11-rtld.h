@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/XShm.h>
 
 #define X11_LIB_NAME "libX11.so.6"
 
@@ -99,9 +100,33 @@ struct libX11 {
 
 /* Returns 0 on success or if libX11 was already loaded, and 1 on failure */
 i32 libX11_load(struct libX11 *o);
-
-bool libX11_is_loaded();
-
 void libX11_unload();
+
+/** Basically all the same, but for the libXext library **/
+
+#define XEXT_LIB_NAME "libXext.so.6"
+#define XEXT_SYM_LIST                                                           \
+    X_(Bool, XShmQueryExtension, Display *display)                              \
+    X_(XImage *, XShmCreateImage,                                               \
+        Display *display, Visual *visual, unsigned int depth, int format,       \
+        char *data, XShmSegmentInfo *shminfo,                                   \
+        unsigned int width, unsigned int height                                 \
+    )                                                                           \
+    X_(Bool, XShmAttach, Display *display, XShmSegmentInfo *shminfo)            \
+    X_(Bool, XShmDetach, Display *display, XShmSegmentInfo *shminfo)            \
+    X_(Bool, XShmPutImage,                                                      \
+        Display *display, Drawable d, GC gc, XImage *image,                     \
+        int src_x, int src_y, int dest_x, int dest_y,                           \
+        unsigned int width, unsigned int height, bool send_event                \
+    )                                                                           \
+
+#define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
+struct libXExt {
+    XEXT_SYM_LIST
+};
+#undef X_
+
+i32 libXExt_load(struct libXExt *o);
+void libXExt_unload();
 
 #endif /* LIBX11_RTLD_H_ */

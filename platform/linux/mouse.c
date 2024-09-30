@@ -1,4 +1,5 @@
 #include "../mouse.h"
+#include "core/math.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
@@ -27,6 +28,8 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
 
     struct p_mouse *m = calloc(1, sizeof(struct p_mouse));
     s_assert(m != NULL, "calloc() failed for struct mouse");
+
+    m->win = win;
 
     u32 i = 0;
     do {
@@ -79,6 +82,14 @@ void p_mouse_get_state(struct p_mouse *mouse,
                 break;
             default:
                 break;
+        }
+        
+        const rect_t mouse_r = { mouse->x, mouse->y, 0, 0 };
+        const rect_t window_r = { mouse->win->x, mouse->win->y,
+            mouse->win->w, mouse->win->h };
+        for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
+            if (mouse->buttons[i].up && !u_collision(&mouse_r, &window_r))
+                pressable_obj_force_release(&mouse->buttons[i]);
         }
     }
 

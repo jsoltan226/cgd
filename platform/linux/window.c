@@ -92,15 +92,15 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
     }
 }
 
-void p_window_unbind_fb(struct p_window *win, bool free_buf)
+void p_window_unbind_fb(struct p_window *win)
 {
     u_check_params(win != NULL);
     switch(win->type) {
         case WINDOW_TYPE_X11:
-            window_X11_unbind_fb(&win->x11, free_buf);
+            window_X11_unbind_fb(&win->x11);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_unbind_fb(&win->fb, free_buf);
+            window_fb_unbind_fb(&win->fb);
             break;
         default: case WINDOW_TYPE_DUMMY:
             break;

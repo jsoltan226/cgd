@@ -65,7 +65,7 @@ err:
 void r_ctx_destroy(struct r_ctx *ctx)
 {
     if (ctx == NULL) return;
-    p_window_unbind_fb(ctx->win, true);
+    p_window_unbind_fb(ctx->win);
     free(ctx);
 }
 

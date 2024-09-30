@@ -1,4 +1,6 @@
 #include "../mouse.h"
+#include "core/log.h"
+#include <X11/X.h>
 #include <core/int.h>
 #include <core/pressable-obj.h>
 #include <string.h>
@@ -53,17 +55,10 @@ void mouse_X11_update(struct p_mouse *mouse)
                     continue;
             }
 
-            if (ev.type == ButtonRelease && mouse->is_out_of_window) {
-                pressable_obj_force_release(&mouse->buttons[button]);
-            }
-
+            s_log_debug("button %i %s", button, ev.type == ButtonPress ? "press" : "release");
             pressable_obj_update(&mouse->buttons[button],
                     ev.type == ButtonPress);
 
-        } else if (ev.type == LeaveNotify) {
-            mouse->is_out_of_window = true;
-        } else if (ev.type == EnterNotify) {
-            mouse->is_out_of_window = false;
         }
     }
 }

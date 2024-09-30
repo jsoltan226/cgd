@@ -135,19 +135,18 @@ void window_fb_close(struct window_fb *fb)
 void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb)
 {
     if (win->pixel_data.buf != NULL) {
-        s_log_warn("A framebuffer is already bound to this window. "
-                "Unbinding without free...");
-        window_fb_unbind_fb(win, false);
+        s_log_error("A framebuffer is already bound to this window.");
+        return;
     }
     win->pixel_data.buf = fb->buf;
     win->pixel_data.w = fb->w;
     win->pixel_data.h = fb->h;
 }
 
-void window_fb_unbind_fb(struct window_fb *win, bool free_buf)
+void window_fb_unbind_fb(struct window_fb *win)
 {
     if (win->pixel_data.buf != NULL) {
-        if (free_buf) free(win->pixel_data.buf);
+        free(win->pixel_data.buf);
 
         win->pixel_data.buf = NULL;
         win->pixel_data.w = 0;

@@ -36,6 +36,6 @@ void window_fb_close(struct window_fb *fb);
 i32 window_fb_render_to_display(struct window_fb *fb);
 
 void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb);
-void window_fb_unbind_fb(struct window_fb *win, bool free_buf);
+void window_fb_unbind_fb(struct window_fb *win);
 
 #endif /* P_WINDOW_FB_H_ */
