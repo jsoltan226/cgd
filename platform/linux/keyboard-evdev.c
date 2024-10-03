@@ -66,6 +66,7 @@ void evdev_keyboard_destroy(struct keyboard_evdev *kb)
         }
         vector_destroy(kb->kbdevs);
     }
+    if (kb->poll_fds != NULL) vector_destroy(kb->poll_fds);
 }
 
 void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
