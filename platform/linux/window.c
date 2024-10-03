@@ -47,6 +47,9 @@ struct p_window * p_window_open(const unsigned char *title,
     } else /* if (flags & P_WINDOW_TYPE_AUTO) */
         win->type = detect_environment();
 
+    /* Init the event subsystem so that the user doesn't have to */
+    p_event_send(&(struct p_event) { .type = P_EVENT_CTL_INIT_ });
+
     switch (win->type) {
         case WINDOW_TYPE_X11:
             if (window_X11_open(&win->x11, title, area, flags))
@@ -64,8 +67,6 @@ struct p_window * p_window_open(const unsigned char *title,
             break;
     }
     
-    /* Init the event subsystem so that the user doesn't have to */
-    p_event_send(&(struct p_event) { .type = P_EVENT_CTL_INIT_ });
     return win;
 err:
     p_window_close(win);

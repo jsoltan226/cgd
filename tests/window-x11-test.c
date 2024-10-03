@@ -2,6 +2,7 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/shapes.h>
+#include <platform/event.h>
 #include <platform/window.h>
 #include <render/rctx.h>
 #include <render/rect.h>
@@ -43,7 +44,13 @@ int main(void)
         goto_error("Failed to init renderer. Stop");
 
     color_RGBA32_t color = { 0, 0, 0, 255 };
+    struct p_event ev;
     for (u32 i = 0; i < 255; i++) {
+        while (p_event_poll(&ev)) {
+            if (ev.type == P_EVENT_QUIT)
+                goto quit;
+        }
+
         color.r += 1;
         color.g += 2;
         color.b += 3;
@@ -54,6 +61,7 @@ int main(void)
         usleep(16000);
     }
 
+quit:
     r_ctx_destroy(rctx);
     p_window_close(win);
     return EXIT_SUCCESS;

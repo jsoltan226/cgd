@@ -1,6 +1,5 @@
 #include "../mouse.h"
 #include "core/log.h"
-#include <X11/X.h>
 #include <core/int.h>
 #include <core/pressable-obj.h>
 #include <string.h>

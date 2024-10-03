@@ -32,6 +32,7 @@ struct window_x11 {
     u32 screen_w, screen_h;
 
     GC gc; /* Graphics context. Used for graphics-related operations */
+    bool bad_gc;
 
     /* The framebuffer (i.e. where the renderer writes raw pixel data) */
     struct pixel_flat_data *data;

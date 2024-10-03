@@ -238,7 +238,7 @@ ret:
     X.XFlush(win->dpy);
 
     s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
-        win->screen_w, win->screen_h, win->shm.attached);
+        win->screen_w, win->screen_h, win->shm.has_shm_extension);
 
     n_open_windows++;
     pthread_mutex_unlock(&libX11_mutex);
@@ -255,20 +255,22 @@ err:
 
 void window_X11_close(struct window_x11 *win)
 {
-    if (win == NULL || win->closed) return;
+    if (win == NULL || win->closed || win->dpy == NULL) return;
 
     s_log_debug("Destroying X11 window...");
     window_X11_unbind_fb(win);
 
     /* Delete the thread BEFORE closing the connection to X */
-    win->listener.running = false;
-    pthread_join(win->listener.thread, NULL);
+    if (win->listener.running) {
+        win->listener.running = false;
+        pthread_join(win->listener.thread, NULL);
+    }
 
     pthread_mutex_lock(&libX11_mutex);
     struct libX11 X;
     if (!libX11_load(&X)) {
         if (!win->bad_window) {
-            X.XFreeGC(win->dpy, win->gc);
+            if (win->gc != NULL) X.XFreeGC(win->dpy, win->gc);
             X.XDestroyWindow(win->dpy, win->win);
         }
         X.XCloseDisplay(win->dpy);
