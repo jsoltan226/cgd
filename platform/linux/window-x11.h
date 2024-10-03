@@ -19,7 +19,7 @@
 
 struct window_x11 {
     xcb_connection_t *conn;
-    xcb_setup_t *setup;
+    const xcb_setup_t *setup;
     xcb_screen_t *screen;
     xcb_screen_iterator_t iter;
     xcb_window_t win;
