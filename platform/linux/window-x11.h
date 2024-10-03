@@ -18,12 +18,17 @@
 #undef P_INTERNAL_GUARD__
 
 struct window_x11 {
+    bool exists; /* Sanity check to avoid double-frees */
+
     xcb_connection_t *conn;
     const xcb_setup_t *setup;
     xcb_screen_t *screen;
     xcb_screen_iterator_t iter;
     xcb_window_t win;
 
+    xcb_atom_t UTF8_STRING;
+    xcb_atom_t NET_WM_NAME;
+    xcb_atom_t NET_WM_STATE_ABOVE;
     xcb_atom_t WM_PROTOCOLS;
     xcb_atom_t WM_DELETE_WINDOW;
 
