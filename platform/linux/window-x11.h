@@ -10,66 +10,30 @@
 #include <core/shapes.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/extensions/XShm.h>
+#include <xcb/xcb.h>
+#include <xcb/xproto.h>
 
 #define P_INTERNAL_GUARD__
 #include "libx11-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 struct window_x11 {
-    struct libX11 Xlib; /* Runtime-loaded libX11 functions */
+    xcb_connection_t *conn;
+    xcb_setup_t *setup;
+    xcb_screen_t *screen;
+    xcb_screen_iterator_t iter;
+    xcb_window_t win;
 
-    Display *dpy; /* The connection to the X server */
+    xcb_atom_t WM_PROTOCOLS;
+    xcb_atom_t WM_DELETE_WINDOW;
 
-    Window root; /* A handle to the root window (the "background") */
-    Window win; /* A handle to our window */
+    struct pixel_flat_data *fb;
 
-    i32 scr; /* A handle to the screen */
-    XVisualInfo vis_info; /* Screen visual info (colormap, bit depth, etc) */
-
-    u32 screen_w, screen_h;
-
-    GC gc; /* Graphics context. Used for graphics-related operations */
-    bool bad_gc;
-
-    /* The framebuffer (i.e. where the renderer writes raw pixel data) */
-    struct pixel_flat_data *data;
-
-    /* The XImage struct bound to our framebuffer.
-     * used for rendering with XPutImage */
-    XImage Ximg; 
-
-    /* Used for detecting "window-close" events */
-    Atom WM_DELETE_WINDOW;
-
-    /* Used to tell whether an error occured in the call to XCreateWindow
-     * or earlier. We need this to ensure we don't invoke XDestroyWindow
-     * with an invalid window handle */
-    bool bad_window;
-
-    /* Whether the window has already been destroyed.
-     * A safeguard against double-frees and stuff */
-    bool closed;
-
-    /* Thread that handles window-close events */
-    struct {
-        pthread_t thread;
+    struct window_x11_listener {
         bool running;
+        pthread_t thread;
     } listener;
-
-    /* Used for rendering with the faster XShmPutImage (instead of XputImage) */
-    struct window_x11_shm {
-        struct libXExt XExt; /* Runtime-loaded X11 extension functions */
-
-        bool has_shm_extension;
-
-        XShmSegmentInfo info;
-        bool attached;
-    } shm;
 };
-
 
 /* Returns 0 on success and non-zero on failure.
  * Does not clean up if an error happens */

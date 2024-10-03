@@ -50,6 +50,7 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
     XEvent ev = { 0 };
     bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
     
+    /*
     while (kb->Xlib.XCheckWindowEvent(
             kb->win->dpy, kb->win->win, KeyPressMask | KeyReleaseMask, &ev
         )
@@ -65,21 +66,26 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
 
         if (code == -1)
             continue;
+    */
 
         /* ev.type == KeyPress -> update with `true`
          * ev.type == KeyRelease (or anything else) -> update with `false`
          */
+    /*
         pressable_obj_update(&pobjs[code], ev.type == KeyPress);
         key_updated[code] = true;
     }
 
+    */
     /* This is basically the same as in `evdev_keyboard_update_all_keys()`
      * in keyboard-evdev.c. Look there for explanations.
      */
+    /*
     for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
         if (!key_updated[i] && (pobjs[i].pressed || pobjs[i].down))
             pressable_obj_update(&pobjs[i], true);
     }
+    */
 }
 
 void X11_keyboard_destroy(struct keyboard_x11 *kb)

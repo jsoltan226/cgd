@@ -26,7 +26,9 @@ i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
 
     mouse->win = win;
 
+    /*
     memcpy(&mouse->Xlib, &mouse->win->Xlib, sizeof(struct libX11));
+    */
     return 0;
 }
 
@@ -36,6 +38,7 @@ void mouse_X11_update(struct p_mouse *mouse)
     struct libX11 *X = &mouse->x11.Xlib;
     XEvent ev;
 
+    /*
     while (X->XCheckWindowEvent(win->dpy, win->win, 
             ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
             EnterWindowMask | LeaveWindowMask, &ev)
@@ -60,6 +63,7 @@ void mouse_X11_update(struct p_mouse *mouse)
 
         }
     }
+    */
 }
 
 void mouse_X11_destroy(struct mouse_x11 *mouse)
