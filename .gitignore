@@ -7,4 +7,5 @@
 /assets/tests/*.png
 /tests/testlog.txt
 /tests/bin/*
+/tests/test.c
 /\;

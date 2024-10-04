@@ -19,6 +19,7 @@
 #include <sys/shm.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -79,7 +80,8 @@ i32 window_X11_open(struct window_x11 *win,
         XCB_EVENT_MASK_STRUCTURE_NOTIFY
     };
 
-    vc = xcb_create_window(win->conn, XCB_COPY_FROM_PARENT, win->win, win->screen->root,
+    vc = xcb_create_window_checked(win->conn, XCB_COPY_FROM_PARENT,
+        win->win, win->screen->root,
         x, y, area->w, area->h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         win->screen->root_visual, value_mask, value_list);
     if (libxcb_error) goto_error("Failed to create the window");
@@ -88,12 +90,12 @@ i32 window_X11_open(struct window_x11 *win,
     if (intern_atom(win->conn, "UTF8_STRING", &win->UTF8_STRING)) goto err;
 
     /* Set the window title */
-    vc = xcb_change_property(win->conn, XCB_PROP_MODE_REPLACE, win->win,
+    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
         XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen((char *)title), title);
     if (libxcb_error) goto_error("Failed to change window name");
 
     if (intern_atom(win->conn, "_NET_WM_NAME", &win->NET_WM_NAME)) goto err;
-    vc = xcb_change_property(win->conn, XCB_PROP_MODE_REPLACE, win->win,
+    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
         win->NET_WM_NAME, win->UTF8_STRING, 8, strlen((char *)title), title
     );
     if (libxcb_error) goto_error("Failed to set the _NET_WM_NAME property");
@@ -105,7 +107,7 @@ i32 window_X11_open(struct window_x11 *win,
     ) goto err;
 
     i32 net_wm_state_above_val = 1;
-    vc = xcb_change_property(win->conn, XCB_PROP_MODE_REPLACE, win->win,
+    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
         win->NET_WM_STATE_ABOVE, XCB_ATOM_INTEGER, 32,
         1, &net_wm_state_above_val
     );
@@ -121,14 +123,25 @@ i32 window_X11_open(struct window_x11 *win,
     if (intern_atom(win->conn, "WM_DELETE_WINDOW", &win->WM_DELETE_WINDOW))
         goto err;
 
-    vc = xcb_change_property(win->conn, XCB_PROP_MODE_REPLACE, win->win,
+    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
         win->WM_PROTOCOLS, XCB_ATOM_ATOM, 32,
         1, &win->WM_DELETE_WINDOW
     );
     if (libxcb_error) goto_error("Failed to set WM protocols");
 
+    win->gc = -1;
+    win->gc = xcb_generate_id(win->conn);
+    if (win->gc == -1) goto_error("Failed to generate Graphics Context ID");
+
+#define GCV_MASK XCB_GC_FOREGROUND
+    const u32 gcv[] = {
+        win->screen->black_pixel
+    };
+    vc = xcb_create_gc_checked(win->conn, win->gc, win->win, GCV_MASK, gcv);
+    if (libxcb_error) goto_error("Failed to create the Graphics Context");
+
     /* Map the window so that it's visible */
-    vc = xcb_map_window(win->conn, win->win);
+    vc = xcb_map_window_checked(win->conn, win->win);
     if (libxcb_error) goto_error("Failed to map (show) the window");
 
     /* Finally, flush all the commands */
@@ -167,6 +180,11 @@ void window_X11_close(struct window_x11 *win)
 
 void window_X11_render(struct window_x11 *win)
 {
+    u_check_params(win != NULL && win->fb != NULL &&
+        win->fb->buf != NULL && win->fb->w > 0 && win->fb->h > 0);
+
+    xcb_image_put(win->conn, win->win, win->gc, win->xcb_image, 0, 0, 0);
+    xcb_flush(win->conn);
 }
 
 void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
@@ -174,6 +192,12 @@ void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
     u_check_params(win != NULL && fb != NULL);
 
     win->fb = fb;
+    win->xcb_image = xcb_image_create_native(win->conn, fb->w, fb->h,
+        XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth, NULL,
+        fb->w * fb->h * sizeof(pixel_t), (u8 *)fb->buf);
+
+    if (win->xcb_image == NULL)
+        s_log_fatal(MODULE_NAME, __func__, "Failed to create XCB image");
 }
 
 void window_X11_unbind_fb(struct window_x11 *win)
@@ -183,6 +207,14 @@ void window_X11_unbind_fb(struct window_x11 *win)
 
     free(win->fb->buf);
     memset(win->fb, 0, sizeof(struct pixel_flat_data));
+
+    if (win->xcb_image != NULL) {
+        win->xcb_image->base = NULL;
+        win->xcb_image->data = NULL;
+
+        xcb_image_destroy(win->xcb_image);
+        win->xcb_image = NULL;
+    }
 }
 
 static i32 intern_atom(xcb_connection_t *conn,
@@ -216,7 +248,7 @@ static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area)
     X_(void, xcb_icccm_size_hints_set_max_size,                             \
         xcb_size_hints_t *size_hints, i32 width, i32 height                 \
     )                                                                       \
-    X_(xcb_void_cookie_t, xcb_icccm_set_wm_normal_hints,                    \
+    X_(xcb_void_cookie_t, xcb_icccm_set_wm_normal_hints_checked,            \
         xcb_connection_t *, xcb_window_t, xcb_size_hints_t *                \
     )                                                                       \
 
@@ -227,7 +259,7 @@ static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area)
     };
 #undef X_
 
-    struct lib *libxcb_iccmm = librtld_load("libxcb-icccm.so", sym_names);
+    struct lib *libxcb_iccmm = librtld_load("libxcb-icccm.so.4", sym_names);
     if (libxcb_iccmm == NULL)
         goto_error("Failed to load icccm extension library");
 
@@ -238,10 +270,10 @@ static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area)
 #undef X_
 
 
-    xcb_size_hints_t size_hints = { 0 };
-    xcb_icccm_size_hints_set_min_size(&size_hints, area->w, area->h);
-    xcb_icccm_size_hints_set_max_size(&size_hints, area->w, area->h);
-    vc = xcb_icccm_set_wm_normal_hints(win->conn, win->win, &size_hints);
+    xcb_size_hints_t hints = { 0 };
+    xcb_icccm_size_hints_set_min_size(&hints, area->w, area->h);
+    xcb_icccm_size_hints_set_max_size(&hints, area->w, area->h);
+    vc = xcb_icccm_set_wm_normal_hints_checked(win->conn, win->win, &hints);
     if (libxcb_error) goto_error("Failed to set WM normal hints");
 
 err:

@@ -1,6 +1,7 @@
 #ifndef P_WINDOW_X11_H_
 #define P_WINDOW_X11_H_
 
+#include <xcb/xcb_image.h>
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
@@ -32,6 +33,8 @@ struct window_x11 {
     xcb_atom_t WM_PROTOCOLS;
     xcb_atom_t WM_DELETE_WINDOW;
 
+    xcb_gcontext_t gc;
+    xcb_image_t *xcb_image;
     struct pixel_flat_data *fb;
 
     struct window_x11_listener {
