@@ -1,7 +1,6 @@
 #ifndef P_WINDOW_X11_H_
 #define P_WINDOW_X11_H_
 
-#include <xcb/xcb_image.h>
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
@@ -13,19 +12,28 @@
 #include <pthread.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcb_image.h>
 
 #define P_INTERNAL_GUARD__
-#include "libx11-rtld.h"
+#include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 
 struct window_x11 {
     bool exists; /* Sanity check to avoid double-frees */
+
+    struct libxcb xcb;
 
     xcb_connection_t *conn;
     const xcb_setup_t *setup;
     xcb_screen_t *screen;
     xcb_screen_iterator_t iter;
     xcb_window_t win;
+
+    struct window_x11_shm {
+        bool has_shm_extension;
+        bool attached;
+        xcb_shm_segment_info_t info;
+    } shm;
 
     xcb_atom_t UTF8_STRING;
     xcb_atom_t NET_WM_NAME;

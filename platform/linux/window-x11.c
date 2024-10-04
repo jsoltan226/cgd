@@ -24,18 +24,23 @@
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "libxcb-rtld.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
 
-static i32 intern_atom(xcb_connection_t *conn,
+static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
 static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area);
+
+static i32 init_shm(struct window_x11_shm *shm, xcb_connection_t *conn);
 
 static void * listener_thread_fn(void *arg);
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
 static void listener_thread_signal_handler(i32 sig_num);
 
-#define libxcb_error (e = xcb_request_check(win->conn, vc), e != NULL)
+#define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
 
 i32 window_X11_open(struct window_x11 *win,
     const unsigned char *title, const rect_t *area, const u32 flags)
@@ -48,22 +53,24 @@ i32 window_X11_open(struct window_x11 *win,
     memset(win, 0, sizeof(struct window_x11));
     win->exists = true;
 
+    if (libxcb_load(&win->xcb)) goto_error("Failed to load libxcb");
+
     /* Open a connection */
-    win->conn = xcb_connect(NULL, NULL);
-    if (xcb_connection_has_error(win->conn))
+    win->conn = win->xcb.xcb_connect(NULL, NULL);
+    if (win->xcb.xcb_connection_has_error(win->conn))
         goto_error("Failed to connect to the X server");
 
     /* Get the X server setup */
-    win->setup = xcb_get_setup(win->conn);
+    win->setup = win->xcb.xcb_get_setup(win->conn);
     if (win->setup == NULL) goto_error("Failed to get X setup");
 
     /* Get the current screen */
-    win->iter = xcb_setup_roots_iterator(win->setup);
+    win->iter = win->xcb.xcb_setup_roots_iterator(win->setup);
     win->screen = win->iter.data;
 
     /* Generate the window ID */
     win->win = -1;
-    win->win = xcb_generate_id(win->conn);
+    win->win = win->xcb.xcb_generate_id(win->conn);
     if (win->win == -1) goto_error("Failed to generate window ID");
 
     /* Handle WINDOW_POS_CENTERED flags */
@@ -80,72 +87,83 @@ i32 window_X11_open(struct window_x11 *win,
         XCB_EVENT_MASK_STRUCTURE_NOTIFY
     };
 
-    vc = xcb_create_window_checked(win->conn, XCB_COPY_FROM_PARENT,
+    vc = win->xcb.xcb_create_window_checked(win->conn, XCB_COPY_FROM_PARENT,
         win->win, win->screen->root,
         x, y, area->w, area->h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         win->screen->root_visual, value_mask, value_list);
     if (libxcb_error) goto_error("Failed to create the window");
 
     /* Get the UTF8 string atom */
-    if (intern_atom(win->conn, "UTF8_STRING", &win->UTF8_STRING)) goto err;
+    if (intern_atom(win, "UTF8_STRING", &win->UTF8_STRING)) goto err;
 
     /* Set the window title */
-    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
-        XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen((char *)title), title);
+    vc = win->xcb.xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE,
+        win->win, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
+        strlen((char *)title), title
+    );
     if (libxcb_error) goto_error("Failed to change window name");
 
-    if (intern_atom(win->conn, "_NET_WM_NAME", &win->NET_WM_NAME)) goto err;
-    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
-        win->NET_WM_NAME, win->UTF8_STRING, 8, strlen((char *)title), title
+    if (intern_atom(win, "_NET_WM_NAME", &win->NET_WM_NAME)) goto err;
+    vc = win->xcb.xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE,
+        win->win, win->NET_WM_NAME, win->UTF8_STRING, 8,
+        strlen((char *)title), title
     );
     if (libxcb_error) goto_error("Failed to set the _NET_WM_NAME property");
 
     /* Set the window to floating */
-    if (intern_atom(win->conn,
+    if (intern_atom(win,
             "_NET_WM_STATE_ABOVE", &win->NET_WM_STATE_ABOVE
         )
     ) goto err;
 
     i32 net_wm_state_above_val = 1;
-    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
-        win->NET_WM_STATE_ABOVE, XCB_ATOM_INTEGER, 32,
+    vc = win->xcb.xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE,
+        win->win, win->NET_WM_STATE_ABOVE, XCB_ATOM_INTEGER, 32,
         1, &net_wm_state_above_val
     );
     if (libxcb_error)
         goto_error("Failed to set the NET_WM_STATE_ABOVE property");
 
     /* Set the window minimum and maximum size */
-    set_icccm_wm_hints(win, area);
+    xcb_size_hints_t hints = { 0 };
+    win->xcb.xcb_icccm_size_hints_set_min_size(&hints, area->w, area->h);
+    win->xcb.xcb_icccm_size_hints_set_max_size(&hints, area->w, area->h);
+    vc = win->xcb.xcb_icccm_set_wm_normal_hints_checked(win->conn,
+            win->win, &hints);
+    if (libxcb_error) goto_error("Failed to set WM normal hints");
+
 
     /* Set the WM_DELETE_WINDOW protocol atom */
-    if (intern_atom(win->conn, "WM_PROTOCOLS", &win->WM_PROTOCOLS))
+    if (intern_atom(win, "WM_PROTOCOLS", &win->WM_PROTOCOLS))
         goto err;
-    if (intern_atom(win->conn, "WM_DELETE_WINDOW", &win->WM_DELETE_WINDOW))
+    if (intern_atom(win, "WM_DELETE_WINDOW", &win->WM_DELETE_WINDOW))
         goto err;
 
-    vc = xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE, win->win,
-        win->WM_PROTOCOLS, XCB_ATOM_ATOM, 32,
+    vc = win->xcb.xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE,
+        win->win, win->WM_PROTOCOLS, XCB_ATOM_ATOM, 32,
         1, &win->WM_DELETE_WINDOW
     );
     if (libxcb_error) goto_error("Failed to set WM protocols");
 
     win->gc = -1;
-    win->gc = xcb_generate_id(win->conn);
+    win->gc = win->xcb.xcb_generate_id(win->conn);
     if (win->gc == -1) goto_error("Failed to generate Graphics Context ID");
 
 #define GCV_MASK XCB_GC_FOREGROUND
     const u32 gcv[] = {
         win->screen->black_pixel
     };
-    vc = xcb_create_gc_checked(win->conn, win->gc, win->win, GCV_MASK, gcv);
+    vc = win->xcb.xcb_create_gc_checked(win->conn, win->gc, win->win,
+        GCV_MASK, gcv);
     if (libxcb_error) goto_error("Failed to create the Graphics Context");
 
     /* Map the window so that it's visible */
-    vc = xcb_map_window_checked(win->conn, win->win);
+    vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
     if (libxcb_error) goto_error("Failed to map (show) the window");
 
     /* Finally, flush all the commands */
-    if (xcb_flush(win->conn) <= 0) goto_error("Failed to flush xcb requests");
+    if (win->xcb.xcb_flush(win->conn) <= 0)
+        goto_error("Failed to flush xcb requests");
 
     /* Create the thread that listens for events */
     if (pthread_create(&win->listener.thread, NULL, listener_thread_fn, win))
@@ -171,8 +189,11 @@ void window_X11_close(struct window_x11 *win)
         pthread_kill(win->listener.thread, SIGUSR1);
         pthread_join(win->listener.thread, NULL);
     }
-    if (win->win != -1) xcb_destroy_window(win->conn, win->win);
-    if (win->conn) xcb_disconnect(win->conn);
+    if (!win->xcb.failed_) {
+        if (win->win != -1) win->xcb.xcb_destroy_window(win->conn, win->win);
+        if (win->conn) win->xcb.xcb_disconnect(win->conn);
+    }
+    libxcb_unload(&win->xcb);
 
     /* win-exists is also set to false */
     memset(win, 0, sizeof(struct window_x11));
@@ -183,8 +204,9 @@ void window_X11_render(struct window_x11 *win)
     u_check_params(win != NULL && win->fb != NULL &&
         win->fb->buf != NULL && win->fb->w > 0 && win->fb->h > 0);
 
-    xcb_image_put(win->conn, win->win, win->gc, win->xcb_image, 0, 0, 0);
-    xcb_flush(win->conn);
+    win->xcb.xcb_image_put(win->conn, win->win, win->gc,
+        win->xcb_image, 0, 0, 0);
+    win->xcb.xcb_flush(win->conn);
 }
 
 void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
@@ -192,7 +214,7 @@ void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
     u_check_params(win != NULL && fb != NULL);
 
     win->fb = fb;
-    win->xcb_image = xcb_image_create_native(win->conn, fb->w, fb->h,
+    win->xcb_image = win->xcb.xcb_image_create_native(win->conn, fb->w, fb->h,
         XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth, NULL,
         fb->w * fb->h * sizeof(pixel_t), (u8 *)fb->buf);
 
@@ -212,19 +234,21 @@ void window_X11_unbind_fb(struct window_x11 *win)
         win->xcb_image->base = NULL;
         win->xcb_image->data = NULL;
 
-        xcb_image_destroy(win->xcb_image);
+        win->xcb.xcb_image_destroy(win->xcb_image);
         win->xcb_image = NULL;
     }
 }
 
-static i32 intern_atom(xcb_connection_t *conn,
+static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o)
 {
-    xcb_intern_atom_cookie_t cookie = xcb_intern_atom(conn, false,
-        strlen(atom_name), atom_name);
+    xcb_intern_atom_cookie_t cookie = win->xcb.xcb_intern_atom(win->conn,
+        false, strlen(atom_name), atom_name);
 
     xcb_generic_error_t *err = NULL;
-    xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(conn, cookie, &err);
+    xcb_intern_atom_reply_t *reply = win->xcb.xcb_intern_atom_reply(win->conn,
+        cookie, &err);
+
     if (err) {
         s_log_error("Failed to intern atom \"%s\"", atom_name);
         free(reply);
@@ -241,46 +265,6 @@ static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area)
     xcb_void_cookie_t vc;
     xcb_generic_error_t *e = NULL;
 
-#define LIBXCB_ICCM_SYM_LIST                                                \
-    X_(void, xcb_icccm_size_hints_set_min_size,                             \
-        xcb_size_hints_t *size_hints, i32 width, i32 height                 \
-    )                                                                       \
-    X_(void, xcb_icccm_size_hints_set_max_size,                             \
-        xcb_size_hints_t *size_hints, i32 width, i32 height                 \
-    )                                                                       \
-    X_(xcb_void_cookie_t, xcb_icccm_set_wm_normal_hints_checked,            \
-        xcb_connection_t *, xcb_window_t, xcb_size_hints_t *                \
-    )                                                                       \
-
-#define X_(ret_type, name, ...) #name,
-    static const char *sym_names[] = {
-        LIBXCB_ICCM_SYM_LIST
-        NULL
-    };
-#undef X_
-
-    struct lib *libxcb_iccmm = librtld_load("libxcb-icccm.so.4", sym_names);
-    if (libxcb_iccmm == NULL)
-        goto_error("Failed to load icccm extension library");
-
-#define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__) = \
-        librtld_get_sym_handle(libxcb_iccmm, #name);
-
-    LIBXCB_ICCM_SYM_LIST
-#undef X_
-
-
-    xcb_size_hints_t hints = { 0 };
-    xcb_icccm_size_hints_set_min_size(&hints, area->w, area->h);
-    xcb_icccm_size_hints_set_max_size(&hints, area->w, area->h);
-    vc = xcb_icccm_set_wm_normal_hints_checked(win->conn, win->win, &hints);
-    if (libxcb_error) goto_error("Failed to set WM normal hints");
-
-err:
-    if (e != NULL) free(e);
-    if (libxcb_iccmm != NULL) librtld_close(libxcb_iccmm);
-
-#undef LIBXCB_ICCM_SYM_LIST
 }
 
 static void * listener_thread_fn(void *arg)
@@ -310,7 +294,7 @@ static void * listener_thread_fn(void *arg)
     xcb_generic_event_t *ev = NULL;
     while (win->listener.running) {
         p_time_usleep(10000);
-        while (ev = xcb_poll_for_event(win->conn), ev)
+        while (ev = win->xcb.xcb_poll_for_event(win->conn), ev)
             handle_event(win, ev);
     }
 
