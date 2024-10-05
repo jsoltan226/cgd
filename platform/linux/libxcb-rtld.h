@@ -83,11 +83,34 @@
     )                                                                          \
 
 
+#define LIBXCB_SHM_SO_NAME "libxcb-shm.so.0"
+#define LIBXCB_SHM_SYM_LIST                                                    \
+    X_(xcb_void_cookie_t, xcb_shm_attach_checked,                              \
+        xcb_connection_t *c, xcb_shm_seg_t shmseg,                             \
+        uint32_t shmid, uint8_t read_only                                      \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_shm_put_image,                                   \
+        xcb_connection_t *c, xcb_drawable_t drawable, xcb_gcontext_t gc,       \
+        uint16_t total_width, uint16_t total_height,                           \
+        uint16_t src_x, uint16_t src_y, uint16_t src_w, uint16_t src_h,        \
+        int16_t dst_x, int16_t dst_y, uint8_t depth, uint8_t format,           \
+        uint8_t send_event, xcb_shm_seg_t shmseg, uint32_t offset              \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_shm_detach,                                      \
+        xcb_connection_t *c, xcb_shm_seg_t shmseg                              \
+    )                                                                          \
+
+
+
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libxcb {
     LIBXCB_SYM_LIST
     LIBXCB_IMAGE_SYM_LIST
     LIBXCB_ICCCM_SYM_LIST
+    struct libxcb_shm {
+        const bool has_shm_extension_;
+        LIBXCB_SHM_SYM_LIST
+    } shm;
     const i32 handleno_;
     const bool failed_;
 };

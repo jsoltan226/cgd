@@ -18,6 +18,9 @@ static struct lib *g_libxcb_lib = NULL;
 static struct lib *g_libxcb_image_lib = NULL;
 static struct lib *g_libxcb_icccm_lib = NULL;
 
+static struct lib *g_libxcb_shm_lib = NULL;
+static bool g_libxcb_shm_ok = true;
+
 static struct libxcb g_libxcb_syms = { 0 };
 static i32 g_n_active_handles = 0;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -37,6 +40,11 @@ static const char *libxcb_icccm_sym_list[] = {
     LIBXCB_ICCCM_SYM_LIST
     NULL
 };
+
+static const char *libxcb_shm_sym_list[] = {
+    LIBXCB_SHM_SYM_LIST
+    NULL
+};
 #undef X_
 
 i32 libxcb_load(struct libxcb *o)
@@ -54,7 +62,8 @@ i32 libxcb_load(struct libxcb *o)
 
     if (g_libxcb_lib == NULL ||
         g_libxcb_image_lib == NULL ||
-        g_libxcb_icccm_lib == NULL
+        g_libxcb_icccm_lib == NULL ||
+        (g_libxcb_shm_lib == NULL && g_libxcb_shm_ok)
     ) {
         g_n_active_handles = 0;
         memset(&g_libxcb_syms, 0, sizeof(struct libxcb));
@@ -79,6 +88,11 @@ i32 libxcb_load(struct libxcb *o)
             goto end;
         }
 
+        g_libxcb_shm_lib = librtld_load(LIBXCB_SHM_SO_NAME,
+            libxcb_shm_sym_list);
+        if (g_libxcb_shm_lib == NULL)
+            g_libxcb_shm_ok = false;
+
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
                 librtld_get_sym_handle(g_libxcb_lib, #name);
             LIBXCB_SYM_LIST
@@ -91,6 +105,18 @@ i32 libxcb_load(struct libxcb *o)
                 librtld_get_sym_handle(g_libxcb_icccm_lib, #name);
             LIBXCB_ICCCM_SYM_LIST
 #undef X_
+        if (g_libxcb_shm_ok) {
+#define X_(ret_type, name, ...) g_libxcb_syms.shm.name = \
+                librtld_get_sym_handle(g_libxcb_shm_lib, #name);
+            LIBXCB_SHM_SYM_LIST
+#undef X_
+            /* Cast away const */
+            *(bool *)&g_libxcb_syms.shm.has_shm_extension_ = true;
+        } else {
+            memset(&g_libxcb_syms.shm, 0, sizeof(struct libxcb_shm));
+            /* Cast away const */
+            *(bool *)&g_libxcb_syms.shm.has_shm_extension_ = false;
+        }
     }
 
     memcpy(o, &g_libxcb_syms, sizeof(struct libxcb));
@@ -118,12 +144,23 @@ void libxcb_unload(struct libxcb *xcb)
     }
 
     if (--g_n_active_handles == 0) {
-        librtld_close(g_libxcb_lib);
-        librtld_close(g_libxcb_image_lib);
-        librtld_close(g_libxcb_icccm_lib);
-        g_libxcb_lib = NULL;
-        g_libxcb_image_lib = NULL;
-        g_libxcb_icccm_lib = NULL;
+        if (g_libxcb_lib != NULL) {
+            librtld_close(g_libxcb_lib);
+            g_libxcb_lib = NULL;
+        }
+        if (g_libxcb_icccm_lib != NULL) {
+            librtld_close(g_libxcb_icccm_lib);
+            g_libxcb_icccm_lib = NULL;
+        }
+        if (g_libxcb_image_lib != NULL) {
+            librtld_close(g_libxcb_image_lib);
+            g_libxcb_image_lib = NULL;
+        }
+
+        if (g_libxcb_shm_lib != NULL && g_libxcb_shm_ok) {
+            librtld_close(g_libxcb_shm_lib);
+            g_libxcb_shm_lib = NULL;
+        }
 
         memset(&g_libxcb_syms, 0, sizeof(struct libxcb));
     }

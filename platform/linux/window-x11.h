@@ -29,11 +29,8 @@ struct window_x11 {
     xcb_screen_iterator_t iter;
     xcb_window_t win;
 
-    struct window_x11_shm {
-        bool has_shm_extension;
-        bool attached;
-        xcb_shm_segment_info_t info;
-    } shm;
+    bool shm_attached;
+    xcb_shm_segment_info_t shm_info;
 
     xcb_atom_t UTF8_STRING;
     xcb_atom_t NET_WM_NAME;

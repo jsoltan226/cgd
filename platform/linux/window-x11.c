@@ -21,6 +21,7 @@
 #include <xcb/xproto.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/shm.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -32,9 +33,9 @@
 
 static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
-static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area);
 
-static i32 init_shm(struct window_x11_shm *shm, xcb_connection_t *conn);
+static i32 attach_shm(struct window_x11 *win);
+static void detach_shm(struct window_x11 *win);
 
 static void * listener_thread_fn(void *arg);
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
@@ -170,6 +171,9 @@ i32 window_X11_open(struct window_x11 *win,
         goto_error("Failed to create listener thread: %s", strerror(errno));
     win->listener.running = true;
 
+    s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
+        win->screen->width_in_pixels, win->screen->height_in_pixels,
+        win->xcb.shm.has_shm_extension_);
     return 0;
 
 err:
@@ -204,8 +208,27 @@ void window_X11_render(struct window_x11 *win)
     u_check_params(win != NULL && win->fb != NULL &&
         win->fb->buf != NULL && win->fb->w > 0 && win->fb->h > 0);
 
-    win->xcb.xcb_image_put(win->conn, win->win, win->gc,
-        win->xcb_image, 0, 0, 0);
+    if (win->shm_attached) {
+#define TOTAL_W win->fb->w
+#define TOTAL_H win->fb->h
+#define SRC_X 0
+#define SRC_Y 0
+#define SRC_W win->fb->w
+#define SRC_H win->fb->h
+#define DST_X 0
+#define DST_Y 0
+#define SEND_EVENT false
+#define OFFSET 0
+        win->xcb.shm.xcb_shm_put_image(win->conn, win->win, win->gc,
+            TOTAL_W, TOTAL_H, SRC_X, SRC_Y, SRC_W, SRC_H, DST_X, DST_Y,
+            win->screen->root_depth, XCB_IMAGE_FORMAT_Z_PIXMAP, SEND_EVENT,
+            win->shm_info.shmseg, OFFSET);
+
+    } else if (win->xcb_image != NULL) {
+#define LEFT_PAD 0
+        win->xcb.xcb_image_put(win->conn, win->win, win->gc,
+            win->xcb_image, DST_X, DST_Y, LEFT_PAD);
+    }
     win->xcb.xcb_flush(win->conn);
 }
 
@@ -214,12 +237,20 @@ void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
     u_check_params(win != NULL && fb != NULL);
 
     win->fb = fb;
-    win->xcb_image = win->xcb.xcb_image_create_native(win->conn, fb->w, fb->h,
-        XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth, NULL,
-        fb->w * fb->h * sizeof(pixel_t), (u8 *)fb->buf);
 
-    if (win->xcb_image == NULL)
-        s_log_fatal(MODULE_NAME, __func__, "Failed to create XCB image");
+    if (win->xcb.shm.has_shm_extension_) {
+        win->xcb_image = NULL;
+        if (attach_shm(win))
+            goto shm_attach_fail;
+    } else {
+shm_attach_fail:
+        win->xcb_image = win->xcb.xcb_image_create_native(win->conn,
+            fb->w, fb->h, XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth,
+            NULL, fb->w * fb->h * sizeof(pixel_t), (u8 *)fb->buf);
+
+        if (win->xcb_image == NULL)
+            s_log_fatal(MODULE_NAME, __func__, "Failed to create XCB image");
+    }
 }
 
 void window_X11_unbind_fb(struct window_x11 *win)
@@ -227,16 +258,20 @@ void window_X11_unbind_fb(struct window_x11 *win)
     if (win == NULL || win->fb == NULL || win->fb->buf == NULL)
         return;
 
-    free(win->fb->buf);
-    memset(win->fb, 0, sizeof(struct pixel_flat_data));
+    if (win->shm_attached) {
+        detach_shm(win);
+    } else {
+        if (win->fb->buf != NULL) free(win->fb->buf);
+        if (win->xcb_image != NULL) {
+            win->xcb_image->base = NULL;
+            win->xcb_image->data = NULL;
 
-    if (win->xcb_image != NULL) {
-        win->xcb_image->base = NULL;
-        win->xcb_image->data = NULL;
-
-        win->xcb.xcb_image_destroy(win->xcb_image);
-        win->xcb_image = NULL;
+            win->xcb.xcb_image_destroy(win->xcb_image);
+            win->xcb_image = NULL;
+        }
     }
+
+    memset(win->fb, 0, sizeof(struct pixel_flat_data));
 }
 
 static i32 intern_atom(struct window_x11 *win,
@@ -260,11 +295,67 @@ static i32 intern_atom(struct window_x11 *win,
     return 0;
 }
 
-static void set_icccm_wm_hints(struct window_x11 *win, const rect_t *area)
+static i32 attach_shm(struct window_x11 *win)
 {
-    xcb_void_cookie_t vc;
-    xcb_generic_error_t *e = NULL;
+    if (!win->xcb.shm.has_shm_extension_) return -1;
 
+    win->shm_info.shmid = -1;
+    win->shm_info.shmaddr = (void *)-1;
+    win->shm_info.shmseg = -1;
+
+    win->shm_info.shmid = shmget(
+        IPC_PRIVATE,
+        win->fb->w * win->fb->h * sizeof(pixel_t),
+        IPC_CREAT | 0600
+    );
+    if (win->shm_info.shmid == -1)
+        goto_error("Failed to create shared memory: %s", strerror(errno));
+
+    win->shm_info.shmaddr = shmat(win->shm_info.shmid, NULL, 0);
+    if (win->shm_info.shmaddr == (void *)-1)
+        goto_error("Failed to attach shared memory: %s", strerror(errno));
+
+    win->shm_info.shmseg = win->xcb.xcb_generate_id(win->conn);
+    if (win->shm_info.shmseg == -1)
+        goto_error("Failed to generate xcb shm segment ID");
+
+    xcb_void_cookie_t vc = win->xcb.shm.xcb_shm_attach_checked(
+        win->conn,
+        win->shm_info.shmseg,
+        win->shm_info.shmid,
+        false
+    );
+    xcb_generic_error_t *e = NULL;
+    if (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL) {
+        free(e);
+        goto_error("XCB failed to attach the shm segment");
+    }
+    win->shm_attached = true;
+
+    if (win->fb->buf != NULL) free(win->fb->buf);
+    win->fb->buf = (pixel_t *)win->shm_info.shmaddr;
+
+    return 0;
+
+err:
+    detach_shm(win);
+    return 1;
+}
+
+static void detach_shm(struct window_x11 *win)
+{
+    if (!win->shm_attached) return;
+    
+    win->xcb.shm.xcb_shm_detach(win->conn, win->shm_info.shmseg);
+
+    if (win->shm_info.shmaddr != (void *)-1) {
+        shmdt(win->shm_info.shmaddr);
+        win->shm_info.shmaddr = (void *)-1;
+    }
+    win->shm_info.shmid = -1;
+    win->shm_info.shmseg = -1;
+
+    win->fb->buf = NULL;
 }
 
 static void * listener_thread_fn(void *arg)
