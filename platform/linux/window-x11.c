@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "../window.h"
 #include "../event.h"
-#include "../time.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -19,6 +18,7 @@
 #include <sys/shm.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xinput.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/shm.h>
@@ -28,17 +28,26 @@
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "mouse-internal.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "mouse-x11.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
 
 static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
 
+static i32 check_xinput2_extension(struct window_x11 *win);
+
 static i32 attach_shm(struct window_x11 *win);
 static void detach_shm(struct window_x11 *win);
 
 static void * listener_thread_fn(void *arg);
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
+static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev);
 static void listener_thread_signal_handler(i32 sig_num);
 
 #define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
@@ -54,12 +63,19 @@ i32 window_X11_open(struct window_x11 *win,
     memset(win, 0, sizeof(struct window_x11));
     win->exists = true;
 
+    win->registered_keyboard = NULL;
+    win->registered_mouse = NULL;
+
     if (libxcb_load(&win->xcb)) goto_error("Failed to load libxcb");
 
     /* Open a connection */
     win->conn = win->xcb.xcb_connect(NULL, NULL);
     if (win->xcb.xcb_connection_has_error(win->conn))
         goto_error("Failed to connect to the X server");
+
+    /* Check if extensions are available */
+    if (check_xinput2_extension(win))
+        goto_error("The XInput2 extension is not available");
 
     /* Get the X server setup */
     win->setup = win->xcb.xcb_get_setup(win->conn);
@@ -157,6 +173,23 @@ i32 window_X11_open(struct window_x11 *win,
     vc = win->xcb.xcb_create_gc_checked(win->conn, win->gc, win->win,
         GCV_MASK, gcv);
     if (libxcb_error) goto_error("Failed to create the Graphics Context");
+
+    /* Initialize the XInput2 externsion */
+
+    /* Credits: https://gist.github.com/LemonBoy/dfe1d7ea428794c65b3d
+     * Like come on xcb, WTF?!??!?!! */
+    struct xi2_mask {
+        xcb_input_event_mask_t head;
+        xcb_input_xi_event_mask_t mask;
+    } mask;
+    mask.head.deviceid = XCB_INPUT_DEVICE_ALL;
+    mask.head.mask_len = sizeof(mask.mask) / sizeof(u32);
+    mask.mask = XCB_INPUT_XI_EVENT_MASK_MOTION;
+
+    vc = win->xcb.xcb_input_xi_select_events_checked(
+        win->conn, win->win, 1, &mask.head
+    );
+    if (libxcb_error) goto_error("Failed to enable input handling with Xi2");
 
     /* Map the window so that it's visible */
     vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
@@ -274,6 +307,38 @@ void window_X11_unbind_fb(struct window_x11 *win)
     memset(win->fb, 0, sizeof(struct pixel_flat_data));
 }
 
+i32 window_X11_register_keyboard(struct window_x11 *win, struct p_keyboard *kb)
+{
+    u_check_params(win != NULL && kb != NULL);
+
+    if (win->registered_keyboard != NULL) return 1;
+
+    win->registered_keyboard = kb;
+    return 0;
+}
+
+i32 window_X11_register_mouse(struct window_x11 *win, struct p_mouse *mouse)
+{
+    u_check_params(win != NULL && mouse != NULL);
+
+    if (win->registered_mouse != NULL) return 1;
+
+    win->registered_mouse = mouse;
+    return 0;
+}
+
+void window_X11_deregister_keyboard(struct window_x11 *win)
+{
+    u_check_params(win != NULL);
+    win->registered_keyboard = NULL;
+}
+
+void window_X11_deregister_mouse(struct window_x11 *win)
+{
+    u_check_params(win != NULL);
+    win->registered_mouse = NULL;
+}
+
 static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o)
 {
@@ -292,6 +357,22 @@ static i32 intern_atom(struct window_x11 *win,
 
     *o = reply->atom;
     free(reply);
+    return 0;
+}
+
+static i32 check_xinput2_extension(struct window_x11 *win)
+{
+    xcb_input_xi_query_version_cookie_t cookie =
+        win->xcb.xcb_input_xi_query_version(win->conn, 2, 0);
+
+    xcb_input_xi_query_version_reply_t *reply =
+        win->xcb.xcb_input_xi_query_version_reply(win->conn, cookie, NULL);
+
+    if (reply == NULL) return -1;
+    else if (reply->major_version < 2) return 1;
+
+    free(reply);
+    
     return 0;
 }
 
@@ -383,11 +464,8 @@ static void * listener_thread_fn(void *arg)
     }
 
     xcb_generic_event_t *ev = NULL;
-    while (win->listener.running) {
-        p_time_usleep(10000);
-        while (ev = win->xcb.xcb_poll_for_event(win->conn), ev)
-            handle_event(win, ev);
-    }
+    while (win->listener.running)
+        handle_event(win, win->xcb.xcb_wait_for_event(win->conn));
 
     /* Reset the signal handler */
     sa.sa_handler = SIG_DFL;
@@ -410,11 +488,33 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
     case XCB_DESTROY_NOTIFY:
         p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
         break;
+    case XCB_GE_GENERIC:
+        handle_ge_event(win, (xcb_ge_event_t *)ev);
+        break;
     default:
         break;
     }
 
     free(ev);
+}
+
+static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
+{
+    switch(ev->event_type) {
+    case XCB_INPUT_MOTION: {
+        xcb_input_motion_event_t *mev = (xcb_input_motion_event_t *)ev;
+
+        const i16 x = (mev->event_x >> 16);
+        const i16 y = (mev->event_y >> 16);
+        if (win->registered_mouse) {
+            win->registered_mouse->x = x;
+            win->registered_mouse->y = y;
+        }
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 static void listener_thread_signal_handler(i32 sig_num)

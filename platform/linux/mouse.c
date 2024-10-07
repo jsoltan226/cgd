@@ -36,7 +36,7 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
         m->type = mouse_fallback_modes[win->type][i];
         switch(m->type) {
             case MOUSE_TYPE_X11:
-                if (mouse_X11_init(&m->x11, &win->x11, flags))
+                if (mouse_X11_init(m, &win->x11, flags))
                     s_log_warn("Failed to set up mouse with X11");
                 else
                     goto mouse_setup_success;

@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xinput.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
 
@@ -53,7 +54,7 @@
         xcb_connection_t *c, xcb_intern_atom_cookie_t cookie,                  \
         xcb_generic_error_t **e                                                \
     )                                                                          \
-    X_(xcb_generic_event_t *, xcb_poll_for_event, xcb_connection_t *c)         \
+    X_(xcb_generic_event_t *, xcb_wait_for_event, xcb_connection_t *c)         \
 
 
 #define LIBXCB_IMAGE_SO_NAME "libxcb-image.so.0"
@@ -83,6 +84,21 @@
     )                                                                          \
 
 
+#define LIBXCB_INPUT_SO_NAME "libxcb-xinput.so.0"
+#define LIBXCB_INPUT_SYM_LIST                                                  \
+    X_(xcb_input_xi_query_version_cookie_t, xcb_input_xi_query_version,        \
+        xcb_connection_t *c, uint16_t major_version, uint16_t minor_version    \
+    )                                                                          \
+    X_(xcb_input_xi_query_version_reply_t *, xcb_input_xi_query_version_reply, \
+        xcb_connection_t *c, xcb_input_xi_query_version_cookie_t cookie,       \
+        xcb_generic_error_t **e                                                \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_input_xi_select_events_checked,                  \
+        xcb_connection_t *conn, xcb_window_t window,                           \
+        uint16_t num_mask, const xcb_input_event_mask_t *masks                 \
+    )                                                                          \
+
+
 #define LIBXCB_SHM_SO_NAME "libxcb-shm.so.0"
 #define LIBXCB_SHM_SYM_LIST                                                    \
     X_(xcb_void_cookie_t, xcb_shm_attach_checked,                              \
@@ -101,12 +117,12 @@
     )                                                                          \
 
 
-
 #define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
 struct libxcb {
     LIBXCB_SYM_LIST
     LIBXCB_IMAGE_SYM_LIST
     LIBXCB_ICCCM_SYM_LIST
+    LIBXCB_INPUT_SYM_LIST
     struct libxcb_shm {
         const bool has_shm_extension_;
         LIBXCB_SHM_SYM_LIST

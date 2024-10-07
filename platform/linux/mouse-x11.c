@@ -1,10 +1,9 @@
 #include "../mouse.h"
-#include "core/log.h"
 #include <core/int.h>
 #include <core/pressable-obj.h>
 #include <string.h>
 #include <stdbool.h>
-#include <X11/Xlib.h>
+#include <xcb/xinput.h>
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -12,7 +11,7 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libx11-rtld.h"
+#include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "mouse-internal.h"
@@ -20,23 +19,22 @@
 
 #define MODULE_NAME "mouse-x11"
 
-i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
+i32 mouse_X11_init(struct p_mouse *mouse, struct window_x11 *win, u32 flags)
 {
-    memset(mouse, 0, sizeof(struct mouse_x11));
+    struct mouse_x11 *x11 = &mouse->x11;
+    memset(x11, 0, sizeof(struct mouse_x11));
 
-    mouse->win = win;
+    if (window_X11_register_mouse(win, mouse)) return 1;
 
-    /*
-    memcpy(&mouse->Xlib, &mouse->win->Xlib, sizeof(struct libX11));
-    */
+    x11->win = win;
+
     return 0;
 }
 
 void mouse_X11_update(struct p_mouse *mouse)
 {
     struct window_x11 *win = mouse->x11.win;
-    struct libX11 *X = &mouse->x11.Xlib;
-    XEvent ev;
+    struct libxcb *xcb = &mouse->x11.win->xcb;
 
     /*
     while (X->XCheckWindowEvent(win->dpy, win->win, 
@@ -68,4 +66,5 @@ void mouse_X11_update(struct p_mouse *mouse)
 
 void mouse_X11_destroy(struct mouse_x11 *mouse)
 {
+    window_X11_deregister_mouse(mouse->win);
 }

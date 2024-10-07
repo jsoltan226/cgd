@@ -5,6 +5,8 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
+#include "../mouse.h"
+#include "../keyboard.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
@@ -13,7 +15,6 @@
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xcb_image.h>
-
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
@@ -46,6 +47,9 @@ struct window_x11 {
         bool running;
         pthread_t thread;
     } listener;
+
+    struct p_keyboard *registered_keyboard;
+    struct p_mouse *registered_mouse;
 };
 
 /* Returns 0 on success and non-zero on failure.
@@ -62,5 +66,11 @@ void window_X11_render(struct window_x11 *x11);
 
 void window_X11_bind_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
 void window_X11_unbind_fb(struct window_x11 *win);
+
+i32 window_X11_register_keyboard(struct window_x11 *win, struct p_keyboard *kb);
+i32 window_X11_register_mouse(struct window_x11 *win, struct p_mouse *mouse);
+
+void window_X11_deregister_keyboard(struct window_x11 *win);
+void window_X11_deregister_mouse(struct window_x11 *win);
 
 #endif /* P_WINDOW_X11_H_ */

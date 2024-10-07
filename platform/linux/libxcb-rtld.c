@@ -17,6 +17,7 @@
 static struct lib *g_libxcb_lib = NULL;
 static struct lib *g_libxcb_image_lib = NULL;
 static struct lib *g_libxcb_icccm_lib = NULL;
+static struct lib *g_libxcb_input_lib = NULL;
 
 static struct lib *g_libxcb_shm_lib = NULL;
 static bool g_libxcb_shm_ok = true;
@@ -26,25 +27,31 @@ static i32 g_n_active_handles = 0;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define X_(ret_type, name, ...) #name,
-static const char *libxcb_sym_list[] = {
+static const char *libxcb_sym_names[] = {
     LIBXCB_SYM_LIST
     NULL
 };
 
-static const char *libxcb_image_sym_list[] = {
+static const char *libxcb_image_sym_names[] = {
     LIBXCB_IMAGE_SYM_LIST
     NULL
 };
 
-static const char *libxcb_icccm_sym_list[] = {
+static const char *libxcb_icccm_sym_names[] = {
     LIBXCB_ICCCM_SYM_LIST
     NULL
 };
 
-static const char *libxcb_shm_sym_list[] = {
+static const char *libxcb_input_sym_names[] = {
+    LIBXCB_INPUT_SYM_LIST
+    NULL
+};
+
+static const char *libxcb_shm_sym_names[] = {
     LIBXCB_SHM_SYM_LIST
     NULL
 };
+
 #undef X_
 
 i32 libxcb_load(struct libxcb *o)
@@ -63,6 +70,7 @@ i32 libxcb_load(struct libxcb *o)
     if (g_libxcb_lib == NULL ||
         g_libxcb_image_lib == NULL ||
         g_libxcb_icccm_lib == NULL ||
+        g_libxcb_input_lib == NULL ||
         (g_libxcb_shm_lib == NULL && g_libxcb_shm_ok)
     ) {
         g_n_active_handles = 0;
@@ -71,17 +79,21 @@ i32 libxcb_load(struct libxcb *o)
         *(i32 *)&g_libxcb_syms.handleno_ = -1; /* Cast away const */
         *(bool *)&g_libxcb_syms.failed_ = false; /* Cast away const */
 
-        g_libxcb_lib = librtld_load(LIBXCB_SO_NAME, libxcb_sym_list);
+        g_libxcb_lib = librtld_load(LIBXCB_SO_NAME, libxcb_sym_names);
 
         g_libxcb_image_lib = librtld_load(LIBXCB_IMAGE_SO_NAME,
-                libxcb_image_sym_list);
+                libxcb_image_sym_names);
 
         g_libxcb_icccm_lib = librtld_load(LIBXCB_ICCCM_SO_NAME,
-                libxcb_icccm_sym_list);
+                libxcb_icccm_sym_names);
+
+        g_libxcb_input_lib = librtld_load(LIBXCB_INPUT_SO_NAME,
+                libxcb_input_sym_names);
 
         if (g_libxcb_lib == NULL ||
             g_libxcb_image_lib == NULL ||
-            g_libxcb_icccm_lib == NULL
+            g_libxcb_icccm_lib == NULL ||
+            g_libxcb_input_lib == NULL
         ) {
             g_n_active_handles = ERROR_MAGIC;
             ret = 1;
@@ -89,7 +101,7 @@ i32 libxcb_load(struct libxcb *o)
         }
 
         g_libxcb_shm_lib = librtld_load(LIBXCB_SHM_SO_NAME,
-            libxcb_shm_sym_list);
+            libxcb_shm_sym_names);
         if (g_libxcb_shm_lib == NULL)
             g_libxcb_shm_ok = false;
 
@@ -104,6 +116,10 @@ i32 libxcb_load(struct libxcb *o)
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
                 librtld_get_sym_handle(g_libxcb_icccm_lib, #name);
             LIBXCB_ICCCM_SYM_LIST
+#undef X_
+#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+                librtld_get_sym_handle(g_libxcb_input_lib, #name);
+            LIBXCB_INPUT_SYM_LIST
 #undef X_
         if (g_libxcb_shm_ok) {
 #define X_(ret_type, name, ...) g_libxcb_syms.shm.name = \
@@ -155,6 +171,10 @@ void libxcb_unload(struct libxcb *xcb)
         if (g_libxcb_image_lib != NULL) {
             librtld_close(g_libxcb_image_lib);
             g_libxcb_image_lib = NULL;
+        }
+        if (g_libxcb_input_lib != NULL) {
+            librtld_close(g_libxcb_input_lib);
+            g_libxcb_input_lib = NULL;
         }
 
         if (g_libxcb_shm_lib != NULL && g_libxcb_shm_ok) {
