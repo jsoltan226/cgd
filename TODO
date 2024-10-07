@@ -15,3 +15,4 @@ Split LOG_DEBUG into multiple levels
 (Far future) Switch to OpenGL for graphics, make a proper renderer
 
 (Future) make the makefile less of a mess
+
