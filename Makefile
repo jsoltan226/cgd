@@ -1,14 +1,19 @@
 PLATFORM?=gnu_linux
 PREFIX?=/usr
+ifeq ($(PREFIX), /data/data/com.termux/files/usr)
+TERMUX=1
+endif
 
 CC?=cc
-AR?=ar
 CCLD?=cc
 COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC -pthread
 DEPFLAGS?=-MMD -MP
 LDFLAGS?=-pie
-ARFLAGS=rcs
+SO_LDFLAGS=-shared
 LIBS?=-lSDL2 -lfreetype -lm
+ifeq ($(TERMUX), 1)
+LIBS+=-landroid-shmem
+endif
 STRIP?=strip
 DEBUGSTRIP?=strip -d
 STRIPFLAGS?=-g -s
@@ -50,7 +55,7 @@ DEPS=$(patsubst %.o,%.d,$(OBJS))
 STRIP_OBJS=$(OBJDIR)/log.c.o
 
 EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TEST_LIB=$(BINDIR)/libmain_test.a
+TEST_LIB=$(BINDIR)/libmain_test.so
 EXEARGS=
 
 
@@ -78,8 +83,8 @@ $(EXE): $(OBJS)
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
 $(TEST_LIB): $(OBJS)
-	@$(PRINTF) "AR 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
-	@$(AR) $(ARFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) >/dev/null
+	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
+	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) $(LIBS)
 
 $(OBJDIR):
 	@$(ECHO) "MKDIR	$(OBJDIR)"
@@ -147,7 +152,7 @@ compile-tests: $(TEST_EXES)
 run-tests: tests
 
 $(TEST_EXE_DIR)/%: CFLAGS = -ggdb -O0 -Wall
-$(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c $(TEST_LIB) Makefile
+$(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)
 
