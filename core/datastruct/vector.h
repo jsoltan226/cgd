@@ -5,12 +5,16 @@
 #error What are you doing using this header? Use std::vector instead!
 #endif
 
-/* Prevent internal functions from being called by the user */
-
 #include "../int.h"
 #include "../log.h"
 #include <stdbool.h>
 #include <stdlib.h>
+
+struct vector_metadata__ {
+    const u32 item_size;
+    u32 n_items;
+    u32 capacity;
+};
 
 /* Used for a more clean declaring of vector variables */
 #define VECTOR(T) T *
@@ -67,7 +71,7 @@ void * vector_end(void *v);
 bool vector_empty(void *v);
 
 /* Return the size of `v` (number of elements) */
-u32 vector_size(void *v);
+#define vector_size(v) (((struct vector_metadata__ *)v)[-1].n_items)
 
 /* Return the allocated capacity of `v` */
 u32 vector_capacity(void *v);

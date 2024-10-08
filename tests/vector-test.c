@@ -111,7 +111,7 @@ static i32 test()
             vector_large[vlarge_insert_index].str);
 
     u64 *vsmall_begin_val = vector_begin(vector_small);
-    s_log_debug("Testing vector_begin, vector_front and vector_end vith value %u...",
+    s_log_debug("Testing vector_begin, vector_front and vector_end...",
         vsmall_begin_val
     );
     if (vsmall_begin_val != vector_small)

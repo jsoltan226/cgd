@@ -7,33 +7,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MODULE_NAME "vector"
+typedef struct vector_metadata__ vector_meta_t;
 
-struct vector_metadata {
-    const u32 item_size;
-    u32 n_items;
-    u32 capacity;
-};
+#define MODULE_NAME "vector"
 
 #define VECTOR_DEFAULT_CAPACITY 8
 
 #define get_metadata_ptr(v) \
-    ((struct vector_metadata *)(v - sizeof(struct vector_metadata)))
+    ((vector_meta_t *)(v - sizeof(vector_meta_t)))
 
 #define element_at(v, at) (v + (at * get_metadata_ptr(v)->item_size))
 
 void * vector_init(u32 item_size)
 {
-    void *v = malloc(sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
+    void *v = malloc(sizeof(vector_meta_t) + (item_size * VECTOR_DEFAULT_CAPACITY));
     s_assert(v != NULL, "malloc() failed for vector");
-    memset(v, 0, sizeof(struct vector_metadata) + (item_size * VECTOR_DEFAULT_CAPACITY));
+    memset(v, 0, sizeof(vector_meta_t) + (item_size * VECTOR_DEFAULT_CAPACITY));
 
-    struct vector_metadata *metadata_ptr = v;
+    vector_meta_t *metadata_ptr = v;
     *(u32*)(&metadata_ptr->item_size) = item_size; /* Cast away `const` */
     metadata_ptr->n_items = 0;
     metadata_ptr->capacity = VECTOR_DEFAULT_CAPACITY;
 
-    v += sizeof(struct vector_metadata);
+    v += sizeof(vector_meta_t);
     return v;
 }
 
@@ -41,7 +37,7 @@ void * vector_increase_size__(void *v)
 {
     if (v == NULL) return NULL;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
 
     if (meta->n_items >= meta->capacity) {
         v = vector_realloc__(v, meta->capacity * 2);
@@ -57,7 +53,7 @@ void * vector_pop_back__(void *v)
 {
     if (v == NULL) return NULL;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
     /* Do nothing if vector is empty */
     if (meta->n_items == 0) return v;
 
@@ -80,7 +76,7 @@ void vector_memmove__(void *v, u32 src_index, u32 dst_index, u32 nmemb)
     if (src_index == dst_index || nmemb == 0)
         return;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
     /* Don't do anything of the vector doesn't have enough spare capacity */
     if (src_index + nmemb > meta->n_items || dst_index + nmemb > meta->capacity)
         return;
@@ -97,11 +93,6 @@ bool vector_empty(void *v)
     return v == NULL ? true : get_metadata_ptr(v)->n_items == 0;
 }
 
-u32 vector_size(void *v)
-{
-    return v == NULL ? 0 : get_metadata_ptr(v)->n_items;
-}
-
 u32 vector_capacity(void *v)
 {
     return v == NULL ? 0 : get_metadata_ptr(v)->capacity;
@@ -110,7 +101,7 @@ u32 vector_capacity(void *v)
 void * vector_end(void * v)
 {
     if (v == NULL) return NULL;
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
     return v + (meta->n_items * meta->item_size);
 }
 
@@ -118,7 +109,7 @@ void * vector_shrink_to_fit__(void *v)
 {
     if (v == NULL) return NULL;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
     v = vector_realloc__(v, meta->n_items);
 
     meta = get_metadata_ptr(v);
@@ -131,7 +122,7 @@ void vector_clear(void *v)
 {
     if (v == NULL) return;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
 
     memset(v, 0, meta->n_items * meta->item_size);
     meta->n_items = 0;
@@ -141,7 +132,7 @@ void * vector_erase__(void *v, u32 index)
 {
     u_check_params(v != NULL);
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
 
     if (index >= meta->n_items) return v;
 
@@ -159,13 +150,13 @@ void * vector_realloc__(void *v, u32 new_cap)
 
     void *new_v = NULL;
 
-    struct vector_metadata *meta_p = get_metadata_ptr(v);
+    vector_meta_t *meta_p = get_metadata_ptr(v);
     new_v = realloc(meta_p,
-        (new_cap * meta_p->item_size) + sizeof(struct vector_metadata));
+        (new_cap * meta_p->item_size) + sizeof(vector_meta_t));
 
     s_assert(new_v != NULL, "realloc() failed!");
 
-    new_v += sizeof(struct vector_metadata);
+    new_v += sizeof(vector_meta_t);
     return new_v;
 }
 
@@ -177,7 +168,7 @@ void * vector_resize__(void *v, u32 new_size)
     if (v == NULL)
         return NULL;
 
-    struct vector_metadata *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(v);
     meta->capacity = new_size;
     meta->n_items = u_min(new_size, meta->n_items);
 
@@ -188,7 +179,7 @@ void * vector_clone(void *v)
 {
     if (v == NULL) return NULL;
 
-    struct vector_metadata *meta_p = get_metadata_ptr(v);
+    vector_meta_t *meta_p = get_metadata_ptr(v);
 
     void *new_v = vector_init(meta_p->item_size);
     if (new_v == NULL) return NULL;
@@ -196,7 +187,7 @@ void * vector_clone(void *v)
     new_v = vector_realloc__(new_v, meta_p->capacity);
 
     memcpy(get_metadata_ptr(new_v), meta_p,
-        (meta_p->capacity * meta_p->item_size) + sizeof(struct vector_metadata)
+        (meta_p->capacity * meta_p->item_size) + sizeof(vector_meta_t)
     );
 
     return new_v;
