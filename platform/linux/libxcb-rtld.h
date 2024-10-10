@@ -55,6 +55,10 @@
         xcb_generic_error_t **e                                                \
     )                                                                          \
     X_(xcb_generic_event_t *, xcb_wait_for_event, xcb_connection_t *c)         \
+    X_(xcb_void_cookie_t, xcb_send_event,                                      \
+        xcb_connection_t *conn, uint8_t propagate, xcb_window_t destination,   \
+        uint32_t event_mask, const char *event                                 \
+    )                                                                          \
 
 
 #define LIBXCB_IMAGE_SO_NAME "libxcb-image.so.0"

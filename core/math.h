@@ -22,4 +22,12 @@ static inline bool u_collision(const rect_t *r1, const rect_t *r2)
     );
 }
 
+/* Converts a fixed point 16.16 number to float 32 */
+static const inline f32 u_fp1616_to_f32(const i32 num)
+{
+    f32 ret = (f32)num;
+    ret = ret / (f32)(1 << 16);
+    return ret;
+}
+
 #endif /* CORE_MATH_H_ */

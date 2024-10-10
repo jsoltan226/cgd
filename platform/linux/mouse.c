@@ -36,15 +36,19 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
         m->type = mouse_fallback_modes[win->type][i];
         switch(m->type) {
             case MOUSE_TYPE_X11:
-                if (mouse_X11_init(m, &win->x11, flags))
+                m->window_offset.x = 0;
+                m->window_offset.y = 0;
+                if (mouse_X11_init(&m->x11, &win->x11, flags))
                     s_log_warn("Failed to set up mouse with X11");
                 else
                     goto mouse_setup_success;
                 break;
             case MOUSE_TYPE_EVDEV:
                 /* Set the mouse X and Y to the middle of the window */
-                m->x = (win->x + win->w) / 2;
-                m->y = (win->y + win->h) / 2;
+                m->pos.x = (f32)(win->x + win->w) / 2.f;
+                m->pos.y = (f32)(win->y + win->h) / 2.f;
+                m->window_offset.x = win->x;
+                m->window_offset.y = win->y;
                 if (mouse_evdev_init(&m->evdev, flags))
                     s_log_warn("Failed to set up mouse using /dev/input");
                 else
@@ -84,9 +88,18 @@ void p_mouse_get_state(struct p_mouse *mouse,
                 break;
         }
         
-        const rect_t mouse_r = { mouse->x, mouse->y, 0, 0 };
-        const rect_t window_r = { mouse->win->x, mouse->win->y,
-            mouse->win->w, mouse->win->h };
+        const rect_t mouse_r = {
+            .x = mouse->pos.x + mouse->window_offset.x,
+            .y = mouse->pos.y + mouse->window_offset.y,
+            .w = 0,
+            .h = 0,
+        };
+        const rect_t window_r = {
+            .x = 0,
+            .y = 0,
+            .w = mouse->win->w,
+            .h = mouse->win->h
+        };
         for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
             if (mouse->buttons[i].up && !u_collision(&mouse_r, &window_r))
                 pressable_obj_force_release(&mouse->buttons[i]);
@@ -95,8 +108,8 @@ void p_mouse_get_state(struct p_mouse *mouse,
 
     if (o != NULL) {
         memcpy(o->buttons, mouse->buttons, sizeof(mouse->buttons));
-        o->x = mouse->x;
-        o->y = mouse->y;
+        o->x = mouse->pos.x;
+        o->y = mouse->pos.y;
     }
 }
 

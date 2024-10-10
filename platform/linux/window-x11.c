@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include "../window.h"
-#include "../event.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -9,7 +8,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdnoreturn.h>
+#include <stdatomic.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
@@ -29,10 +28,10 @@
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "mouse-internal.h"
+#include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "mouse-x11.h"
+#include "window-x11-events.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
@@ -44,11 +43,6 @@ static i32 check_xinput2_extension(struct window_x11 *win);
 
 static i32 attach_shm(struct window_x11 *win);
 static void detach_shm(struct window_x11 *win);
-
-static void * listener_thread_fn(void *arg);
-static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
-static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev);
-static void listener_thread_signal_handler(i32 sig_num);
 
 #define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
 
@@ -101,7 +95,7 @@ i32 window_X11_open(struct window_x11 *win,
     u32 value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
     u32 value_list[] = {
         win->screen->black_pixel,
-        XCB_EVENT_MASK_STRUCTURE_NOTIFY
+        XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_EXPOSURE
     };
 
     vc = win->xcb.xcb_create_window_checked(win->conn, XCB_COPY_FROM_PARENT,
@@ -178,16 +172,21 @@ i32 window_X11_open(struct window_x11 *win,
 
     /* Credits: https://gist.github.com/LemonBoy/dfe1d7ea428794c65b3d
      * Like come on xcb, WTF?!??!?!! */
-    struct xi2_mask {
+    const volatile struct xi2_mask {
         xcb_input_event_mask_t head;
         xcb_input_xi_event_mask_t mask;
-    } mask;
-    mask.head.deviceid = XCB_INPUT_DEVICE_ALL;
-    mask.head.mask_len = sizeof(mask.mask) / sizeof(u32);
-    mask.mask = XCB_INPUT_XI_EVENT_MASK_MOTION;
+    } mask = {
+        .head = {
+            .deviceid = XCB_INPUT_DEVICE_ALL,
+            .mask_len = sizeof(mask.mask) / sizeof(u32),
+        },
+        .mask = XCB_INPUT_XI_EVENT_MASK_MOTION
+        | XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS
+        | XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE,
+    };
 
     vc = win->xcb.xcb_input_xi_select_events_checked(
-        win->conn, win->win, 1, &mask.head
+        win->conn, win->win, 1, (const xcb_input_event_mask_t *)&mask.head
     );
     if (libxcb_error) goto_error("Failed to enable input handling with Xi2");
 
@@ -200,9 +199,12 @@ i32 window_X11_open(struct window_x11 *win,
         goto_error("Failed to flush xcb requests");
 
     /* Create the thread that listens for events */
-    if (pthread_create(&win->listener.thread, NULL, listener_thread_fn, win))
+    atomic_init(&win->listener.running, true);
+    if (pthread_create(&win->listener.thread, NULL,
+        window_X11_event_listener_fn, win))
+    {
         goto_error("Failed to create listener thread: %s", strerror(errno));
-    win->listener.running = true;
+    }
 
     s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
         win->screen->width_in_pixels, win->screen->height_in_pixels,
@@ -221,18 +223,41 @@ void window_X11_close(struct window_x11 *win)
     if (!win->exists)
         s_log_fatal(MODULE_NAME, __func__, "Attempt to double-free window");
 
-    if (win->listener.running) {
-        win->listener.running = false;
-        pthread_kill(win->listener.thread, SIGUSR1);
-        pthread_join(win->listener.thread, NULL);
-    }
+    s_log_debug("Destroying X11 window...");
     if (!win->xcb.failed_) {
+        if (atomic_load(&win->listener.running)) {
+            atomic_store(&win->listener.running, false);
+
+            if (win->win != -1) {
+                /* Send an event to our window to interrupt the blocking
+                 * `xcb_wait_for_event` call in the listener thread
+                 */
+
+                /* XCB will always copy 32 bytes from `ev` */
+                char ev_base[32] = { 0 };
+                xcb_expose_event_t *ev = (xcb_expose_event_t *)ev_base;
+
+                ev->response_type = XCB_EXPOSE;
+                ev->window = win->win;
+
+                (void) win->xcb.xcb_send_event(win->conn, false, win->win,
+                        XCB_EVENT_MASK_EXPOSURE, ev_base);
+                (void) win->xcb.xcb_flush(win->conn);
+
+                pthread_join(win->listener.thread, NULL);
+            } else {
+                /* Forcibly terminate the listener if (somehow)
+                 * the window does not exist but the thread is running */
+                pthread_kill(win->listener.thread, SIGKILL);
+            }
+        }
+
         if (win->win != -1) win->xcb.xcb_destroy_window(win->conn, win->win);
         if (win->conn) win->xcb.xcb_disconnect(win->conn);
     }
     libxcb_unload(&win->xcb);
 
-    /* win-exists is also set to false */
+    /* win->exists is also set to false */
     memset(win, 0, sizeof(struct window_x11));
 }
 
@@ -252,17 +277,17 @@ void window_X11_render(struct window_x11 *win)
 #define DST_Y 0
 #define SEND_EVENT false
 #define OFFSET 0
-        win->xcb.shm.xcb_shm_put_image(win->conn, win->win, win->gc,
+        (void) win->xcb.shm.xcb_shm_put_image(win->conn, win->win, win->gc,
             TOTAL_W, TOTAL_H, SRC_X, SRC_Y, SRC_W, SRC_H, DST_X, DST_Y,
             win->screen->root_depth, XCB_IMAGE_FORMAT_Z_PIXMAP, SEND_EVENT,
             win->shm_info.shmseg, OFFSET);
 
     } else if (win->xcb_image != NULL) {
 #define LEFT_PAD 0
-        win->xcb.xcb_image_put(win->conn, win->win, win->gc,
+        (void) win->xcb.xcb_image_put(win->conn, win->win, win->gc,
             win->xcb_image, DST_X, DST_Y, LEFT_PAD);
     }
-    win->xcb.xcb_flush(win->conn);
+    (void) win->xcb.xcb_flush(win->conn);
 }
 
 void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
@@ -307,7 +332,8 @@ void window_X11_unbind_fb(struct window_x11 *win)
     memset(win->fb, 0, sizeof(struct pixel_flat_data));
 }
 
-i32 window_X11_register_keyboard(struct window_x11 *win, struct p_keyboard *kb)
+i32 window_X11_register_keyboard(struct window_x11 *win,
+    struct keyboard_x11 *kb)
 {
     u_check_params(win != NULL && kb != NULL);
 
@@ -317,7 +343,7 @@ i32 window_X11_register_keyboard(struct window_x11 *win, struct p_keyboard *kb)
     return 0;
 }
 
-i32 window_X11_register_mouse(struct window_x11 *win, struct p_mouse *mouse)
+i32 window_X11_register_mouse(struct window_x11 *win, struct mouse_x11 *mouse)
 {
     u_check_params(win != NULL && mouse != NULL);
 
@@ -427,7 +453,7 @@ static void detach_shm(struct window_x11 *win)
 {
     if (!win->shm_attached) return;
     
-    win->xcb.shm.xcb_shm_detach(win->conn, win->shm_info.shmseg);
+    (void) win->xcb.shm.xcb_shm_detach(win->conn, win->shm_info.shmseg);
 
     if (win->shm_info.shmaddr != (void *)-1) {
         shmdt(win->shm_info.shmaddr);
@@ -437,86 +463,4 @@ static void detach_shm(struct window_x11 *win)
     win->shm_info.shmseg = -1;
 
     win->fb->buf = NULL;
-}
-
-static void * listener_thread_fn(void *arg)
-{
-    struct window_x11 *win = (struct window_x11 *)arg;
-
-    /* Make the thread ignore all signals except SIGUSR1 */
-    sigset_t sig_set;
-    sigfillset(&sig_set);
-    sigdelset(&sig_set, SIGUSR1);
-    if (pthread_sigmask(SIG_BLOCK, &sig_set, NULL)) {
-        s_log_fatal(MODULE_NAME, __func__,
-            "Failed to set signal mask: %s", strerror(errno));
-    }
-
-    /* Set up the signal handler */
-    struct sigaction sa = { 0 };
-    sa.sa_handler = listener_thread_signal_handler;
-    /* Block all signals while our handler is running */
-    sigfillset(&sa.sa_mask);
-
-    if (sigaction(SIGUSR1, &sa, NULL)) {
-        s_log_fatal(MODULE_NAME, __func__,
-            "Failed to set SIGUSR1 handler: %s", strerror(errno));
-    }
-
-    xcb_generic_event_t *ev = NULL;
-    while (win->listener.running)
-        handle_event(win, win->xcb.xcb_wait_for_event(win->conn));
-
-    /* Reset the signal handler */
-    sa.sa_handler = SIG_DFL;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGUSR1, &sa, NULL);
-
-    pthread_exit(NULL);
-}
-
-static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
-{
-    switch (ev->response_type & ~0x80) {
-    case XCB_CLIENT_MESSAGE: {
-        xcb_client_message_event_t *cm = (xcb_client_message_event_t *)ev;
-        if (cm->data.data32[0] == win->WM_DELETE_WINDOW)
-            p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
-
-        break;
-    }
-    case XCB_DESTROY_NOTIFY:
-        p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
-        break;
-    case XCB_GE_GENERIC:
-        handle_ge_event(win, (xcb_ge_event_t *)ev);
-        break;
-    default:
-        break;
-    }
-
-    free(ev);
-}
-
-static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
-{
-    switch(ev->event_type) {
-    case XCB_INPUT_MOTION: {
-        xcb_input_motion_event_t *mev = (xcb_input_motion_event_t *)ev;
-
-        const i16 x = (mev->event_x >> 16);
-        const i16 y = (mev->event_y >> 16);
-        if (win->registered_mouse) {
-            win->registered_mouse->x = x;
-            win->registered_mouse->y = y;
-        }
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-static void listener_thread_signal_handler(i32 sig_num)
-{
 }

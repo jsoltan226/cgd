@@ -25,7 +25,7 @@
 static void read_mouse_events_from_evdev(i32 fd,
     pressable_obj_t buttons[P_MOUSE_N_BUTTONS],
     bool updated_buttons[P_MOUSE_N_BUTTONS],
-    i32 *x, i32 *y);
+    f32 *x, f32 *y);
 
 i32 mouse_evdev_init(struct mouse_evdev *mouse, u32 flags)
 {
@@ -72,7 +72,7 @@ void mouse_evdev_update(struct p_mouse *mouse)
 
             read_mouse_events_from_evdev(curr_evdev->fd,
                     mouse->buttons, updated_buttons,
-                    &mouse->x, &mouse->y);
+                    &mouse->pos.x, &mouse->pos.y);
 
             for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
                 if (!updated_buttons[i] && 
@@ -104,7 +104,7 @@ void mouse_evdev_destroy(struct mouse_evdev *mouse)
 static void read_mouse_events_from_evdev(i32 fd,
     pressable_obj_t buttons[P_MOUSE_N_BUTTONS],
     bool updated_buttons[P_MOUSE_N_BUTTONS],
-    i32 *x, i32 *y)
+    f32 *x, f32 *y)
 {
     struct input_event ev = { 0 };
     i32 n_bytes_read = 0;
@@ -124,9 +124,9 @@ static void read_mouse_events_from_evdev(i32 fd,
 
         if (ev.type == EV_REL) {
             if (ev.code == REL_X) {
-                *x += ev.value;
+                *x += (f32)ev.value;
             } else if(ev.code == REL_Y) {
-                *y += ev.value;
+                *y += (f32)ev.value;
             }
             continue;
         } else if (ev.type == EV_KEY) {

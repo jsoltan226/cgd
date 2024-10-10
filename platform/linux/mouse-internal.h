@@ -1,6 +1,7 @@
 #ifndef MOUSE_INTERNAL_H_
 #define MOUSE_INTERNAL_H_
 
+#include "core/shapes.h"
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
@@ -60,7 +61,8 @@ struct p_mouse {
 
     pressable_obj_t buttons[P_MOUSE_N_BUTTONS];
 
-    i32 x, y;
+    vec2d_t window_offset;
+    vec2d_t pos;
 
     bool is_out_of_window;
 };

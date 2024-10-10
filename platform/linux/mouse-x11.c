@@ -3,6 +3,7 @@
 #include <core/pressable-obj.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <xcb/xinput.h>
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
@@ -11,57 +12,44 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "libxcb-rtld.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
 #include "mouse-internal.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "mouse-x11"
 
-i32 mouse_X11_init(struct p_mouse *mouse, struct window_x11 *win, u32 flags)
+i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
 {
-    struct mouse_x11 *x11 = &mouse->x11;
-    memset(x11, 0, sizeof(struct mouse_x11));
+    memset(mouse, 0, sizeof(struct mouse_x11));
 
+    /* Initialize the atomic struct */
+    struct mouse_x11_atomic_rw *mouse_rw =
+        (struct mouse_x11_atomic_rw *)&mouse->atomic_mouse;
+
+    atomic_init(&mouse_rw->x, 0);
+    atomic_init(&mouse_rw->y, 0);
+    atomic_init(&mouse_rw->button_bits, 0);
+
+    /* Register mouse to enable X11 mouse event handling */
     if (window_X11_register_mouse(win, mouse)) return 1;
 
-    x11->win = win;
+    mouse->win = win;
 
     return 0;
 }
 
 void mouse_X11_update(struct p_mouse *mouse)
 {
-    struct window_x11 *win = mouse->x11.win;
-    struct libxcb *xcb = &mouse->x11.win->xcb;
+    mouse->pos.x = atomic_load(&mouse->x11.atomic_mouse.x);
+    mouse->pos.y = atomic_load(&mouse->x11.atomic_mouse.y);
 
-    /*
-    while (X->XCheckWindowEvent(win->dpy, win->win, 
-            ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
-            EnterWindowMask | LeaveWindowMask, &ev)
-    ) {
-        if (ev.type == MotionNotify) {
-            mouse->x = ev.xmotion.x;
-            mouse->y = ev.xmotion.y;
-            continue;
-        } else if (ev.type == ButtonPress || ev.type == ButtonRelease) {
-            enum p_mouse_button button;
-            switch (ev.xbutton.button) {
-                case Button1: button = P_MOUSE_BUTTON_LEFT; break;
-                case Button2: button = P_MOUSE_BUTTON_MIDDLE; break;
-                case Button3: button = P_MOUSE_BUTTON_RIGHT; break;
-                default:
-                    continue;
-            }
+    const u8 button_bits = atomic_load(&mouse->x11.atomic_mouse.button_bits);
 
-            s_log_debug("button %i %s", button, ev.type == ButtonPress ? "press" : "release");
-            pressable_obj_update(&mouse->buttons[button],
-                    ev.type == ButtonPress);
-
-        }
-    }
-    */
+    pressable_obj_update(&mouse->buttons[P_MOUSE_BUTTON_LEFT],
+        button_bits & P_MOUSE_LEFTBUTTONMASK);
+    pressable_obj_update(&mouse->buttons[P_MOUSE_BUTTON_RIGHT],
+        button_bits & P_MOUSE_RIGHTBUTTONMASK);
+    pressable_obj_update(&mouse->buttons[P_MOUSE_BUTTON_MIDDLE],
+        button_bits & P_MOUSE_MIDDLEBUTTONMASK);
 }
 
 void mouse_X11_destroy(struct mouse_x11 *mouse)
