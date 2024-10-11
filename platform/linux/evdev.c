@@ -21,8 +21,6 @@
 
 #define DEVINPUT_DIR "/dev/input"
 
-#define NBITS(x) ((((x) - 1) / (8 * sizeof(long))) + 1)
-
 static i32 dev_input_event_scandir_filter(const struct dirent *dirent);
 
 static bool keyboard_check(i32 fd, const char *path);
@@ -181,7 +179,7 @@ static i32 dev_input_event_scandir_filter(const struct dirent *dirent)
 
 static bool keyboard_check(i32 fd, const char *evdev_path)
 {
-    u64 ev_bits[NBITS(EV_MAX)];
+    u64 ev_bits[u_nbits(EV_MAX)];
     if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0) {
         s_log_error("Failed to get supported events from %s: %s",
             evdev_path, strerror(errno));
@@ -194,7 +192,7 @@ static bool keyboard_check(i32 fd, const char *evdev_path)
     if (!(ev_bits[0] & 1 << EV_KEY) || (ev_bits[0] & 1 << EV_REL))
         return false;
 
-    u64 key_bits[NBITS(KEY_MAX)];
+    u64 key_bits[u_nbits(KEY_MAX)];
     if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
         s_log_error("Failed to get key events supported by %s: %s",
             evdev_path, strerror(errno));
@@ -214,7 +212,7 @@ static bool keyboard_check(i32 fd, const char *evdev_path)
 
 static bool mouse_check(i32 fd, const char *evdev_path)
 {
-    u64 ev_bits[NBITS(EV_MAX)];
+    u64 ev_bits[u_nbits(EV_MAX)];
     if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0) {
         s_log_error("Failed to get events supported by %s: %s",
             evdev_path, strerror(errno));
@@ -226,7 +224,7 @@ static bool mouse_check(i32 fd, const char *evdev_path)
         return false;
 
     /* A mouse must also support mouse button events */
-    u64 key_bits[NBITS(KEY_MAX)];
+    u64 key_bits[u_nbits(KEY_MAX)];
     if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
         s_log_error("Failed to get KEY events supported by %s: %s",
             evdev_path, strerror(errno));
@@ -240,7 +238,7 @@ static bool mouse_check(i32 fd, const char *evdev_path)
             key_checks, u_arr_size(key_checks)))
         return false;
 
-    u64 rel_bits[NBITS(KEY_MAX)];
+    u64 rel_bits[u_nbits(KEY_MAX)];
     if (ioctl(fd, EVIOCGBIT(EV_REL, sizeof(rel_bits)), rel_bits) < 0) {
         s_log_error("Failed to get REL events supported by %s: %s",
             evdev_path, strerror(errno));

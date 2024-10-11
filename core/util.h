@@ -25,4 +25,6 @@ typedef const char filepath_t[u_FILEPATH_MAX];
 
 #define u_strlen(str_literal) (sizeof(str_literal) - 1)
 
+#define u_nbits(x) ((((x) - 1) / (8 * sizeof(u64))) + 1)
+
 #endif /* UTIL_H_ */

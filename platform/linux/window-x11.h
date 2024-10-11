@@ -15,6 +15,7 @@
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xcb_image.h>
+#include <xcb/xcb_keysyms.h>
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
@@ -50,6 +51,8 @@ struct window_x11 {
 
     struct keyboard_x11 *registered_keyboard;
     struct mouse_x11 *registered_mouse;
+
+    xcb_key_symbols_t *key_symbols;
 };
 
 /* Returns 0 on success and non-zero on failure.

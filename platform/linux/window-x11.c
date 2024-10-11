@@ -182,7 +182,9 @@ i32 window_X11_open(struct window_x11 *win,
         },
         .mask = XCB_INPUT_XI_EVENT_MASK_MOTION
         | XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS
-        | XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE,
+        | XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE
+        | XCB_INPUT_XI_EVENT_MASK_KEY_PRESS
+        | XCB_INPUT_XI_EVENT_MASK_KEY_RELEASE,
     };
 
     vc = win->xcb.xcb_input_xi_select_events_checked(
@@ -193,6 +195,12 @@ i32 window_X11_open(struct window_x11 *win,
     /* Map the window so that it's visible */
     vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
     if (libxcb_error) goto_error("Failed to map (show) the window");
+
+    /* Allocate the key symbols struct, used by keyboard-x11
+     * to map keycodes received from events to keysyms */
+    win->key_symbols = win->xcb.xcb_key_symbols_alloc(win->conn);
+    if (win->key_symbols == NULL)
+        goto_error("Failed to allocate key symbols");
 
     /* Finally, flush all the commands */
     if (win->xcb.xcb_flush(win->conn) <= 0)
@@ -225,6 +233,8 @@ void window_X11_close(struct window_x11 *win)
 
     s_log_debug("Destroying X11 window...");
     if (!win->xcb.failed_) {
+        if (win->key_symbols) win->xcb.xcb_key_symbols_free(win->key_symbols);
+
         if (atomic_load(&win->listener.running)) {
             atomic_store(&win->listener.running, false);
 

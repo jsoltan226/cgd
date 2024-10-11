@@ -12,6 +12,7 @@
 #include <xcb/xinput.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/xcb_keysyms.h>
 
 #define LIBXCB_SO_NAME "libxcb.so.1"
 #define LIBXCB_SYM_LIST                                                        \
@@ -103,6 +104,15 @@
     )                                                                          \
 
 
+#define LIBXCB_KEYSYMS_SO_NAME "libxcb-keysyms.so.1"
+#define LIBXCB_KEYSYMS_SYM_LIST                                                \
+    X_(xcb_key_symbols_t *, xcb_key_symbols_alloc, xcb_connection_t *c)        \
+    X_(xcb_keysym_t, xcb_key_symbols_get_keysym,                               \
+        xcb_key_symbols_t *syms, xcb_keycode_t keycode, int col                \
+    )                                                                          \
+    X_(void, xcb_key_symbols_free, xcb_key_symbols_t *syms)                    \
+
+
 #define LIBXCB_SHM_SO_NAME "libxcb-shm.so.0"
 #define LIBXCB_SHM_SYM_LIST                                                    \
     X_(xcb_void_cookie_t, xcb_shm_attach_checked,                              \
@@ -127,6 +137,7 @@ struct libxcb {
     LIBXCB_IMAGE_SYM_LIST
     LIBXCB_ICCCM_SYM_LIST
     LIBXCB_INPUT_SYM_LIST
+    LIBXCB_KEYSYMS_SYM_LIST
     struct libxcb_shm {
         const bool has_shm_extension_;
         LIBXCB_SHM_SYM_LIST

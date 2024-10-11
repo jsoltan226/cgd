@@ -17,12 +17,12 @@
 
 struct mouse_x11_atomic_rw {
     volatile _Atomic(u32) button_bits;
-    volatile _Atomic(i32) x, y;
+    volatile _Atomic(f32) x, y;
 };
 
 struct mouse_x11_atomic_ro {
     const volatile _Atomic(u32) button_bits;
-    const volatile _Atomic(i32) x, y;
+    const volatile _Atomic(f32) x, y;
 };
 
 struct mouse_x11 {

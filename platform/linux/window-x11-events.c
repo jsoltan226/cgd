@@ -1,14 +1,17 @@
-#include <xcb/xcb.h>
-#include <xcb/xinput.h>
-#include <xcb/xproto.h>
 #define _GNU_SOURCE
 #include "../event.h"
 #include "../mouse.h"
+#include "../keyboard.h"
 #include <core/log.h>
+#include <core/int.h>
 #include <core/math.h>
+#include <core/util.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <xcb/xcb.h>
+#include <xcb/xproto.h>
+#include <xcb/xinput.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11-events.h"
 #undef P_INTERNAL_GUARD__
@@ -20,6 +23,9 @@
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "mouse-x11.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "keyboard-x11.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11-events"
@@ -65,6 +71,36 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
 static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
 {
     switch(ev->event_type) {
+    case XCB_INPUT_KEY_PRESS:
+        if (!win->registered_keyboard)
+            break;
+
+        const xcb_keysym_t press_keysym = win->xcb.xcb_key_symbols_get_keysym(
+            win->key_symbols,
+            ((xcb_input_key_press_event_t *)ev)->detail,
+            0
+        );
+        X11_keyboard_store_key_event(
+            win->registered_keyboard->key_events,
+            press_keysym,
+            KEYBOARD_X11_PRESS
+        );
+        break;
+    case XCB_INPUT_KEY_RELEASE:
+        if (!win->registered_keyboard)
+            break;
+
+        const xcb_keysym_t release_keysym = win->xcb.xcb_key_symbols_get_keysym(
+            win->key_symbols,
+            ((xcb_input_key_release_event_t *)ev)->detail,
+            0
+        );
+        X11_keyboard_store_key_event(
+            win->registered_keyboard->key_events,
+            release_keysym,
+            KEYBOARD_X11_RELEASE
+        );
+        break;
     case XCB_INPUT_BUTTON_PRESS: {
         if (!win->registered_mouse) break;
 
@@ -77,9 +113,9 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
 
         if (bev->detail == 1)
             button_bits |= P_MOUSE_LEFTBUTTONMASK;
-        if (bev->detail == 2)
+        else if (bev->detail == 2)
             button_bits |= P_MOUSE_MIDDLEBUTTONMASK;
-        if (bev->detail == 3)
+        else if (bev->detail == 3)
             button_bits |= P_MOUSE_RIGHTBUTTONMASK;
   
         atomic_store(&mouse->button_bits, button_bits);
@@ -115,8 +151,8 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
         struct mouse_x11_atomic_rw *mouse = (struct mouse_x11_atomic_rw *)
             &win->registered_mouse->atomic_mouse;
 
-        const i32 x = (i32)u_fp1616_to_f32(mev->event_x);
-        const i32 y = (i32)u_fp1616_to_f32(mev->event_y);
+        const f32 x = u_fp1616_to_f32(mev->event_x);
+        const f32 y = u_fp1616_to_f32(mev->event_y);
         atomic_store(&mouse->x, x);
         atomic_store(&mouse->y, y);
 
