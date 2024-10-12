@@ -67,7 +67,11 @@ int main(int argc, char **argv)
 #endif /* CGD_BUILDTYPE_RELEASE */
 
     s_log_info("Initializing platform window, keyboard and mouse...");
-    win = p_window_open(NULL, &(rect_t) { 0 }, P_WINDOW_TYPE_DUMMY);
+    win = p_window_open(
+        (const unsigned char *)WINDOW_TITLE,
+        &(rect_t) { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT },
+        P_WINDOW_TYPE_AUTO | P_WINDOW_POS_CENTERED_XY
+    );
     if (win == NULL)
         goto_error(ERR_INIT_KEYBOARD, "p_window_open() failed");
 
