@@ -10,7 +10,7 @@ COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC -pthread
 DEPFLAGS?=-MMD -MP
 LDFLAGS?=-pie
 SO_LDFLAGS=-shared
-LIBS?=-lSDL2 -lfreetype -lm
+LIBS?=-lfreetype -lm
 ifeq ($(TERMUX), 1)
 LIBS+=-landroid-shmem
 endif

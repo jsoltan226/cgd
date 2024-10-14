@@ -5,10 +5,10 @@
 #include "event-listener.h"
 #include <core/int.h>
 #include <core/datastruct/vector.h>
+#include <render/rctx.h>
 #include <platform/mouse.h>
 #include <platform/keyboard.h>
 #include <stdbool.h>
-#include <SDL2/SDL_render.h>
 
 #define MENUMGR_MAX_MENU_COUNT  32
 
@@ -29,13 +29,13 @@ struct menu_manager_config {
 };
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config* cfg,
-    SDL_Renderer* renderer, struct p_keyboard *keyboard, struct p_mouse *mouse);
+    struct r_ctx *rctx, struct p_keyboard *keyboard, struct p_mouse *mouse);
 
 void menu_mgr_update(struct MenuManager *mmgr,
     struct p_keyboard *keyboard, struct p_mouse *mouse,
     bool paused);
 
-void menu_mgr_draw(struct MenuManager *mmgr, SDL_Renderer *r);
+void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx);
 
 void menu_mgr_destroy(struct MenuManager *mmgr);
 

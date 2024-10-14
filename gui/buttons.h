@@ -4,12 +4,9 @@
 #include "on-event.h"
 #include "sprite.h"
 #include <core/int.h>
+#include <render/rctx.h>
 #include <platform/mouse.h>
 #include <stdbool.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_rect.h>
-#include <SDL2/SDL_render.h>
 
 enum button_flags {
     BTN_DISPLAY_HITBOX_OUTLINE  = 1 << 0,
@@ -30,11 +27,11 @@ struct button {
 };
 
 struct button * button_init(const struct sprite_config *sprite_cfg,
-    const struct on_event_obj *on_click, u32 flags, SDL_Renderer *renderer);
+    const struct on_event_obj *on_click, u32 flags, struct r_ctx *rctx);
 
 void button_update(struct button *btn, struct p_mouse *mouse);
 
-void button_draw(struct button *btn, SDL_Renderer *r);
+void button_draw(struct button *btn, struct r_ctx *rctx);
 
 void button_destroy(struct button *btn);
 

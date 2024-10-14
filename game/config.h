@@ -8,32 +8,29 @@
 #include <core/int.h>
 #include <core/shapes.h>
 #include <platform/keyboard.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_rect.h>
+#include <platform/window.h>
 #include <stdbool.h>
 
-#define WINDOW_TITLE                    "cgd"
-#define WINDOW_X                        SDL_WINDOWPOS_CENTERED
-#define WINDOW_Y                        SDL_WINDOWPOS_CENTERED
-#define WINDOW_WIDTH                    750
-#define WINDOW_HEIGHT                   500
-#define WINDOW_FLAGS                    SDL_WINDOW_OPENGL
+#define WINDOW_TITLE        (const unsigned char *)"cgd"
+#define WINDOW_W 750
+#define WINDOW_H 500
+#define WINDOW_RECT         (rect_t) { 0, 0, WINDOW_W, WINDOW_H }
+#define WINDOW_FLAGS        (P_WINDOW_TYPE_AUTO | P_WINDOW_POS_CENTERED_XY)
 
-#define RENDERER_FLAGS                  SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE
-#define FRAME_DURATION                  16
+#define FPS                 60
+#define FRAME_DURATION      (1000000 / FPS)
 
-#define TESTBUTTON_X                    20
-#define TESTBUTTON_Y                    20
-#define TESTBUTTON_WIDTH                200
-#define TESTBUTTON_HEIGHT               200
+#define TESTBUTTON_X        20
+#define TESTBUTTON_Y        20
+#define TESTBUTTON_WIDTH    200
+#define TESTBUTTON_HEIGHT   200
 
 static bool running = true;
 static bool displayButtonHitboxOutlines = false;
 static bool paused = false;
 
 static const color_RGBA32_t rendererBg = { 30, 30, 30, 100 };
-static const rect_t gameRect = { 20, 20, WINDOW_WIDTH - 40, WINDOW_HEIGHT - 40 };
+static const rect_t gameRect = { 20, 20, WINDOW_W - 40, WINDOW_H - 40 };
 
 /* tb is test button */
 #define tb_SrcWidth 780.f
@@ -152,7 +149,6 @@ static const struct menu_manager_config menu_manager_cfg = {
                         /* DESTINATION RECT */
                         .dst_rect = { 100 + 20, 150 + 20, 200, 200 },
 
-                        /* SDL_TEXTURE POINTER, INITIALIZED AT RUNTIME */
                         .texture_filepath = "gui/buttons/testButton.png"
                     },
                     .on_click_cfg = {

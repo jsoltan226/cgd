@@ -4,24 +4,29 @@
 #include "img-type.h"
 #include <core/int.h>
 #include <core/pixel.h>
-#include <SDL2/SDL_render.h>
+#include <render/rctx.h>
+#include <render/surface.h>
 
 struct asset {
     filepath_t rel_file_path;
     enum asset_img_type type;
 
     struct pixel_flat_data pixel_data;
-    SDL_Texture *texture;
+    struct r_surface *surface;
 };
 
 /* Both return NULL on failure */
-struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *renderer);
+struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx);
 FILE * asset_fopen(const char *rel_file_path, const char *mode);
 
 /* If `rel_file_path` or `img_type` are NULL,
  * then the function will use the ones from the given asset struct */
 /* Returns 0 on success and a non-zero error code on failure */
-i32 asset_write(struct asset *asset, const char *rel_file_path, enum asset_img_type img_type);
+i32 asset_write(
+    struct asset *asset,
+    const char *rel_file_path,
+    enum asset_img_type img_type
+);
 
 void asset_destroy(struct asset *asset);
 

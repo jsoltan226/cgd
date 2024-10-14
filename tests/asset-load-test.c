@@ -1,13 +1,12 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
+#include <core/shapes.h>
 #include <asset-loader/io-PNG.h>
 #include <asset-loader/plugin.h>
 #include <asset-loader/asset.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_error.h>
-#include <SDL2/SDL_video.h>
+#include <render/rctx.h>
+#include <platform/window.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,48 +14,42 @@
 
 #define MODULE_NAME "raw2sdltest"
 
+#define WINDOW_TITLE (const unsigned char *)MODULE_NAME
+#define WINDOW_RECT (rect_t) { 0, 0, 0, 0 }
+#define WINDOW_FLAGS (P_WINDOW_TYPE_DUMMY)
+
 #define IMG_REL_PATH_BUF_SIZE 256
 #define IMG_REL_PATH_PREFIX "tests/"
 static const char * const * test_img_names;
 
-SDL_Window *window = NULL;
-SDL_Renderer *renderer = NULL;
+static struct p_window *win = NULL;
+static struct r_ctx *rctx = NULL;
 
 int main(void)
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stdout);
-    s_set_log_level(LOG_DEBUG);
-    s_set_user_fault(NO_USER_FAULT);
+    s_configure_log(LOG_DEBUG, stdout, stderr);
 
     s_log_debug("Loading libPNG...");
     if (asset_load_plugin_by_type(IMG_TYPE_PNG))
         goto_error("Failed to load libPNG!");
 
-    s_log_debug("Creating SDL Window");
-    window = SDL_CreateWindow("test", 
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        0, 0, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL
-    );
-    if (window == NULL) {
-        s_log_error("Failed to create SDL Window: %s", SDL_GetError());
-        goto err;
-    }
+    s_log_debug("Opening a window");
+    win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
+    if (win == NULL)
+        goto_error("Failed to open a window");
 
-    s_log_debug("Creating SDL Renderer", NULL);
-    renderer = SDL_CreateRenderer(window, -1, 0);
-    if (renderer == NULL) {
-        s_log_error("Failed to create SDL Renderer: %s", SDL_GetError());
-        goto err;
-    }
+    s_log_debug("Initializing the renderer");
+    rctx = r_ctx_init(win, R_TYPE_SOFTWARE, 0);
+    if (rctx == NULL)
+        goto_error("Failed initialize the renderer");
 
-    /* Execute once outside of profiling to load functions into RAM */
+    /* Execute once outside of profiling to load functions into cache */
     do {
         char path_buf[IMG_REL_PATH_BUF_SIZE] = { 0 };
         strcpy(path_buf, IMG_REL_PATH_PREFIX);
         strcat(path_buf, test_img_names[0]);
 
-        struct asset *a = asset_load(path_buf, renderer);
+        struct asset *a = asset_load(path_buf, rctx);
 
         if (a == NULL) {
             s_log_error("Test FAILED for \"%s\"", path_buf);
@@ -73,7 +66,7 @@ int main(void)
         strcpy(path_buf, IMG_REL_PATH_PREFIX);
         strcat(path_buf, test_img_names[i]);
 
-        struct asset *a = asset_load(path_buf, renderer);
+        struct asset *a = asset_load(path_buf, rctx);
 
         if (a == NULL) {
             s_log_error("Test FAILED for \"%s\"", path_buf);
@@ -95,16 +88,16 @@ int main(void)
     s_log_info("[PROFILING]: Iterations/s: %lf",
         (f64)(ntested*1000000.f) / (f64)deltatime_microseconds
     );
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
     asset_unload_all_plugins();
+    r_ctx_destroy(rctx);
+    p_window_close(win);
     return EXIT_SUCCESS;
 
 err:
     s_log_error("Test result is FAIL, cleaning up...", NULL);
-    if (renderer != NULL) SDL_DestroyRenderer(renderer);
-    if (window != NULL) SDL_DestroyWindow(window);
     asset_unload_all_plugins();
+    if (rctx != NULL) r_ctx_destroy(rctx);
+    if (win != NULL) p_window_close(win);
     return EXIT_FAILURE;
 }
 

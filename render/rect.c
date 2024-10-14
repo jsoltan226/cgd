@@ -5,7 +5,6 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <platform/window.h>
-#include <SDL2/SDL_pixels.h>
 #include <stdlib.h>
 #define R_INTERNAL_GUARD__
 #include "rctx-internal.h"

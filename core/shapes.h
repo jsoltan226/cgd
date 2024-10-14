@@ -23,4 +23,9 @@ typedef struct {
 static_assert(sizeof(color_RGBA32_t) == 4,
     "The size of color_RGBA32_t must be 4 bytes (32 bits)");
 
+#define rect_arg_expand(rect) rect.x, rect.y, rect.w, rect.h
+#define rectp_arg_expand(rect) rect->x, rect->y, rect->w, rect->h
+
+void rect_clip(rect_t *r, const rect_t * restrict max);
+
 #endif /* U_SHAPES_H_ */

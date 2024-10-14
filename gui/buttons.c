@@ -7,23 +7,26 @@
 #include <core/math.h>
 #include <core/shapes.h>
 #include <core/pressable-obj.h>
+#include <render/rctx.h>
+#include <render/rect.h>
+#include <render/surface.h>
 #include <platform/mouse.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL2/SDL_render.h>
+#include <string.h>
 
 #define MODULE_NAME "button"
 
 struct button *button_init(const struct sprite_config *sprite_cfg,
     const struct on_event_obj *on_click,
-    u32 flags, SDL_Renderer *renderer)
+    u32 flags, struct r_ctx *rctx)
 {
-    u_check_params(sprite_cfg != NULL && on_click != NULL && renderer != NULL);
+    u_check_params(sprite_cfg != NULL && on_click != NULL && rctx != NULL);
 
     struct button *btn = calloc(1, sizeof(struct button));
     s_assert(btn != NULL, "calloc() failed for struct button!");
 
-    btn->sprite = sprite_init(sprite_cfg, renderer);
+    btn->sprite = sprite_init(sprite_cfg, rctx);
     if (btn->sprite == NULL) {
         s_log_error("Failed to initialize the sprite!");
         free(btn);
@@ -62,12 +65,12 @@ void button_update(struct button *btn, struct p_mouse *mouse)
     pressable_obj_update(&btn->button, btn->held);
 }
 
-void button_draw(struct button *btn, SDL_Renderer *renderer)
+void button_draw(struct button *btn, struct r_ctx *rctx)
 {
-    if (btn == NULL || renderer == NULL) return;
+    if (btn == NULL || rctx == NULL) return;
 
     /* Draw the sprite */
-    sprite_draw(btn->sprite, renderer);
+    sprite_draw(btn->sprite, rctx);
 
     /* Draw the hitbox outline */
     if(btn->flags & BTN_DISPLAY_HITBOX_OUTLINE){
@@ -76,19 +79,19 @@ void button_draw(struct button *btn, SDL_Renderer *renderer)
 
         color_RGBA32_t outline_color = btn->held ? outline_pressed : outline_normal;
 
-        SDL_SetRenderDrawColor(renderer, u_color_arg_expand(outline_color));
-        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
+        r_ctx_set_color(rctx, outline_color);
+        r_draw_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
     }
     if (btn->flags & BTN_DISPLAY_HOVER_TINT) {
         static const color_RGBA32_t hover_tint = { 30, 30, 30, 100 };
         static const color_RGBA32_t click_tint = { 20, 20, 20, 128 };
 
         if (btn->held) {
-            SDL_SetRenderDrawColor(renderer, u_color_arg_expand(click_tint));
-            SDL_RenderFillRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
+            r_ctx_set_color(rctx, click_tint);
+            r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
         } else if (btn->hovering) {
-            SDL_SetRenderDrawColor(renderer, u_color_arg_expand(hover_tint));
-            SDL_RenderFillRect(renderer, (const SDL_Rect *)&btn->sprite->hitbox);
+            r_ctx_set_color(rctx, hover_tint);
+            r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
         }
     }
 }
@@ -98,5 +101,6 @@ void button_destroy(struct button *btn)
     if (btn == NULL) return;
 
     sprite_destroy(btn->sprite);
+    btn->sprite = NULL;
     free(btn);
 }

@@ -9,12 +9,15 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/datastruct/vector.h>
+#include <render/rctx.h>
 #include <platform/keyboard.h>
 #include <platform/mouse.h>
 
 #define MODULE_NAME "menu"
 
-/* Here are the declarations of internal menu_onevent_api__onEvent interface functions. Please see the definitions at the end of this file for detailed explanations of what they do */
+/* Here are the declarations of internal menu_onevent_api_onEvent
+ * interface functions. Please see the definitions at the end of this file
+ * for detailed explanations of what they do */
 static i32 menu_onevent_api_memcpy(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_switch_menu(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_go_back(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
@@ -24,12 +27,13 @@ static i32 menu_onevent_api_flip_bool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
+struct Menu * menu_init(const struct menu_config *cfg, struct r_ctx *rctx,
     struct p_keyboard *keyboard, struct p_mouse *mouse)
 {
     struct Menu *mn = NULL;
 
-    u_check_params(cfg != NULL && renderer != NULL && keyboard != NULL && mouse != NULL);
+    u_check_params(cfg != NULL && rctx != NULL &&
+        keyboard != NULL && mouse != NULL);
 
     s_log_debug("Initializing menu with ID %lu", cfg->ID);
 
@@ -56,7 +60,7 @@ struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
             &cfg->button_info[i].sprite_cfg,
             &tmp_onevent_obj,
             cfg->button_info[i].flags,
-            renderer);
+            rctx);
         if (new_button == NULL)
             goto_error("Button init failed!");
 
@@ -104,7 +108,7 @@ struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
     /* Initialize the sprites */
     i = 0;
     while (cfg->sprite_info[i].magic == MENU_CONFIG_MAGIC && i < MENU_CONFIG_MAX_LEN) {
-        sprite_t *s = sprite_init(&cfg->sprite_info[i].sprite_cfg, renderer);
+        sprite_t *s = sprite_init(&cfg->sprite_info[i].sprite_cfg, rctx);
         if (s == NULL)
             goto_error("Sprite init failed!");
 
@@ -115,7 +119,7 @@ struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer* renderer,
 
     /* Initialize the background */
     if (cfg->bg_config.magic == MENU_CONFIG_MAGIC)
-        mn->bg = parallax_bg_init(&cfg->bg_config.bg_cfg, renderer);
+        mn->bg = parallax_bg_init(&cfg->bg_config.bg_cfg, rctx);
     s_log_debug("(%lu) Initialized the background", cfg->ID);
 
     mn->switch_target = MENU_ID_NULL;
@@ -143,18 +147,18 @@ void menu_update(struct Menu *mn, struct p_mouse *mouse)
     parallax_bg_update(mn->bg);
 }
 
-void menu_draw(struct Menu *mn, SDL_Renderer *renderer)
+void menu_draw(struct Menu *mn, struct r_ctx *rctx)
 {
-    if (mn == NULL || renderer == NULL) return;
+    if (mn == NULL || rctx == NULL) return;
 
     /* Draw background below everything else */
-    parallax_bg_draw(mn->bg, renderer);
+    parallax_bg_draw(mn->bg, rctx);
 
     for(u32 i = 0; i < vector_size(mn->sprites); i++)
-        sprite_draw(mn->sprites[i], renderer);
+        sprite_draw(mn->sprites[i], rctx);
 
     for(u32 i = 0; i < vector_size(mn->buttons); i++)
-        button_draw(mn->buttons[i], renderer);
+        button_draw(mn->buttons[i], rctx);
 }
 
 void menu_destroy(struct Menu *mn)

@@ -4,9 +4,9 @@
 #include <core/log.h>
 #include <core/int.h>
 #include <core/datastruct/vector.h>
+#include <render/rctx.h>
 #include <platform/keyboard.h>
 #include <platform/mouse.h>
-#include <SDL2/SDL_render.h>
 #include <stdlib.h>
 #include <error.h>
 #include <string.h>
@@ -14,7 +14,7 @@
 #define MODULE_NAME "menu-mgr"
 
 struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
-    SDL_Renderer *r, struct p_keyboard *keyboard, struct p_mouse *mouse)
+    struct r_ctx *rctx, struct p_keyboard *keyboard, struct p_mouse *mouse)
 {
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
     s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
@@ -29,7 +29,7 @@ struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
     /* Initialize the menus */
     u32 i = 0;
     while (cfg->menu_info[i].magic == MENU_CONFIG_MAGIC && i < MENUMGR_MAX_MENU_COUNT) {
-        struct Menu *new_menu = menu_init(&cfg->menu_info[i], r, keyboard, mouse);
+        struct Menu *new_menu = menu_init(&cfg->menu_info[i], rctx, keyboard, mouse);
         if (new_menu == NULL)
             goto_error("menu_init for menu no. %u failed", cfg->menu_info[i].ID);
 
@@ -117,11 +117,11 @@ void menu_mgr_update(struct MenuManager *mmgr,
     }
 }
 
-void menu_mgr_draw(struct MenuManager *mmgr, SDL_Renderer *r)
+void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx)
 {
-    if (mmgr == NULL || r == NULL) return;
+    if (mmgr == NULL || rctx == NULL) return;
 
-    menu_draw(mmgr->curr_menu, r);
+    menu_draw(mmgr->curr_menu, rctx);
 }
 
 void menu_mgr_destroy(struct MenuManager *mmgr)

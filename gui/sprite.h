@@ -1,10 +1,8 @@
 #ifndef SPRITE_H_
 #define SPRITE_H_
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_rect.h>
-#include <SDL2/SDL_render.h>
 #include <core/shapes.h>
+#include <render/rctx.h>
 #include <asset-loader/asset.h>
 
 typedef struct {
@@ -19,8 +17,8 @@ struct sprite_config {
     filepath_t texture_filepath;
 };
 
-sprite_t * sprite_init(const struct sprite_config *cfg, SDL_Renderer *r);
-void sprite_draw(sprite_t *spr, SDL_Renderer *r);
+sprite_t * sprite_init(const struct sprite_config *cfg, struct r_ctx *rctx);
+void sprite_draw(sprite_t *spr, struct r_ctx *rctx);
 void sprite_destroy(sprite_t *spr);
 
 #endif /* SPRITE_H_ */

@@ -3,13 +3,9 @@
 
 #include <core/int.h>
 #include <core/shapes.h>
+#include <render/rctx.h>
+#include <render/surface.h>
 #include <asset-loader/asset.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_rect.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_timer.h>
-#include <SDL2/SDL_video.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -39,7 +35,7 @@ struct font_glyph_data {
 };
 
 struct font {
-    SDL_Texture *texture;
+    struct r_surface *surface;
 
     struct font_glyph_data *glyphs;
     struct {
@@ -54,10 +50,12 @@ struct font {
     u16 flags;
 };
 
-struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW, f32 charH,
-        enum font_charset charset, u16 flags);
+struct font * font_init(const char *filepath, struct r_ctx *rctx,
+    f32 charW, f32 charH,
+    enum font_charset charset, u16 flags);
 
-i32 font_draw_text(struct font *font, SDL_Renderer *renderer, vec2d_t *pos, const char *fmt, ...);
+i32 font_draw_text(struct font *font, struct r_ctx *rctx, vec2d_t *pos,
+    const char *fmt, ...);
 
 void font_destroy(struct font *font);
 

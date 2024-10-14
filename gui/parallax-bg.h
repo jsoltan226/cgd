@@ -1,8 +1,7 @@
 #ifndef PARALLAX_BG_H_
 #define PARALLAX_BG_H_
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_render.h>
+#include <render/rctx.h>
 #include <core/int.h>
 #include <core/datastruct/vector.h>
 #include <asset-loader/asset.h>
@@ -30,10 +29,12 @@ struct parallax_bg_config {
     struct parallax_bg_layer_config layer_cfgs[PARALLAX_BG_MAX_LAYERS];
 };
 
-struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg,
-    SDL_Renderer *renderer);
+struct parallax_bg * parallax_bg_init(
+    const struct parallax_bg_config *cfg,
+    struct r_ctx *rctx
+);
 void parallax_bg_update(struct parallax_bg *bg);
-void parallax_bg_draw(struct parallax_bg *bg, SDL_Renderer *renderer);
+void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx);
 void parallax_bg_destroy(struct parallax_bg *bg);
 
 #endif /* PARALLAX_BG_H_ */

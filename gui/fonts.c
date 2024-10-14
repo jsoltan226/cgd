@@ -1,30 +1,37 @@
 #include "fonts.h"
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <render/rctx.h>
+#include <render/rect.h>
+#include <render/surface.h>
+#include <platform/window.h>
 #include <core/log.h>
 #include <core/int.h>
 #include <core/math.h>
+#include <render/rctx.h>
+#include <render/surface.h>
 #include <asset-loader/asset.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL_error.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_blendmode.h>
 
 #define MODULE_NAME "fonts"
 
-struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW, f32 lineH,
-        enum font_charset charset, u16 flags)
+struct font * font_init(const char *filepath, struct r_ctx *rctx,
+    f32 charW, f32 lineH,
+    enum font_charset charset, u16 flags)
 {
-    u_check_params(filepath != NULL && renderer != NULL);
+    u_check_params(filepath != NULL && rctx != NULL);
 
     /* The exit error codes used by the 'err' label */
     i32 ft_ret = 0;
 
     char c = 0; /* Used later, but the declaration must be here, as it's needed by the 'err' label */
     struct font *new_font = NULL;
-    SDL_Surface **tmp_surfaces = NULL;
-    SDL_Surface *final_surface = NULL;
+    struct r_surface **tmp_surfaces = NULL;
+    struct r_surface *final_surface = NULL;
     FT_Library ft = NULL;
     FT_Face face = NULL;
 
@@ -82,7 +89,7 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
 
     /* Prepare the temporary surfaces and the total width and height,
      * used later to create the final surface with the appropriate dimensions */
-    tmp_surfaces = calloc(new_font->visible_chars.total, sizeof(SDL_Surface *));
+    tmp_surfaces = calloc(new_font->visible_chars.total, sizeof(struct r_surface *));
     if (tmp_surfaces == NULL) goto_error("malloc() failed for tmp_surfaces!");
 
     u32 totalW = 0, totalH = 0;
@@ -134,61 +141,68 @@ struct font * font_init(const char *filepath, SDL_Renderer *renderer, f32 charW,
         totalW += curr_glyph->src_rect.w;
         totalH = u_max(totalH, glyph_slot->metrics.height >> 6);
 
-        tmp_surfaces[i] = SDL_CreateRGBSurfaceWithFormat(
-            0, glyph_slot->bitmap.width, glyph_slot->bitmap.rows, 32, SDL_PIXELFORMAT_RGBA32
+        tmp_surfaces[i] = r_surface_create(rctx,
+            glyph_slot->bitmap.width, glyph_slot->bitmap.rows,
+            P_WINDOW_BGRA8888
         );
-        SDL_Surface *curr_surface = tmp_surfaces[i];
+        struct r_surface *curr_surface = tmp_surfaces[i];
         if(curr_surface == NULL)
-            goto_error("Failed to create SDL Surface @ index %i: %s", i, SDL_GetError());
-
-        /* Fill the surface with a transparent black (RGBA 0 0 0 0) background */
-        SDL_LockSurface(curr_surface);
-        SDL_FillRect(curr_surface, NULL, SDL_MapRGBA(curr_surface->format, 0, 0, 0, 0));
+            goto_error("Failed to create a surface @ index %i");
 
         /* Go through all the pixels one by one,
          * and map them over onto the current glyph's temp surface */
         for (u32 y = 0; y < glyph_slot->bitmap.rows; ++y) {
             for (u32 x = 0; x < glyph_slot->bitmap.width; ++x) {
-                u8 pixel = glyph_slot->bitmap.buffer[y * glyph_slot->bitmap.width + x];
-                u32* target_pixel = (u32*)((u8*)curr_surface->pixels + y * curr_surface->pitch + x * sizeof(u32));
-                *target_pixel = SDL_MapRGBA(curr_surface->format, pixel, pixel, pixel, pixel);
+                const u32 src_index = y * glyph_slot->bitmap.width + x;
+                const u8 src_channel = (glyph_slot->bitmap.buffer[src_index]);
+                const pixel_t src_pixel =
+                    { src_channel, src_channel, src_channel, src_channel };
+
+                pixel_t *const dst_pixel_p = curr_surface->data.buf +
+                    (y * curr_surface->data.w + x);
+                *dst_pixel_p = src_pixel;
             }
         }
-        SDL_UnlockSurface(curr_surface);
     }
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
-    s_log_debug("Total width is %i, total height is %i. Creating final surface...",
-        totalW, totalH);
-    final_surface = SDL_CreateRGBSurfaceWithFormat(
-        0, totalW, totalH, 32, SDL_PIXELFORMAT_RGBA32
+    s_log_debug("Total width is %i, total height is %i."
+        "Creating final surface...",
+        totalW, totalH
+    );
+    final_surface = r_surface_create(rctx,
+        totalW, totalH,
+        P_WINDOW_BGRA8888
     );
     if (final_surface == NULL)
-        goto_error("Failed to create final surface with totalW: %i, totalH: %i: %s",
-            totalW, totalH, SDL_GetError());
+        goto_error("Failed to create final surface"
+            "with totalW: %i, totalH: %i",
+            totalW, totalH);
 
     /* Iterate through the temporary surfaces and draw each of them,
      * one by one, onto the final surface */
     for(u32 i = 0; i < new_font->visible_chars.total; i++){
-        SDL_BlitSurface(tmp_surfaces[i], NULL, final_surface, (SDL_Rect *)&new_font->glyphs[i].src_rect);
+        u32 x = 0;
+        for (u32 y = 0; y < tmp_surfaces[i]->data.h; y++) {
+            const u32 offset = (y * totalH) + x;
+            const struct pixel_flat_data *src = &tmp_surfaces[i]->data;
+            memcpy(
+                final_surface->data.buf + offset,
+                src->buf,
+                src->w * src->h * sizeof(pixel_t)
+            );
+        }
 
-        SDL_FreeSurface(tmp_surfaces[i]);
+        r_surface_destroy(tmp_surfaces[i]);
         tmp_surfaces[i] = NULL;
     }
     free(tmp_surfaces);
     tmp_surfaces = NULL;
 
-    /* Now, create the new font's texture from the final temp surface */
-    new_font->texture = SDL_CreateTextureFromSurface(renderer, final_surface);
-    if (new_font->texture == NULL)
-        goto_error("Failed to create the final font texture: %s", SDL_GetError());
-
-    SDL_FreeSurface(final_surface);
-
-    SDL_SetTextureBlendMode(new_font->texture, SDL_BLENDMODE_BLEND);
-    font_set_text_color(new_font, u_color_arg_expand(FNT_DEFAULT_TEXT_COLOR));
+    new_font->surface = final_surface;
+    //font_set_text_color(new_font, u_color_arg_expand(FNT_DEFAULT_TEXT_COLOR));
 
     s_log_debug("OK loading font from \"%s\"", filepath);
 
@@ -201,22 +215,23 @@ err:
     if (new_font) {
         if(tmp_surfaces) {
             for (u32 i = 0; i < new_font->visible_chars.total; i++) {
-                if (tmp_surfaces[i]) SDL_FreeSurface(tmp_surfaces[i]);
+                if (tmp_surfaces[i]) r_surface_destroy(tmp_surfaces[i]);
             }
             free(tmp_surfaces);
         }
-        if (final_surface) SDL_FreeSurface(final_surface);
+        if (final_surface) r_surface_destroy(final_surface);
+        else if (new_font->surface) r_surface_destroy(new_font->surface);
 
-        if (new_font->texture) SDL_DestroyTexture(new_font->texture);
         if (new_font->glyphs) free(new_font->glyphs);
         free(new_font);
     }
     return NULL;
 }
 
-i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const char *fmt, ...)
+i32 font_draw_text(struct font *fnt, struct r_ctx *rctx, vec2d_t *pos,
+    const char *fmt, ...)
 {
-    if (fnt == NULL || renderer == NULL || pos == NULL) return -1;
+    if (fnt == NULL || rctx == NULL || pos == NULL) return -1;
 
     va_list vArgs;
     char str[FNT_TEXT_BUFFER_SIZE] = { 0 };
@@ -249,13 +264,13 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
                     };
                     maxCharH = u_max(maxCharH, (glyphDestRect.h | (i64)fnt->line_height));
 
-                    SDL_RenderCopy(renderer, fnt->texture,
-                        (const SDL_Rect *)&fnt->glyphs[i].src_rect,
-                        (const SDL_Rect *)&glyphDestRect
+                    r_surface_blit(fnt->surface,
+                        (const rect_t *)&fnt->glyphs[i].src_rect,
+                        (const rect_t *)&glyphDestRect
                     );
                     if(fnt->flags & FNT_FLAG_DISPLAY_GLYPH_RECTS){
-                        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-                        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&glyphDestRect);
+                        r_ctx_set_color(rctx, (color_RGBA32_t) { 255, 0, 0, 255 });
+                        r_draw_rect(rctx, rect_arg_expand(glyphDestRect));
                     }
 
                     rect_t charDestRect = (rect_t){
@@ -265,8 +280,8 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
                         .h = fnt->line_height
                     };
                     if(fnt->flags & FNT_FLAG_DISPLAY_CHAR_RECTS){
-                        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-                        SDL_RenderDrawRect(renderer, (const SDL_Rect *)&charDestRect);
+                        r_ctx_set_color(rctx, (color_RGBA32_t) { 255, 255, 0, 255 });
+                        r_draw_rect(rctx, rect_arg_expand(charDestRect));
                     }
 
                     penX += fnt->charW;
@@ -303,13 +318,13 @@ i32 font_draw_text(struct font *fnt, SDL_Renderer *renderer, vec2d_t *pos, const
     maxPenX = u_max(penX, maxPenX);
 
     if (fnt->flags & FNT_FLAG_DISPLAY_TEXT_RECTS) {
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-        SDL_RenderDrawRect(renderer, &(SDL_Rect) {
-                .x = pos->x - 1,
-                .y = pos->y - 1,
-                .w = maxPenX + 2,
-                .h = penY + maxCharH + 2
-            } );
+        r_ctx_set_color(rctx, (color_RGBA32_t) { 0, 255, 0, 255 });
+        r_draw_rect(rctx,
+            pos->x - 1,
+            pos->y - 1,
+            maxPenX + 2,
+            penY + maxCharH + 2
+        );
     }
 
     return 0;
@@ -321,8 +336,12 @@ void font_destroy(struct font *font)
     s_log_debug("Destroying font...");
 
     free(font->glyphs);
-    if (font->texture != NULL)
-        SDL_DestroyTexture(font->texture);
+    font->glyphs = NULL;
+
+    if (font->surface != NULL) {
+        r_surface_destroy(font->surface);
+        font->surface = NULL;
+    }
 
     free(font);
 }
@@ -330,8 +349,7 @@ void font_destroy(struct font *font)
 void font_set_text_color(struct font *font, u8 r, u8 g, u8 b, u8 a)
 {
     if (font == NULL) return;
-    SDL_SetTextureColorMod(font->texture, r, g, b);
-    SDL_SetTextureAlphaMod(font->texture, a);
+    s_log_fatal(MODULE_NAME, __func__, "not implemented yet");
 }
 
 void font_set_line_height(struct font *font, f32 line_height)

@@ -1,40 +1,40 @@
 #include "asset.h"
 #include "io-PNG.h"
+#include "platform/window.h"
 #include "plugin.h"
-#include "raw2sdl.h"
 #include "img-type.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
+#include <render/rctx.h>
+#include <render/surface.h>
 #include <platform/exe-info.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_render.h>
 
 #define MODULE_NAME "assetld"
 
 const char * asset_get_assets_dir();
 static i32 get_bin_dir(char *buf, u32 buf_size);
 
-struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *r)
+struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
 {
-    u_check_params(rel_file_path != NULL && r != NULL);
+    u_check_params(rel_file_path != NULL && rctx != NULL);
 
     s_log_debug("Loading asset \"%s\"...", rel_file_path);
 
     FILE *fp = NULL;
 
     struct asset *a = calloc(1, sizeof(struct asset));
-    if (a == NULL)
-        s_log_fatal("assetld", "calloc() failed for %s", "struct asset");
+    s_assert(a != NULL, "calloc() failed for %s", "struct asset");
 
     strncpy((char *)a->rel_file_path, rel_file_path, u_FILEPATH_MAX - 1);
     fp = asset_fopen(rel_file_path, "rb");
     if (fp == NULL)
-        goto_error("Failed to open asset \"%s\": %s", a->rel_file_path, strerror(errno));
+        goto_error("Failed to open asset \"%s\": %s",
+            a->rel_file_path, strerror(errno));
 
     a->type = asset_get_img_type(fp);
     if (a->type == IMG_TYPE_UNKNOWN)
@@ -59,9 +59,9 @@ struct asset * asset_load(filepath_t rel_file_path, SDL_Renderer *r)
             break;
     }
 
-    a->texture = pixel_data_2_sdl_tex(&a->pixel_data, r);
-    if (a->texture == NULL)
-        goto_error("Failed to create an SDL_Texture from the pixel_data!");
+    a->surface = r_surface_init(rctx, &a->pixel_data, P_WINDOW_RGBA8888);
+    if (a->surface == NULL)
+        goto_error("Failed to create a surface from the pixel_data!");
 
     fclose(fp);
     return a;
@@ -90,10 +90,13 @@ void asset_destroy(struct asset *a)
 {
     if (a == NULL) return;
 
-    free(a->pixel_data.buf);
+    if (a->surface)
+        r_surface_destroy(a->surface);
+    else if (a->pixel_data.buf)
+        free(a->pixel_data.buf);
 
-    if (a->texture)
-        SDL_DestroyTexture(a->texture);
+    memset(a, 0, sizeof(struct asset));
+    free(a);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };

@@ -80,36 +80,40 @@ void r_surface_blit(struct r_surface *surface,
 {
     u_check_params(surface != NULL);
 
-    const rect_t *final_src_rect = src_rect != NULL ? src_rect :
-        &(rect_t){ 0, 0, surface->data.w, surface->data.h };
-
-    const rect_t *final_dst_rect = dst_rect != NULL ? dst_rect :
-        &(rect_t){ 0, 0, surface->data.w, surface->data.h };
+    const rect_t final_src_rect = {
+        .x = src_rect ? src_rect->x : 0,
+        .y = src_rect ? src_rect->y : 0,
+        .w = src_rect ? src_rect->w : surface->data.w,
+        .h = src_rect ? src_rect->h : surface->data.h
+    };
+    const rect_t final_dst_rect = {
+        .x = dst_rect ? dst_rect->x : 0,
+        .y = dst_rect ? dst_rect->y : 0,
+        .w = dst_rect ? dst_rect->w : surface->rctx->pixels.w,
+        .h = dst_rect ? dst_rect->h : surface->rctx->pixels.h,
+    };
 
     /* Return early if there is nothing to draw */
-    if ((final_src_rect && 
-            (final_src_rect->w == 0 || final_src_rect->h == 0)) ||
-        (final_dst_rect && 
-            (final_dst_rect->w == 0 || final_dst_rect->h == 0))
-    )
+    if (final_src_rect.w == 0 || final_src_rect.h == 0 ||
+        final_dst_rect.w == 0 || final_dst_rect.h == 0)
         return;
 
     const bool pixel_format_matches =
         surface->color_format == surface->rctx->win_meta.color_type;
 
     const bool scale_matches =
-        (final_src_rect->w == final_dst_rect->w) &&
-        (final_src_rect->h == final_dst_rect->h);
+        (final_src_rect.w == final_dst_rect.w) &&
+        (final_src_rect.h == final_dst_rect.h);
 
     if (scale_matches && pixel_format_matches) {
         memcpy_blit(&surface->data, surface->rctx,
-            final_src_rect, final_dst_rect);
+            &final_src_rect, &final_dst_rect);
     } else if (!scale_matches && pixel_format_matches) {
         scale_matching_format_blit(&surface->data, surface->rctx,
-            final_src_rect, final_dst_rect);
+            &final_src_rect, &final_dst_rect);
     } else {
         scale_normal_blit(&surface->data, surface->rctx,
-            final_src_rect, final_dst_rect);
+            &final_src_rect, &final_dst_rect);
     }
 }
 

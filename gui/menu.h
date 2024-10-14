@@ -9,9 +9,9 @@
 #include <core/int.h>
 #include <core/util.h>
 #include <core/datastruct/vector.h>
+#include <render/rctx.h>
 #include <platform/keyboard.h>
 #include <platform/mouse.h>
-#include <SDL2/SDL_render.h>
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -106,11 +106,11 @@ struct menu_config {
     u64 ID;
 };
 
-struct Menu * menu_init(const struct menu_config *cfg, SDL_Renderer *r,
+struct Menu * menu_init(const struct menu_config *cfg, struct r_ctx *rctx,
     struct p_keyboard *keyboard, struct p_mouse *mouse);
 
 void menu_update(struct Menu *menu, struct p_mouse *mouse);
-void menu_draw(struct Menu *menu, SDL_Renderer *r);
+void menu_draw(struct Menu *menu, struct r_ctx *rctx);
 void menu_destroy(struct Menu *menu);
 void menu_init_onevent_obj(struct on_event_obj *on_event_obj,
         const struct menu_onevent_config *cfg, const struct Menu *optionalMenuPtr);
