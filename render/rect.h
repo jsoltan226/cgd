@@ -3,7 +3,12 @@
 
 #include "rctx.h"
 
-void r_draw_rect(struct r_ctx *ctx, i32 x, i32 y, i32 w, i32 h);
-void r_fill_rect(struct r_ctx *ctx, i32 x, i32 y, i32 w, i32 h);
+void r_draw_rect(struct r_ctx *ctx,
+    const i32 u_x, const i32 u_y,
+    const i32 u_w, const i32 u_h);
+
+void r_fill_rect(struct r_ctx *ctx,
+    const i32 u_x, const i32 u_y,
+    const i32 u_w, const i32 u_h);
 
 #endif /* R_RECT_H_ */

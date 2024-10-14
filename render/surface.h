@@ -17,8 +17,11 @@ struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
 struct r_surface * r_surface_init(struct r_ctx *rctx,
     struct pixel_flat_data *pixels, enum p_window_color_type color_format);
 
-void r_surface_blit(struct r_surface *surface,
-    const rect_t *src_rect, const rect_t *dst_rect);
+void r_surface_blit(
+    struct r_surface *surface,
+    const rect_t * restrict src_rect,
+    const rect_t * restrict dst_rect
+);
 
 void r_surface_destroy(struct r_surface *surface);
 

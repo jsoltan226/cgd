@@ -27,4 +27,10 @@ typedef const char filepath_t[u_FILEPATH_MAX];
 
 #define u_nbits(x) ((((x) - 1) / (8 * sizeof(u64))) + 1)
 
+#define u_rgba_swap_b_r(color) do {     \
+    const register u8 tmp = color.b;    \
+    color.b = color.r;                  \
+    color.r = tmp;                      \
+} while (0);
+
 #endif /* UTIL_H_ */

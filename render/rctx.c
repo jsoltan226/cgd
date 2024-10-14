@@ -10,7 +10,7 @@
 #include <threads.h>
 
 #define R_INTERNAL_GUARD__
-#include "rctx_internal.h"
+#include "rctx-internal.h"
 #undef R_INTERNAL_GUARD__
 
 #define MODULE_NAME "rctx"
@@ -72,6 +72,9 @@ void r_ctx_destroy(struct r_ctx *ctx)
 void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 {
     u_check_params(ctx != NULL);
+
+    if (ctx->win_meta.color_type == P_WINDOW_BGRA8888)
+        u_rgba_swap_b_r(color);
 
     ctx->current_color = color;
 }

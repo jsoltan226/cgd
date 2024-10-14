@@ -3,12 +3,11 @@
 #include <core/util.h>
 #include <core/shapes.h>
 #define R_INTERNAL_GUARD__
-#include "rctx_internal.h"
+#include "rctx-internal.h"
 #undef R_INTERNAL_GUARD__
 #define R_INTERNAL_GUARD__
-#include "putpixel_fast.h"
+#include "putpixel-fast.h"
 #undef R_INTERNAL_GUARD__
-#include <stdlib.h>
 
 #define MODULE_NAME "line"
 
@@ -44,8 +43,11 @@ void r_draw_line(struct r_ctx *rctx, const vec2d_t start, const vec2d_t end)
     if (dx > dy) {
         /* Shallow slope (|dx| > |dy|) - Increment x more frequently */
         for (; x <= final_end.x; x++) {
-            r_putpixel_fast_(rctx->pixels.buf, x, y, rctx->pixels.w,
-                rctx->current_color, rctx->win_meta.color_type);
+            r_putpixel_fast_matching_pixelfmt_(
+                rctx->pixels.buf,
+                x, y, rctx->pixels.w,
+                rctx->current_color
+            );
 
             err -= dy;
             if (err < 0) {
@@ -57,8 +59,10 @@ void r_draw_line(struct r_ctx *rctx, const vec2d_t start, const vec2d_t end)
         /* Steep slope (|dy| > |dx|) - Increment y more frequently */
         err = dy / 2;  /* Reset err to be based on dy for this case */
         for (; y != final_end.y; y++) {
-            r_putpixel_fast_(rctx->pixels.buf, x, y, rctx->pixels.w,
-                rctx->current_color, rctx->win_meta.color_type);
+            r_putpixel_fast_matching_pixelfmt_(
+                rctx->pixels.buf,
+                x, y, rctx->pixels.w,
+                rctx->current_color);
 
             err -= dx;
             if (err < 0) {
