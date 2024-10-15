@@ -6,11 +6,11 @@ endif
 
 CC?=cc
 CCLD?=cc
-COMMON_CFLAGS=-Wall -I. -I.. -I$(PREFIX)/include/freetype2 -pipe -fPIC -pthread
+COMMON_CFLAGS=-Wall -I. -pipe -fPIC -pthread
 DEPFLAGS?=-MMD -MP
 LDFLAGS?=-pie
 SO_LDFLAGS=-shared
-LIBS?=-lfreetype -lm
+LIBS?=-lm -ldl
 ifeq ($(TERMUX), 1)
 LIBS+=-landroid-shmem
 endif

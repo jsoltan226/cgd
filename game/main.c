@@ -1,6 +1,5 @@
 #include "config.h"
 #include <core/util.h>
-#include <gui/fonts.h>
 #include <gui/menu-mgr.h>
 #include <core/log.h>
 #include <asset-loader/plugin.h>
@@ -23,7 +22,6 @@ enum EXIT_CODES {
     ERR_INIT_KEYBOARD               = 4,
     ERR_INIT_MOUSE                  = 5,
     ERR_INIT_MENU_MANAGER           = 6,
-    ERR_INIT_FONT                   = 7,
     ERR_MAX
 };
 static enum EXIT_CODES EXIT_CODE;
@@ -40,7 +38,6 @@ static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
 static struct p_keyboard *keyboard = NULL;
 static struct p_mouse *mouse = NULL;
-static struct font *sourceCodeProFont = NULL;
 
 /* Fix linker error ('undefined reference to WinMain') when compiling for windows */
 #ifdef _WIN32
@@ -78,19 +75,6 @@ int main(int argc, char **argv)
     MenuManager = menu_mgr_init(&menu_manager_cfg, rctx, keyboard, mouse);
     if (MenuManager == NULL)
         goto_error(ERR_INIT_MENU_MANAGER, "Failed to initialize the menu manager");
-
-    s_log_debug("Initializing the font");
-    sourceCodeProFont = font_init(
-        "fonts/SourceCodePro-Semibold.otf",
-        rctx,
-        0.f, 30.f,
-        FNT_CHARSET_ASCII,
-        0
-    );
-    if (sourceCodeProFont == NULL)
-        goto_error(ERR_INIT_FONT, "Failed to initialize the font");
-
-    //font_set_text_color(sourceCodeProFont, 150, 150, 150, 255);
 
     s_log_info("Init OK! Entering main loop...");
     /* MAIN LOOP */
@@ -136,7 +120,6 @@ main_loop_breakout:
     EXIT_CODE = EXIT_OK;
 
 cleanup:
-    if (sourceCodeProFont != NULL) font_destroy(sourceCodeProFont);
     if (MenuManager != NULL) menu_mgr_destroy(MenuManager);
     if (mouse != NULL) p_mouse_destroy(mouse);
     if (keyboard != NULL) p_keyboard_destroy(keyboard);
