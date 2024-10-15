@@ -5,8 +5,8 @@
 #error What are you doing using this header? Use std::vector instead!
 #endif
 
-#include "../int.h"
-#include "../log.h"
+#include "int.h"
+#include "log.h"
 #include <stdbool.h>
 #include <stdlib.h>
 

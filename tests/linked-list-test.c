@@ -1,6 +1,6 @@
 #include <core/int.h>
 #include <core/log.h>
-#include <core/datastruct/linked-list.h>
+#include <core/linked-list.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

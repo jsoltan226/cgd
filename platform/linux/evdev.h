@@ -7,7 +7,7 @@
 
 #include <core/int.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 
 #define EVDEV_TYPES_LIST    \
     X_(EVDEV_UNKNOWN)       \

@@ -7,7 +7,7 @@
 
 #include "../mouse.h"
 #include <core/int.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <poll.h>
 
 struct mouse_evdev {

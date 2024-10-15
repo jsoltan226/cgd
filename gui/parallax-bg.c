@@ -2,7 +2,7 @@
 #include "menu.h"
 #include <core/log.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <render/rctx.h>
 #include <render/surface.h>
 #include <asset-loader/asset.h>

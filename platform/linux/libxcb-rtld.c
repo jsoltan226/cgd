@@ -2,7 +2,6 @@
 #include <core/int.h>
 #include <core/util.h>
 #include <core/librtld.h>
-#include <core/datastruct/vector.h>
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>

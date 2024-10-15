@@ -5,7 +5,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>

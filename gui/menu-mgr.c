@@ -3,7 +3,7 @@
 #include "event-listener.h"
 #include <core/log.h>
 #include <core/int.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <render/rctx.h>
 #include <platform/keyboard.h>
 #include <platform/mouse.h>

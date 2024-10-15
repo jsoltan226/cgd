@@ -4,7 +4,7 @@
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pressable-obj.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>

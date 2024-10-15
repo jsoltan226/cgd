@@ -1,7 +1,7 @@
 #include "hashmap.h"
+#include "int.h"
+#include "log.h"
 #include "linked-list.h"
-#include "../int.h"
-#include "../log.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

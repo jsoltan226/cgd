@@ -3,7 +3,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>

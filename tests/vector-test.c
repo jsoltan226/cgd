@@ -1,6 +1,6 @@
 #include <core/log.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>

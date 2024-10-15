@@ -3,7 +3,7 @@
 
 #include <render/rctx.h>
 #include <core/int.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <asset-loader/asset.h>
 
 struct parallax_bg_layer {

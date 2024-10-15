@@ -1,8 +1,8 @@
 #ifndef U_HASHMAP_H_
 #define U_HASHMAP_H_
 
+#include "int.h"
 #include "linked-list.h"
-#include "../int.h"
 
 #define HM_TABLE_SIZE  10
 

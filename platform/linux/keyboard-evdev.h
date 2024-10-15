@@ -8,7 +8,7 @@
 #include "../keyboard.h"
 #include <core/int.h>
 #include <core/util.h>
-#include <core/datastruct/vector.h>
+#include <core/vector.h>
 #include <core/pressable-obj.h>
 #include <sys/poll.h>
 #include <poll.h>

@@ -1,74 +1,79 @@
-PLATFORM?=gnu_linux
-PREFIX?=/usr
+# Platform and paths
+PLATFORM ?= linux
+PREFIX ?= /usr
+
 ifeq ($(PREFIX), /data/data/com.termux/files/usr)
 TERMUX=1
 endif
 
-CC?=cc
-CCLD?=cc
-COMMON_CFLAGS=-Wall -I. -pipe -fPIC -pthread
-DEPFLAGS?=-MMD -MP
-LDFLAGS?=-pie
-SO_LDFLAGS=-shared
-LIBS?=-lm -ldl
+# Compiler and flags
+CC ?= cc
+CCLD ?= cc
+
+COMMON_CFLAGS = -Wall -I. -pipe -fPIC -pthread
+DEPFLAGS ?= -MMD -MP
+
+LDFLAGS ?= -pie
+SO_LDFLAGS = -shared
+
+LIBS ?= -lm -ldl
 ifeq ($(TERMUX), 1)
-LIBS+=-landroid-shmem
+LIBS += $(PREFIX)/lib/libandroid-shmem.a -llog
 endif
+
 STRIP?=strip
 DEBUGSTRIP?=strip -d
 STRIPFLAGS?=-g -s
 
-ECHO=echo
-PRINTF=printf
-RM=rm -f
-TOUCH=touch -c
-EXEC=exec
-MKDIR=mkdir -p
-RMRF=rm -rf
-7Z=7z
+# Shell commands
+ECHO = echo
+PRINTF = printf
+RM = rm -f
+TOUCH = touch -c
+EXEC = exec
+MKDIR = mkdir -p
+RMRF = rm -rf
+7Z = 7z
 
+# Executable file Prefix/Suffix
 EXEPREFIX =
+ifeq ($(PLATFORM),windows)
+EXESUFFIX = .exe
+endif
 EXESUFFIX =
+
+# Directories
 OBJDIR = obj
 BINDIR = bin
+TEST_SRC_DIR = tests
+TEST_EXE_DIR = $(TEST_SRC_DIR)/$(BINDIR)
+PLATFORM_SRCDIR = platform
 
-TEST_SRC_DIR = ./tests
-TEST_SRCS=$(wildcard $(TEST_SRC_DIR)/*.c)
-TEST_EXE_DIR=$(TEST_SRC_DIR)/$(BINDIR)
-TEST_EXES=$(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
-TEST_LOGFILE=$(TEST_SRC_DIR)/testlog.txt
+# Test sources and objects
+TEST_SRCS = $(wildcard $(TEST_SRC_DIR)/*.c)
+TEST_EXES = $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
+TEST_LOGFILE = $(TEST_SRC_DIR)/testlog.txt
 
-PLATFORM_SRCDIR=./platform
-_platform_all_srcs=$(shell find $(PLATFORM_SRCDIR))
+# Sources and objects
+PLATFORM_SRCS = $(wildcard $(PLATFORM_SRCDIR)/$(PLATFORM)/*.c)
 
-SRCS=$(filter-out $(TEST_SRCS) $(_platform_all_srcs),$(shell find . -type f -name "*.c" ))
+_all_srcs=$(wildcard */*.c) $(wildcard *.c)
+SRCS = $(filter-out $(TEST_SRCS),$(_all_srcs)) $(PLATFORM_SRCS)
 
-ifeq ($(PLATFORM), gnu_linux)
-SRCS+=$(shell find $(PLATFORM_SRCDIR)/linux -type f -name "*.c")
-endif
-ifeq ($(PLATFORM), windows)
-SRCS+=$(shell find $(PLATFORM_SRCDIR)/windows -type f -name "*.c")
-endif
+OBJS = $(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
+DEPS = $(patsubst %.o,%.d,$(OBJS))
 
-OBJS=$(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
-DEPS=$(patsubst %.o,%.d,$(OBJS))
-STRIP_OBJS=$(OBJDIR)/log.c.o
+STRIP_OBJS = $(OBJDIR)/log.c.o
 
-EXE=$(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TEST_LIB=$(BINDIR)/libmain_test.so
-EXEARGS=
-
-
-#RED=[31;1m
-#GREEN=[32;1m
-#COL_RESET=[0m
-RED=
-GREEN=
-COL_RESET=
+# Executables
+EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
+TEST_LIB = $(BINDIR)/libmain_test.so
+EXEARGS =
 
 .PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
 .NOTPARALLEL: all release br bdr build-tests
 
+# Build targets
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
 
@@ -77,6 +82,7 @@ release: clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run
 
+# Output executable rules
 $(EXE): $(OBJS)
 	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
@@ -86,6 +92,7 @@ $(TEST_LIB): $(OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
 	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) $(LIBS)
 
+# Output directory rules
 $(OBJDIR):
 	@$(ECHO) "MKDIR	$(OBJDIR)"
 	@$(MKDIR) $(OBJDIR)
@@ -98,7 +105,8 @@ $(TEST_EXE_DIR):
 	@$(ECHO) "MKDIR	$(TEST_EXE_DIR)"
 	@$(MKDIR) $(TEST_EXE_DIR)
 
-$(OBJDIR)/%.c.o: ./%.c Makefile
+# Generic compilation targets
+$(OBJDIR)/%.c.o: %.c Makefile
 	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
@@ -106,19 +114,21 @@ $(OBJDIR)/%.c.o: */%.c Makefile
 	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.c.o: */*/%.c Makefile
+$(OBJDIR)/%.c.o: $(PLATFORM_SRCDIR)/$(PLATFORM)/%.c Makefile
 	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.c.o: */*/*/%.c Makefile
-	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
-	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
+# Test preparation targets
 test-hooks: asset-load-test-hook
 
 .PHONY: asset-load-test-hook
 asset-load-test-hook:
 	@test -f assets/tests/rand_9_3_1_0_0_0_0.png || $(ECHO) "7Z	assets/tests/random_pngs.7z" && $(PRINTF) 'Y\nA\n' | $(7Z) e -oassets/tests assets/tests/random_pngs.7z >/dev/null
+
+
+# Test execution targets
+run-tests: tests
 
 tests: CFLAGS = -ggdb -O0 -Wall
 tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
@@ -143,23 +153,20 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 	fi; \
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
 
+
+# Test compilation targets
 build-tests: CFLAGS = -ggdb -O0 -Wall
 build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
-run-tests: tests
-
 $(TEST_EXE_DIR)/%: CFLAGS = -ggdb -O0 -Wall
 $(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)
 
-strip:
-	@$(ECHO) "STRIP	$(EXE)"
-	@$(STRIP) $(STRIPFLAGS) $(EXE)
-
+# Cleanup targets
 mostlyclean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS) $(TEST_LOGFILE)"
 	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
@@ -169,10 +176,7 @@ clean:
 	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/*.png
 	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
 
-update:
-	@$(ECHO) "TOUCH	$(SRCS)"
-	@$(TOUCH) $(SRCS)
-
+# Output execution targets
 run:
 	@$(ECHO) "EXEC	$(EXE) $(EXEARGS)"
 	@$(EXEC) $(EXE) $(EXEARGS)
@@ -182,5 +186,14 @@ debug-run:
 	@bash -c '$(EXEC) -a debug $(EXE) $(EXEARGS)'
 
 bdr: all debug-run
+
+# Miscellaneous targets
+strip:
+	@$(ECHO) "STRIP	$(EXE)"
+	@$(STRIP) $(STRIPFLAGS) $(EXE)
+
+update:
+	@$(ECHO) "TOUCH	$(SRCS)"
+	@$(TOUCH) $(SRCS)
 
 -include $(DEPS)
