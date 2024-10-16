@@ -37,7 +37,7 @@ void menu_mgr_update(struct MenuManager *mmgr,
 
 void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx);
 
-void menu_mgr_destroy(struct MenuManager *mmgr);
+void menu_mgr_destroy(struct MenuManager **mmgr_p);
 
 /* Used for managing the menu stack - push menu to switch to it, pop to go back */
 void menu_mgr_push_menu(struct MenuManager *mmgr, u64 switch_target_ID);

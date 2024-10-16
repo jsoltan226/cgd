@@ -67,6 +67,8 @@ void evdev_keyboard_destroy(struct keyboard_evdev *kb)
         vector_destroy(kb->kbdevs);
     }
     if (kb->poll_fds != NULL) vector_destroy(kb->poll_fds);
+
+    /* All members are already reset */
 }
 
 void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
@@ -130,12 +132,16 @@ static void read_keyevents_from_evdev(i32 fd,
 
         i32 i = 0;
         enum p_keyboard_keycode p_kb_keycode = -1;
-        do {
-            if (linux_input_code_2_kb_keycode_map[i][1] == ev.code) {
-                p_kb_keycode = linux_input_code_2_kb_keycode_map[i][0];
-                break;
-            }
-        } while (i++ < P_KEYBOARD_N_KEYS);
+        if (ev.code >= KEY_1 && ev.code <= KEY_9) {
+            p_kb_keycode = (ev.code - KEY_1) + KB_KEYCODE_DIGIT1;
+        } else {
+            do {
+                if (linux_input_code_2_kb_keycode_map[i][1] == ev.code) {
+                    p_kb_keycode = linux_input_code_2_kb_keycode_map[i][0];
+                    break;
+                }
+            } while (i++ < P_KEYBOARD_N_KEYS);
+        }
 
         if (p_kb_keycode == -1) return; /* Unsupported key press */
         

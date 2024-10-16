@@ -80,15 +80,15 @@ main_loop_breakout:
         s_log_info("Received QUIT event. Exiting...");
 
     /* Cleanup */
-    r_ctx_destroy(rctx);
-    p_mouse_destroy(mouse);
-    p_window_close(win);
+    r_ctx_destroy(&rctx);
+    p_mouse_destroy(&mouse);
+    p_window_close(&win);
 
     return EXIT_SUCCESS;
 
 err:
-    if (rctx != NULL) r_ctx_destroy(rctx);
-    if (mouse != NULL) p_mouse_destroy(mouse);
-    if (win != NULL) p_window_close(win);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (mouse != NULL) p_mouse_destroy(&mouse);
+    if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
 }

@@ -130,7 +130,7 @@ struct Menu * menu_init(const struct menu_config *cfg, struct r_ctx *rctx,
     return mn;
 
 err:
-    menu_destroy(mn);
+    menu_destroy(&mn);
     return NULL;
 }
 
@@ -161,31 +161,32 @@ void menu_draw(struct Menu *mn, struct r_ctx *rctx)
         button_draw(mn->buttons[i], rctx);
 }
 
-void menu_destroy(struct Menu *mn)
+void menu_destroy(struct Menu **mn_p)
 {
-    if (mn == NULL) return;
+    if (mn_p == NULL || *mn_p == NULL) return;
+    struct Menu *mn = *mn_p;
 
     if (mn->sprites != NULL) {
         for(int i = 0; i < vector_size(mn->sprites); i++)
-            sprite_destroy(mn->sprites[i]);
+            sprite_destroy(&mn->sprites[i]);
         vector_destroy(mn->sprites);
     }
 
     if (mn->buttons != NULL) {
         for(int i = 0; i < vector_size(mn->buttons); i++)
-            button_destroy(mn->buttons[i]);
+            button_destroy(&mn->buttons[i]);
         vector_destroy(mn->buttons);
     }
 
     if (mn->event_listeners != NULL) {
         for(int i = 0; i < vector_size(mn->event_listeners); i++)
-            event_listener_destroy(mn->event_listeners[i]);
+            event_listener_destroy(&mn->event_listeners[i]);
         vector_destroy(mn->event_listeners);
     }
 
-    parallax_bg_destroy(mn->bg);
+    parallax_bg_destroy(&mn->bg);
 
-    free(mn);
+    u_nzfree(mn);
 }
 
 void menu_init_onevent_obj(struct on_event_obj *oeObj,

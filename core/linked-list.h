@@ -22,12 +22,12 @@ struct ll_node * linked_list_prepend(struct ll_node *at, void *content);
 
 #define linked_list_create_node(content) linked_list_append(NULL, content)
 
-void linked_list_destroy(struct linked_list *list, bool free_content);
+void linked_list_destroy(struct linked_list **list_p, bool free_content);
 
-void linked_list_destroy_node(struct ll_node *node);
+void linked_list_destroy_node(struct ll_node **node_p);
 
 /* Iterates over all nodes starting from `head` until node->next is NULL,
  * destroying every single one of them */
-void linked_list_recursive_destroy_nodes(struct ll_node *head, bool free_content);
+void linked_list_recursive_destroy_nodes(struct ll_node **head_p, bool free_content);
 
 #endif /* U_LINKED_LIST_H */

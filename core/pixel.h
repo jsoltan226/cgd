@@ -16,9 +16,9 @@ struct pixel_row_data {
     u32 w, h;
 };
 
-static const pixel_t EMPTY_PIXEL = { 0 };
-static const pixel_t BLACK_PIXEL = { 0, 0, 0, 255 };
-static const pixel_t WHITE_PIXEL = { 255, 255, 255, 255 };
+#define EMPTY_PIXEL ((pixel_t) { 0 })
+#define BLACK_PIXEL ((pixel_t) { 0, 0, 0, 255 })
+#define WHITE_PIXEL ((pixel_t) { 255, 255, 255, 255 })
 
 i32 pixel_row_data_init(struct pixel_row_data *out, u32 w, u32 h);
 void pixel_row_data_destroy(struct pixel_row_data *data);

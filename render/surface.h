@@ -23,6 +23,6 @@ void r_surface_blit(
     const rect_t * restrict dst_rect
 );
 
-void r_surface_destroy(struct r_surface *surface);
+void r_surface_destroy(struct r_surface **surface_p);
 
 #endif /* R_SURFACE_H_ */

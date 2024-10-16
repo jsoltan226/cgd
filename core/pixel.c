@@ -1,6 +1,7 @@
 #include "pixel.h"
 #include "int.h"
 #include "log.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,10 +32,11 @@ void pixel_row_data_destroy(struct pixel_row_data *data)
 
     if (data->rows != NULL) {
         for (u32 i = 0; i < data->h; i++)
-            free(data->rows[i]);
+            u_nfree(data->rows[i]);
 
-        free(data->rows);
+        u_nfree(data->rows);
     }
+    memset(data, 0, sizeof(struct pixel_row_data));
 }
 
 void pixel_data_row2flat(struct pixel_row_data *in, struct pixel_flat_data *out)

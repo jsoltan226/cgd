@@ -80,7 +80,7 @@ struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
     return mmgr;
 
 err:
-    menu_mgr_destroy(mmgr);
+    menu_mgr_destroy(&mmgr);
     return NULL;
 }
 
@@ -124,24 +124,25 @@ void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx)
     menu_draw(mmgr->curr_menu, rctx);
 }
 
-void menu_mgr_destroy(struct MenuManager *mmgr)
+void menu_mgr_destroy(struct MenuManager **mmgr_p)
 {
-    if (mmgr == NULL) return;
+    if (mmgr_p == NULL || *mmgr_p == NULL) return;
+    struct MenuManager *mmgr = *mmgr_p;
 
     if (mmgr->full_menu_list != NULL) {
         for (u32 i = 0; i < vector_size(mmgr->full_menu_list); i++)
-            menu_destroy(mmgr->full_menu_list[i]);
+            menu_destroy(&mmgr->full_menu_list[i]);
         vector_destroy(mmgr->full_menu_list);
     }
     vector_destroy(mmgr->menu_stack);
 
     if (mmgr->global_event_listeners != NULL) {
         for (u32 i = 0; i < vector_size(mmgr->global_event_listeners); i++)
-            event_listener_destroy(mmgr->global_event_listeners[i]);
+            event_listener_destroy(&mmgr->global_event_listeners[i]);
         vector_destroy(mmgr->global_event_listeners);
     }
 
-    free(mmgr);
+    u_nzfree(mmgr);
 }
 
 void menu_mgr_pop_menu(struct MenuManager *mmgr)

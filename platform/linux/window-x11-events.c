@@ -65,7 +65,7 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         break;
     }
 
-    free(ev);
+    u_nzfree(ev);
 }
 
 static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)

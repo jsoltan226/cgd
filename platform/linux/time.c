@@ -72,6 +72,11 @@ void p_time_usleep(u32 u_seconds)
     p_time_nanosleep(&(p_time_t) { .us = u_seconds });
 }
 
+void p_time_msleep(u32 m_seconds)
+{
+    p_time_nanosleep(&(p_time_t) { .ms = m_seconds });
+}
+
 void p_time_sleep(u32 seconds)
 {
     p_time_nanosleep(&(p_time_t) { .s = seconds });

@@ -33,6 +33,6 @@ void button_update(struct button *btn, struct p_mouse *mouse);
 
 void button_draw(struct button *btn, struct r_ctx *rctx);
 
-void button_destroy(struct button *btn);
+void button_destroy(struct button **btn_p);
 
 #endif /* BUTTONS_H_ */

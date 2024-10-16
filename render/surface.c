@@ -54,7 +54,7 @@ struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
     return ret;
 
 err:
-    if (pixel_data.buf != NULL) free(pixel_data.buf);
+    if (pixel_data.buf != NULL) u_nfree(pixel_data.buf);
     return NULL;
 }
 
@@ -117,16 +117,16 @@ void r_surface_blit(struct r_surface *surface,
     }
 }
 
-void r_surface_destroy(struct r_surface *surface)
+void r_surface_destroy(struct r_surface **surface_p)
 {
-    if (surface == NULL) return;
+    if (surface_p == NULL || *surface_p == NULL) return;
+    struct r_surface *surface = *surface_p;
 
     if (surface->data.buf != NULL) {
-        free(surface->data.buf);
+        u_nfree(surface->data.buf);
     }
 
-    memset(surface, 0, sizeof(struct r_surface));
-    free(surface);
+    u_nzfree(surface);
 }
 
 static void memcpy_blit(

@@ -61,14 +61,14 @@ int main(void)
     }
 
     s_log_debug("Destroying hashmap...");
-    hashmap_destroy(map);
+    hashmap_destroy(&map);
 
     s_log_info("Test result is OK");
     return EXIT_SUCCESS;
 
 err:
     s_log_info("Test result is FAIL");
-    if (map) hashmap_destroy(map);
+    if (map) hashmap_destroy(&map);
     return EXIT_FAILURE;
 }
 

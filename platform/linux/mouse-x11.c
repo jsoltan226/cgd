@@ -54,5 +54,8 @@ void mouse_X11_update(struct p_mouse *mouse)
 
 void mouse_X11_destroy(struct mouse_x11 *mouse)
 {
+    if (mouse == NULL) return;
+
     window_X11_deregister_mouse(mouse->win);
+    memset(mouse, 0, sizeof(struct mouse_x11));
 }

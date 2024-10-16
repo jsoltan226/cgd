@@ -5,8 +5,6 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#include "../mouse.h"
-#include "../keyboard.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
@@ -45,7 +43,7 @@ struct window_x11 {
     struct pixel_flat_data *fb;
 
     struct window_x11_listener {
-        _Atomic(bool) running;
+        _Atomic bool running;
         pthread_t thread;
     } listener;
 

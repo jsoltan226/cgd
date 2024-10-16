@@ -19,6 +19,6 @@ struct sprite_config {
 
 sprite_t * sprite_init(const struct sprite_config *cfg, struct r_ctx *rctx);
 void sprite_draw(sprite_t *spr, struct r_ctx *rctx);
-void sprite_destroy(sprite_t *spr);
+void sprite_destroy(sprite_t **spr_p);
 
 #endif /* SPRITE_H_ */

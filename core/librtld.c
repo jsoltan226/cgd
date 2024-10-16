@@ -31,7 +31,7 @@ struct lib * librtld_load(const char *libname, const char **symnames)
         lib->syms[i].handle = dlsym(lib->handle, symnames[i]);
         if (lib->syms[i].handle == NULL)
             goto_error("Failed to dlsym() symbol '%s' in lib '%s': %s",
-                symnames[i], libname, dlerror())
+                symnames[i], libname, dlerror());
 
         lib->syms[i].name = symnames[i];
     }
@@ -42,8 +42,8 @@ struct lib * librtld_load(const char *libname, const char **symnames)
 
 err:
     if (lib->handle != NULL) dlclose(lib->handle);
-    if (lib->syms != NULL) free(lib->syms);
-    free(lib);
+    if (lib->syms != NULL) u_nzfree(lib->syms);
+    u_nzfree(lib);
     return NULL;
 }
 

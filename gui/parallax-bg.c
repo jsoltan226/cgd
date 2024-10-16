@@ -23,7 +23,7 @@ struct parallax_bg * parallax_bg_init(
     bg->layers = vector_new(struct parallax_bg_layer);
     if (bg->layers == NULL) {
         s_log_error("Failed to initialize the layers vector");
-        parallax_bg_destroy(bg);
+        parallax_bg_destroy(&bg);
         return NULL;
     }
 
@@ -38,7 +38,7 @@ struct parallax_bg * parallax_bg_init(
             s_log_error("Failed to load asset \"%s\"!",
                 cfg->layer_cfgs[i].filepath
             );
-            parallax_bg_destroy(bg);
+            parallax_bg_destroy(&bg);
             return NULL;
         }
 
@@ -86,16 +86,17 @@ void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx)
     }
 }
 
-void parallax_bg_destroy(struct parallax_bg *bg)
+void parallax_bg_destroy(struct parallax_bg **bg_p)
 {
-    if (bg == NULL) return;
+    if (bg_p == NULL || *bg_p == NULL) return;
+    struct parallax_bg *bg = *bg_p;
 
     if (bg->layers != NULL) {
         for(u32 i = 0; i < vector_size(bg->layers); i++)
-            asset_destroy(bg->layers[i].asset);
+            asset_destroy(&bg->layers[i].asset);
 
         vector_destroy(bg->layers);
     }
 
-    free(bg);
+    u_nzfree(bg);
 }

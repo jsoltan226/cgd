@@ -1,7 +1,8 @@
 CompileFlags: 
   Add: 
-    - "-I/usr/include/freetype2"
     - "-I."
     - "-I.."
     - "-I../.."
     - "-std=c11"
+    - "-xc"
+    - "-Wall"

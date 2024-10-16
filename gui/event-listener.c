@@ -67,9 +67,9 @@ void event_listener_update(struct event_listener *evl)
         on_event_execute(evl->on_event_obj);
 }
 
-void event_listener_destroy(struct event_listener *evl)
+void event_listener_destroy(struct event_listener **evl_p)
 {
-    if (evl == NULL) return;
+    if (evl_p == NULL || *evl_p == NULL) return;
 
-    free(evl);
+    u_nzfree(*evl_p);
 }

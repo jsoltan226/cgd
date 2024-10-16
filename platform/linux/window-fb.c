@@ -130,6 +130,8 @@ void window_fb_close(struct window_fb *fb)
 
     /* fb is supposed to be allocated on the stack, so no free() */
     fb->closed = true;
+
+    /* All members (that need resetting) are already reset properly */
 }
 
 void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb)

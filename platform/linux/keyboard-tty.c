@@ -62,7 +62,8 @@ err:
     return 1;
 }
 
-void tty_keyboard_update_all_keys(struct keyboard_tty *kb, pressable_obj_t *pobjs)
+void tty_keyboard_update_all_keys(struct keyboard_tty *kb,
+    pressable_obj_t *pobjs)
 {
     enum p_keyboard_keycode kc = 0;
     bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
@@ -90,6 +91,8 @@ void tty_keyboard_destroy(struct keyboard_tty *kb)
 
         close(kb->fd);
     }
+    memset(kb, 0, sizeof(struct keyboard_tty));
+    kb->fd = -1;
 }
 
 static i32 tty_keyboard_next_key(struct keyboard_tty *kb)

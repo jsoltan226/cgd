@@ -34,6 +34,6 @@ void * hashmap_lookup_record(struct hashmap *map, const char *key);
 
 void hashmap_delete_record(struct hashmap *map, const char *key);
 
-void hashmap_destroy(struct hashmap *map);
+void hashmap_destroy(struct hashmap **map);
 
 #endif /* U_HASHMAP_H_ */

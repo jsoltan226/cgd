@@ -28,7 +28,7 @@ i32 asset_write(
     enum asset_img_type img_type
 );
 
-void asset_destroy(struct asset *asset);
+void asset_destroy(struct asset **asset);
 
 /* Get the absolute path to the directory in which assets are stored */
 const char * asset_get_assets_dir();

@@ -27,7 +27,7 @@ sprite_t * sprite_init(const struct sprite_config *cfg, struct r_ctx *rctx)
     spr->asset = asset_load(cfg->texture_filepath, rctx);
     if (spr->asset == NULL) {
         s_log_error("Failed to load asset \"%s\"!", cfg->texture_filepath);
-        sprite_destroy(spr);
+        sprite_destroy(&spr);
         return NULL;
     }
 
@@ -44,11 +44,11 @@ void sprite_draw(sprite_t *s, struct r_ctx *rctx)
     );
 }
 
-void sprite_destroy(sprite_t *spr)
+void sprite_destroy(sprite_t **spr_p)
 {
-    if (spr == NULL) return;
+    if (spr_p == NULL || *spr_p == NULL) return;
+    sprite_t *spr = *spr_p;
 
-    asset_destroy(spr->asset);
-    spr->asset = NULL;
-    free(spr);
+    asset_destroy(&spr->asset);
+    u_nzfree(spr);
 }

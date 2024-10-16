@@ -69,7 +69,7 @@ struct p_window * p_window_open(const unsigned char *title,
     
     return win;
 err:
-    p_window_close(win);
+    p_window_close(&win);
     return NULL;
 }
 
@@ -108,9 +108,11 @@ void p_window_unbind_fb(struct p_window *win)
     }
 }
 
-void p_window_close(struct p_window *win)
+void p_window_close(struct p_window **win_p)
 {
-    if (win == NULL) return;
+    if (win_p == NULL || *win_p == NULL) return;
+
+    struct p_window *win = *win_p;
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
@@ -124,7 +126,7 @@ void p_window_close(struct p_window *win)
             break;
     }
 
-    free(win);
+    u_nzfree(win);
     p_event_send(&(struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 }
 

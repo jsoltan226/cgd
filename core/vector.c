@@ -193,8 +193,13 @@ void * vector_clone(void *v)
     return new_v;
 }
 
-void vector_destroy(void *v)
+void vector_destroy__(void *v)
 {
     if (v == NULL) return;
-    free(get_metadata_ptr(v));
+    
+    vector_meta_t *meta_ptr = get_metadata_ptr(v);
+
+    /* Reset the entire vector, including the metadata */
+    memset(meta_ptr, 0, sizeof(vector_meta_t) + meta_ptr->capacity);
+    free(meta_ptr);
 }

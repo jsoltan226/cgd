@@ -1,4 +1,5 @@
 #include "pressable-obj.h"
+#include "util.h"
 #include "log.h"
 #include <stdlib.h>
 
@@ -16,7 +17,8 @@ void pressable_obj_update(pressable_obj_t *po, bool state)
 {
     if (po == NULL) return;
 
-    /* Down is active if on the current tick the object is pressed, but wasn't pressed on the previous one */
+    /* Down is active if on the current tick the object is pressed,
+     * but wasn't pressed on the previous one */
     po->down = (state && !po->pressed && !po->force_released);
 
     /* Up is active immidiately after object was released. */
@@ -47,7 +49,9 @@ void pressable_obj_force_release(pressable_obj_t *po)
     po->force_released = true;
 }
 
-void pressable_obj_destroy(pressable_obj_t *po)
+void pressable_obj_destroy(pressable_obj_t **po_p)
 {
-    free(po);
+    if (po_p == NULL || *po_p == NULL) return;
+
+    u_nzfree(*po_p);
 }

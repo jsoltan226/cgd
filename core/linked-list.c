@@ -1,5 +1,6 @@
 #include "linked-list.h"
 #include "log.h"
+#include "util.h"
 #include <stdlib.h>
 
 #define MODULE_NAME "linked-list"
@@ -12,7 +13,7 @@ struct linked_list * linked_list_create(void *head_content)
     struct ll_node *first_node = linked_list_create_node(head_content);
     if (first_node == NULL) {
         s_log_error("linked_list_create_node() returned NULL!");
-        free(ll);
+        u_nzfree(ll);
         return NULL;
     }
 
@@ -53,28 +54,36 @@ struct ll_node * linked_list_prepend(struct ll_node *at, void *content)
     return new_node;
 }
 
-void linked_list_destroy_node(struct ll_node *node)
+void linked_list_destroy_node(struct ll_node **node_p)
 {
+    if (node_p == NULL || *node_p == NULL) return;
+
+    struct ll_node *node = *node_p;
+
     if (node->prev != NULL) node->prev->next = node->next;
     if (node->next != NULL) node->next->prev = node->prev;
-    free(node);
+    u_nzfree(node);
 }
 
-void linked_list_destroy(struct linked_list *list, bool free_content)
+void linked_list_destroy(struct linked_list **list_p, bool free_content)
 {
-    if (list == NULL) return;
+    if (list_p == NULL || *list_p == NULL) return;
 
-    linked_list_recursive_destroy_nodes(list->head, free_content);
-    free(list);
+    struct linked_list *list = *list_p;
+
+    linked_list_recursive_destroy_nodes(&list->head, free_content);
+    u_nzfree(list);
 }
 
-void linked_list_recursive_destroy_nodes(struct ll_node *head, bool free_content)
+void linked_list_recursive_destroy_nodes(struct ll_node **head_p, bool free_content)
 {
-    struct ll_node *curr_node = head;
+    if (head_p == NULL || *head_p == NULL) return;
+
+    struct ll_node *curr_node = *head_p;
     while (curr_node != NULL) {
         struct ll_node *next_node = curr_node->next;
-        if (free_content) free(curr_node->content);
-        free(curr_node);
+        if (free_content) u_nzfree(curr_node->content);
+        u_nzfree(curr_node);
         curr_node = next_node;
     };
 }

@@ -62,12 +62,12 @@ int main(void)
     }
 
 quit:
-    r_ctx_destroy(rctx);
-    p_window_close(win);
+    r_ctx_destroy(&rctx);
+    p_window_close(&win);
     return EXIT_SUCCESS;
 
 err:
-    if (win != NULL) p_window_close(win);
-    if (rctx != NULL) r_ctx_destroy(rctx);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
 }

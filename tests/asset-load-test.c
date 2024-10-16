@@ -12,7 +12,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define MODULE_NAME "raw2sdltest"
+#define MODULE_NAME "asset-load-test"
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 0, 0 }
@@ -55,7 +55,7 @@ int main(void)
             s_log_error("Test FAILED for \"%s\"", path_buf);
             goto err;
         }
-        asset_destroy(a);
+        asset_destroy(&a);
     } while (0);
 
     struct timeval start, stop;
@@ -72,7 +72,7 @@ int main(void)
             s_log_error("Test FAILED for \"%s\"", path_buf);
             goto err;
         }
-        asset_destroy(a);
+        asset_destroy(&a);
         ntested++;
         i++;
     }
@@ -89,15 +89,15 @@ int main(void)
         (f64)(ntested*1000000.f) / (f64)deltatime_microseconds
     );
     asset_unload_all_plugins();
-    r_ctx_destroy(rctx);
-    p_window_close(win);
+    r_ctx_destroy(&rctx);
+    p_window_close(&win);
     return EXIT_SUCCESS;
 
 err:
     s_log_error("Test result is FAIL, cleaning up...", NULL);
     asset_unload_all_plugins();
-    if (rctx != NULL) r_ctx_destroy(rctx);
-    if (win != NULL) p_window_close(win);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
 }
 

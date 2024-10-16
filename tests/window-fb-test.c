@@ -95,7 +95,7 @@ int main(void)
             memcpy(win->fb.mem, prev_fb_mem, win->fb.mem_size);
             free(prev_fb_mem);
         }
-        p_window_close(win);
+        p_window_close(&win);
         return EXIT_FAILURE;
     }
 
@@ -111,7 +111,7 @@ int main(void)
     r_flush(ctx);
     sleep(2);
     
-    r_ctx_destroy(ctx);
+    r_ctx_destroy(&ctx);
 
     if (asset_load_plugin_by_type(IMG_TYPE_PNG)) {
         s_log_error("Failed to load libPNG. Skipping image test.");
@@ -157,7 +157,7 @@ skip_img_test:
         free(prev_fb_mem);
     }
 
-    p_window_close(win);
+    p_window_close(&win);
     asset_unload_all_plugins();
 
     if (dev_null != NULL) fclose(dev_null);

@@ -83,9 +83,9 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 
     /* Cleanup */
     for (u32 i = 0; i < n_dirents; i++)
-        free(namelist[i]);
+        u_nzfree(namelist[i]);
 
-    free(namelist);
+    u_nfree(namelist);
     close(dir_fd);
 
     return v;
@@ -93,9 +93,9 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 err:
     if (namelist != NULL && n_dirents > -1) {
         for (u32 i = 0; i < n_dirents; i++) {
-            free(namelist[i]);
+            u_nzfree(namelist[i]);
         }
-        free(namelist);
+        u_nfree(namelist);
     }
     if (dir_fd != -1) close(dir_fd);
     if (v != NULL) {

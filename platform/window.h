@@ -36,7 +36,7 @@ void p_window_unbind_fb(struct p_window *win);
 
 void p_window_render(struct p_window *win);
 
-void p_window_close(struct p_window *win);
+void p_window_close(struct p_window **win_p);
 
 i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out);
 

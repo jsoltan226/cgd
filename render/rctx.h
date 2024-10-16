@@ -14,7 +14,7 @@ enum r_type {
 };
 
 struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags);
-void r_ctx_destroy(struct r_ctx *rctx);
+void r_ctx_destroy(struct r_ctx **rctx_p);
 
 void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color);
 

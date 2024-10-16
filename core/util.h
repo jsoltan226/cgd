@@ -1,9 +1,10 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#include <stdbool.h>
-#include "shapes.h"
 #include "log.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define u_BUF_SIZE  1024
 #define u_PATH_FROM_BIN_TO_ASSETS "../assets/"
@@ -15,7 +16,7 @@ typedef const char filepath_t[u_FILEPATH_MAX];
 #define goto_error(...) do {    \
     s_log_error(__VA_ARGS__);   \
     goto err;                   \
-} while (0);
+} while (0)
 
 #define u_check_params(expr) s_assert(expr, "invalid parameters");
 
@@ -31,6 +32,25 @@ typedef const char filepath_t[u_FILEPATH_MAX];
     const register u8 tmp = color.b;    \
     color.b = color.r;                  \
     color.r = tmp;                      \
+} while (0)
+
+/* Free and nullify */
+#define u_nfree(ptr) do {           \
+    free(ptr);                      \
+    ptr = NULL;                     \
 } while (0);
+
+/* Zero-out and free */
+#define u_zfree(ptr) do {           \
+    memset(ptr, 0, sizeof(*ptr));   \
+    free(ptr);                      \
+} while (0);
+
+/* Zero-out, free and nullify */
+#define u_nzfree(ptr) do {          \
+    memset(ptr, 0, sizeof(*ptr));   \
+    free(ptr);                      \
+    ptr = NULL;                     \
+} while (0)
 
 #endif /* UTIL_H_ */

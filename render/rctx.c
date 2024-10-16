@@ -58,15 +58,17 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     return ctx;
 
 err:
-    r_ctx_destroy(ctx);
+    r_ctx_destroy(&ctx);
     return NULL;
 }
 
-void r_ctx_destroy(struct r_ctx *ctx)
+void r_ctx_destroy(struct r_ctx **ctx_p)
 {
-    if (ctx == NULL) return;
+    if (ctx_p == NULL || *ctx_p == NULL) return;
+    struct r_ctx *ctx = *ctx_p;
+
     p_window_unbind_fb(ctx->win);
-    free(ctx);
+    u_nzfree(ctx);
 }
 
 void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)

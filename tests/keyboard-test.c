@@ -54,14 +54,14 @@ int main(void)
     else
         s_log_debug("Key 'Q' Pressed. Exiting...");
     
-    p_keyboard_destroy(kb);
-    r_ctx_destroy(rctx);
-    p_window_close(win);
+    p_keyboard_destroy(&kb);
+    r_ctx_destroy(&rctx);
+    p_window_close(&win);
     return EXIT_SUCCESS;
 
 err:
-    if (kb != NULL) p_keyboard_destroy(kb);
-    if (rctx != NULL) r_ctx_destroy(rctx);
-    if (win != NULL) p_window_close(win);
+    if (kb != NULL) p_keyboard_destroy(&kb);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
 }

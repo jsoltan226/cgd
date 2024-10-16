@@ -96,11 +96,11 @@ void button_draw(struct button *btn, struct r_ctx *rctx)
     }
 }
 
-void button_destroy(struct button *btn)
+void button_destroy(struct button **btn_p)
 {
-    if (btn == NULL) return;
+    if (btn_p == NULL || *btn_p == NULL) return;
+    struct button *btn = *btn_p;
 
-    sprite_destroy(btn->sprite);
-    btn->sprite = NULL;
-    free(btn);
+    sprite_destroy(&btn->sprite);
+    u_nzfree(btn);
 }

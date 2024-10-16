@@ -1,13 +1,14 @@
 #include "asset.h"
 #include "io-PNG.h"
-#include "platform/window.h"
 #include "plugin.h"
 #include "img-type.h"
+#include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
 #include <render/rctx.h>
 #include <render/surface.h>
+#include <platform/window.h>
 #include <platform/exe-info.h>
 #include <errno.h>
 #include <stdio.h>
@@ -68,7 +69,7 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
 
 err:
     if (fp) fclose(fp);
-    if (a) asset_destroy(a);
+    if (a) asset_destroy(&a);
     return NULL;
 }
 
@@ -86,17 +87,18 @@ FILE * asset_fopen(const char *rel_file_path, const char *mode)
     return fp; /* NULL will be returned if fp is NULL */
 }
 
-void asset_destroy(struct asset *a)
+void asset_destroy(struct asset **asset)
 {
-    if (a == NULL) return;
+    if (asset == NULL || *asset == NULL) return;
+
+    struct asset *a = *asset;
 
     if (a->surface)
-        r_surface_destroy(a->surface);
+        r_surface_destroy(&a->surface);
     else if (a->pixel_data.buf)
         free(a->pixel_data.buf);
 
-    memset(a, 0, sizeof(struct asset));
-    free(a);
+    u_nzfree(a);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };

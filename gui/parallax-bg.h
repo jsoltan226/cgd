@@ -35,6 +35,6 @@ struct parallax_bg * parallax_bg_init(
 );
 void parallax_bg_update(struct parallax_bg *bg);
 void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx);
-void parallax_bg_destroy(struct parallax_bg *bg);
+void parallax_bg_destroy(struct parallax_bg **bg_p);
 
 #endif /* PARALLAX_BG_H_ */

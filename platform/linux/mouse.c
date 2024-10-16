@@ -1,5 +1,5 @@
 #include "../mouse.h"
-#include "core/math.h"
+#include <core/math.h>
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
@@ -67,7 +67,7 @@ mouse_setup_success:
     return m;
 
 err:
-    p_mouse_destroy(m);
+    p_mouse_destroy(&m);
     return NULL;
 }
 
@@ -134,9 +134,11 @@ void p_mouse_force_release(struct p_mouse *mouse, u32 button_mask)
         pressable_obj_force_release(&mouse->buttons[P_MOUSE_BUTTON_MIDDLE]);
 }
 
-void p_mouse_destroy(struct p_mouse *mouse)
+void p_mouse_destroy(struct p_mouse **mouse_p)
 {
-    if (mouse == NULL) return;
+    if (mouse_p == NULL || *mouse_p == NULL) return;
+
+    struct p_mouse *mouse = *mouse_p;
 
     s_log_debug("Destroying mouse (type \"%s\")",
         mouse_type_strings[mouse->type]);
@@ -152,5 +154,5 @@ void p_mouse_destroy(struct p_mouse *mouse)
             break;
     }
 
-    free(mouse);
+    u_nzfree(mouse);
 }

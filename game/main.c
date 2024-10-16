@@ -120,11 +120,11 @@ main_loop_breakout:
     EXIT_CODE = EXIT_OK;
 
 cleanup:
-    if (MenuManager != NULL) menu_mgr_destroy(MenuManager);
-    if (mouse != NULL) p_mouse_destroy(mouse);
-    if (keyboard != NULL) p_keyboard_destroy(keyboard);
-    if (rctx != NULL) r_ctx_destroy(rctx);
-    if (win != NULL) p_window_close(win);
+    if (MenuManager != NULL) menu_mgr_destroy(&MenuManager);
+    if (mouse != NULL) p_mouse_destroy(&mouse);
+    if (keyboard != NULL) p_keyboard_destroy(&keyboard);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (win != NULL) p_window_close(&win);
     asset_unload_all_plugins();
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);

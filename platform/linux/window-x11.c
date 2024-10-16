@@ -220,7 +220,7 @@ i32 window_X11_open(struct window_x11 *win,
     return 0;
 
 err:
-    if (e != NULL) free(e);
+    if (e != NULL) u_nzfree(e);
     /* window_X11_close() will later be called by p_window_close,
      * so there's no need to do it here */
     return 1;
@@ -387,12 +387,12 @@ static i32 intern_atom(struct window_x11 *win,
 
     if (err) {
         s_log_error("Failed to intern atom \"%s\"", atom_name);
-        free(reply);
+        u_nzfree(reply);
         return 1;
     }
 
     *o = reply->atom;
-    free(reply);
+    u_nzfree(reply);
     return 0;
 }
 
@@ -407,7 +407,7 @@ static i32 check_xinput2_extension(struct window_x11 *win)
     if (reply == NULL) return -1;
     else if (reply->major_version < 2) return 1;
 
-    free(reply);
+    u_nzfree(reply);
     
     return 0;
 }
@@ -444,7 +444,7 @@ static i32 attach_shm(struct window_x11 *win)
     );
     xcb_generic_error_t *e = NULL;
     if (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL) {
-        free(e);
+        u_nzfree(e);
         goto_error("XCB failed to attach the shm segment");
     }
     win->shm_attached = true;

@@ -100,13 +100,14 @@ void * vector_realloc__(void *v, u32 new_capacity);
 
 /* Resize `v` to `new_size`,
  * cutting off any elements at index greater than `new_size` */
-#define vector_resize(v, new_size) do { v = vector_resize__(v, new_size); } while (0);
+#define vector_resize(v, new_size) do { v = vector_resize__(v, new_size); } while (0)
 void * vector_resize__(void *v, u32 new_size);
 
 #define vector_copy vector_clone
 void * vector_clone(void *v);
 
 /* Destroy `v` */
-void vector_destroy(void *v);
+#define vector_destroy(v) do { vector_destroy__(v); v = NULL; } while (0)
+void vector_destroy__(void *v);
 
 #endif /* VECTOR_H_ */

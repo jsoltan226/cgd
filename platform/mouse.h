@@ -40,6 +40,6 @@ const pressable_obj_t * p_mouse_get_button(struct p_mouse *mouse,
 
 void p_mouse_force_release(struct p_mouse *mouse, u32 button_mask);
 
-void p_mouse_destroy(struct p_mouse *mouse);
+void p_mouse_destroy(struct p_mouse **mouse_p);
 
 #endif /* P_MOUSE_H_ */

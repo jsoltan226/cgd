@@ -91,10 +91,10 @@ int main(void)
     }
 
     asset_unload_all_plugins();
-    r_surface_destroy(surface_1);
+    r_surface_destroy(&surface_1);
     fclose(surface_1_fp);
-    r_ctx_destroy(rctx);
-    p_window_close(win);
+    r_ctx_destroy(&rctx);
+    p_window_close(&win);
 
     s_log_info("Test result is OK");
     return EXIT_SUCCESS;
@@ -103,10 +103,10 @@ err:
     if (surface_1_data.buf != NULL) free(surface_1_data.buf);
 
     asset_unload_all_plugins();
-    if (surface_1 != NULL) r_surface_destroy(surface_1);
+    if (surface_1 != NULL) r_surface_destroy(&surface_1);
     if (surface_1_fp != NULL) fclose(surface_1_fp);
-    if (rctx != NULL) r_ctx_destroy(rctx);
-    if (win != NULL) p_window_close(win);
+    if (rctx != NULL) r_ctx_destroy(&rctx);
+    if (win != NULL) p_window_close(&win);
     s_log_info("Test result is FAIL");
     return EXIT_FAILURE;
 }

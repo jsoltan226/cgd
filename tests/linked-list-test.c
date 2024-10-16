@@ -52,13 +52,13 @@ int main(void)
     s_log_info("list: %s", buf);
 
     s_log_debug("OK, Cleaning up...");
-    linked_list_destroy(ll, false);
+    linked_list_destroy(&ll, false);
 
     s_log_info("Test result is OK");
     return EXIT_SUCCESS;
 
 err:
     s_log_info("Test result is FAIL");
-    if (ll) linked_list_destroy(ll, false);
+    if (ll) linked_list_destroy(&ll, false);
     return EXIT_FAILURE;
 }

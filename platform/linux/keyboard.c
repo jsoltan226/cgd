@@ -120,7 +120,7 @@ keyboard_setup_success:
     return kb;
 
 err:
-    p_keyboard_destroy(kb);
+    p_keyboard_destroy(&kb);
     return NULL;
 }
 
@@ -143,15 +143,17 @@ void p_keyboard_update(struct p_keyboard *kb)
     }
 }
 
-const pressable_obj_t * p_keyboard_get_key(struct p_keyboard *kb, enum p_keyboard_keycode code)
+const pressable_obj_t * p_keyboard_get_key(struct p_keyboard *kb,
+    enum p_keyboard_keycode code)
 {
     u_check_params(kb != NULL && code >= 0 && code < P_KEYBOARD_N_KEYS);
     return &kb->keys[code];
 }
 
-void p_keyboard_destroy(struct p_keyboard *kb)
+void p_keyboard_destroy(struct p_keyboard **kb_p)
 {
-    if (kb == NULL) return;
+    if (kb_p == NULL || *kb_p == NULL) return;
+    struct p_keyboard *kb = *kb_p;
 
     s_log_debug("Destroying keyboard (mode \"%s\")...", keyboard_mode_strings[kb->mode]);
     switch(kb->mode) {
@@ -168,7 +170,7 @@ void p_keyboard_destroy(struct p_keyboard *kb)
             break;
     }
 
-    free(kb);
+    u_nzfree(kb);
 }
 
 #undef KB_MODES_LIST
