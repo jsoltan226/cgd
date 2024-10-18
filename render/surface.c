@@ -1,4 +1,4 @@
-#include "core/log.h"
+#include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
 #include <core/math.h>
@@ -71,6 +71,7 @@ struct r_surface * r_surface_init(struct r_ctx *rctx,
     s->data.w = pixels->w;
     s->data.h = pixels->h;
     s->data.buf = pixels->buf;
+    u_rect_from_pixel_data(&s->data, &s->data_rect);
 
     return s;
 }
@@ -80,22 +81,29 @@ void r_surface_blit(struct r_surface *surface,
 {
     u_check_params(surface != NULL);
 
-    const rect_t final_src_rect = {
-        .x = src_rect ? src_rect->x : 0,
-        .y = src_rect ? src_rect->y : 0,
-        .w = src_rect ? src_rect->w : surface->data.w,
-        .h = src_rect ? src_rect->h : surface->data.h
-    };
-    const rect_t final_dst_rect = {
-        .x = dst_rect ? dst_rect->x : 0,
-        .y = dst_rect ? dst_rect->y : 0,
-        .w = dst_rect ? dst_rect->w : surface->rctx->pixels.w,
-        .h = dst_rect ? dst_rect->h : surface->rctx->pixels.h,
-    };
+    rect_t final_src_rect = { 0 }, final_dst_rect = { 0 };
+    if (src_rect == NULL) {
+        memcpy(&final_src_rect, &surface->data_rect, sizeof(rect_t));
+    } else {
+        memcpy(&final_src_rect, src_rect, sizeof(rect_t));
+        rect_clip(&final_src_rect, &surface->data_rect);
+    }
+
+    if (dst_rect == NULL) {
+        memcpy(&final_dst_rect, &surface->rctx->pixels_rect, sizeof(rect_t));
+    } else {
+        memcpy(&final_dst_rect, dst_rect, sizeof(rect_t));
+        rect_clip(&final_dst_rect, &surface->rctx->pixels_rect);
+        s_log_debug("Original dst_rect: { %i %i %i %i }; clipped dst_rect: { %i %i %i %i }",
+            rectp_arg_expand(dst_rect), rect_arg_expand(final_dst_rect));
+    }
 
     /* Return early if there is nothing to draw */
     if (final_src_rect.w == 0 || final_src_rect.h == 0 ||
-        final_dst_rect.w == 0 || final_dst_rect.h == 0)
+        final_dst_rect.w == 0 || final_dst_rect.h == 0 ||
+        !u_collision(&final_src_rect, &surface->data_rect) ||
+        !u_collision(&final_dst_rect, &surface->rctx->pixels_rect)
+    )
         return;
 
     const bool pixel_format_matches =
@@ -122,9 +130,8 @@ void r_surface_destroy(struct r_surface **surface_p)
     if (surface_p == NULL || *surface_p == NULL) return;
     struct r_surface *surface = *surface_p;
 
-    if (surface->data.buf != NULL) {
+    if (surface->data.buf != NULL)
         u_nfree(surface->data.buf);
-    }
 
     u_nzfree(surface);
 }
@@ -164,8 +171,8 @@ static void scale_matching_format_blit(
 
             r_putpixel_fast_matching_pixelfmt_(
                 rctx->pixels.buf,
-                src_rect->x + dx,
-                src_rect->y + dy,
+                dst_rect->x + dx,
+                dst_rect->y + dy,
                 rctx->pixels.w,
                 src_pixel
             );
@@ -180,6 +187,7 @@ static void scale_normal_blit(
     const rect_t * restrict dst_rect
 )
 {
+    /* We can assume that src_rect->w != and dst_rect->h != 0 */
     const f32 scale_x = (f32)dst_rect->w / src_rect->w;
     const f32 scale_y = (f32)dst_rect->h / dst_rect->h;
 
@@ -194,8 +202,8 @@ static void scale_normal_blit(
 
             r_putpixel_fast_(
                 rctx->pixels.buf,
-                src_rect->x + dx,
-                src_rect->y + dy,
+                dst_rect->x + dx,
+                dst_rect->y + dy,
                 rctx->pixels.w,
                 src_pixel, rctx->win_meta.color_type
             );

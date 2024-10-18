@@ -76,13 +76,13 @@ void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx)
 
     /* Draw all the layers */
     for(u32 i = 0; i < vector_size(bg->layers); i++) {
-        const rect_t dst_rect = {
+        const rect_t src_rect = {
             bg->layers[i].x,
             0,
             bg->layers[i].w / 2,
             bg->layers[i].h
         };
-        r_surface_blit(bg->layers[i].asset->surface, NULL, &dst_rect);
+        r_surface_blit(bg->layers[i].asset->surface, &src_rect, NULL);
     }
 }
 

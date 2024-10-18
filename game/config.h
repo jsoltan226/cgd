@@ -18,7 +18,7 @@
 #define WINDOW_FLAGS        (P_WINDOW_TYPE_AUTO | P_WINDOW_POS_CENTERED_XY)
 
 #define FPS                 60
-#define FRAME_DURATION      (1000000 / FPS)
+#define FRAME_DURATION_us   (1000000 / FPS)
 
 #define TESTBUTTON_X        20
 #define TESTBUTTON_Y        20
@@ -29,7 +29,6 @@ static bool running = true;
 static bool displayButtonHitboxOutlines = false;
 static bool paused = false;
 
-static const color_RGBA32_t rendererBg = { 30, 30, 30, 100 };
 static const rect_t gameRect = { 20, 20, WINDOW_W - 40, WINDOW_H - 40 };
 
 /* tb is test button */

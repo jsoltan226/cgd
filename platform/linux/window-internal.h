@@ -7,6 +7,7 @@
 
 #include "../window.h"
 #include <core/int.h>
+#include <core/shapes.h>
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"
 #undef P_INTERNAL_GUARD__
@@ -47,6 +48,8 @@ struct p_window {
     };
 
     enum p_window_color_type color_type;
+
+    vec2d_t ev_offset;
 };
 
 #undef WINDOW_TYPE_LIST

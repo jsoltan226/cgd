@@ -6,6 +6,7 @@
 
 #include "rctx.h"
 #include <core/pixel.h>
+#include <core/shapes.h>
 #include <platform/window.h>
 
 struct r_ctx {
@@ -15,6 +16,7 @@ struct r_ctx {
     struct p_window_meta win_meta;
 
     struct pixel_flat_data pixels;
+    rect_t pixels_rect;
 
     pixel_t current_color;
 };

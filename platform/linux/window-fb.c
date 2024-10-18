@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <termios.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
@@ -16,6 +17,9 @@
 
 #define P_INTERNAL_GUARD__
 #include "window-fb.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "keyboard-tty.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-fb"
@@ -63,7 +67,6 @@ i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags)
     fb->yres = fb->var_info.yres;
     fb->padding = (fb->fixed_info.line_length / sizeof(u32)) - fb->var_info.xres;
 
-
     memcpy(&fb->win_area, area, sizeof(rect_t));
 
     /* Handle P_WINDOW_POS_CENTERED flags */
@@ -76,6 +79,15 @@ i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags)
     fb->pixel_data.buf = NULL;
     fb->pixel_data.w = 0;
     fb->pixel_data.h = 0;
+
+    /* Set the terminal to raw mode to avoid echoing user input
+     * on the console */
+    fb->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK);
+    if (fb->tty_fd == -1) goto skip_tty_raw_mode;
+
+    (void) tty_keyboard_set_term_raw_mode(fb->tty_fd,
+        &fb->orig_term_config, NULL);
+skip_tty_raw_mode:
 
     s_log_debug("%s() OK; Screen is %ux%u, with %upx of padding", __func__,
         fb->xres, fb->yres, fb->padding);
@@ -126,6 +138,13 @@ void window_fb_close(struct window_fb *fb)
         fb->pixel_data.buf = NULL;
         fb->pixel_data.w = 0;
         fb->pixel_data.h = 0;
+    }
+
+    /* Restore the terminal configuration (if it was changed) */
+    if (fb->tty_fd != -1) {
+        tcsetattr(fb->tty_fd, TCSANOW, &fb->orig_term_config);
+        close(fb->tty_fd);
+        fb->tty_fd = -1;
     }
 
     /* fb is supposed to be allocated on the stack, so no free() */

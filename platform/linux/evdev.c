@@ -83,7 +83,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 
     /* Cleanup */
     for (u32 i = 0; i < n_dirents; i++)
-        u_nzfree(namelist[i]);
+        u_nfree(namelist[i]);
 
     u_nfree(namelist);
     close(dir_fd);
@@ -101,6 +101,10 @@ err:
     if (v != NULL) {
         for (u32 i = 0; i < vector_size(v); i++) {
             if (v[i].fd != -1) close(v[i].fd);
+            /* Resetting the fd doesn't make sense here,
+             * since we are calling `vector_destroy`
+             * which will zero out the entire thing anyway
+             */
         }
         vector_destroy(v);
     }

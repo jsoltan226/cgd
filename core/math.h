@@ -2,6 +2,7 @@
 #define CORE_MATH_H_
 
 #include "int.h"
+#include "pixel.h"
 #include "shapes.h"
 #include <stdbool.h>
 
@@ -12,7 +13,10 @@
 /* The simplest collision checking implementation;
  * returns true if 2 rectangles overlap
  */
-static inline bool u_collision(const rect_t *r1, const rect_t *r2)
+static inline bool u_collision(
+    const rect_t * restrict r1,
+    const rect_t * restrict r2
+)
 {
     return (
         r1->x <= r2->x + r2->w &&
@@ -28,6 +32,17 @@ static const inline f32 u_fp1616_to_f32(const i32 num)
     f32 ret = (f32)num;
     ret = ret / (f32)(1 << 16);
     return ret;
+}
+
+static inline void u_rect_from_pixel_data(
+    const struct pixel_flat_data *data,
+    rect_t *o
+)
+{
+    o->x = 0;
+    o->y = 0;
+    o->w = data->w;
+    o->h = data->h;
 }
 
 #endif /* CORE_MATH_H_ */

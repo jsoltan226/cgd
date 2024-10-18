@@ -61,7 +61,6 @@ struct p_mouse {
 
     pressable_obj_t buttons[P_MOUSE_N_BUTTONS];
 
-    vec2d_t window_offset;
     vec2d_t pos;
 
     bool is_out_of_window;

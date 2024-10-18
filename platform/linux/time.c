@@ -27,10 +27,69 @@ i32 p_time(p_time_t *o)
         return 1;
     }
 
-    o->ns = ts.tv_nsec;
-    o->us = o->ns / 1000;
-    o->ms = o->us / 1000;
+    /* Let's suppose that each letter represents a digit:
+     *      seconds are 's',
+     *      milliseconds are 'M',
+     *      microseconds are 'U',
+     *      nanoseconds are 'N'.
+     *
+     * `clock_gettime` gives us the time in the format:
+     *      ssssssssss.NNNNNNNNNN,
+     *  with `tv_sec` representing the 's' seconds,
+     *  and `tv_nsec` being the 'N' nanoseconds.
+     *  
+     *  We, however, need to return the time in this format:
+     *      ssssssssss.MMM.UUU.NNN
+     *                                                                      */ 
+    /* So we can just keep the seconds from `tv_sec`                        */
     o->s = ts.tv_sec;
+
+    /* Note that if the time in `tv_nsec` was stored in binary
+     * (each letter in "MMM.UUU.SSS" is a bit instead of a decimal digit)
+     * this would just be done with bitwise operations;
+     * for `MMM`, you would:
+     *      1. right-shift by 6 to get the number,
+     *      2. AND with 000.111.111 to "delete" it.
+     *
+     * for `UUU` you would do the same thing, but instead of
+     * shifting by 6 you would shift by 3,
+     * and the deletion mask would be 000.000.111 .
+     * 
+     * After that you would just be left with 000.000.NNN,
+     * which is exactly what happens here at the end.
+     *
+     * What we are doing here is the exact thing I described above,
+     * but we deal with base 10 instead of base 2.
+     */
+
+     /* we start here: MMM.UUU.NNN
+     *                 ^^^
+     *
+     * Right-shift the digits by 6, AKA divide by 10^6                      */
+    o->ms = ts.tv_nsec / 1000000;
+
+    /* We then "delete" those 3 digits by taking
+     * only the remainder of the previous division,
+     * so we are effectively left with this:
+     *      000.UUU.NNN
+     *      ^^^                                                             */
+    ts.tv_nsec = ts.tv_nsec % 1000000;
+
+    /* Now we repeat the same process for microseconds,
+     * which are stored 
+     * (here): 000.UUU.NNN
+     *             ^^^
+     *
+     * and so we operate on 10^3 instead of 10^6. */
+    o->us = ts.tv_nsec / 1000;
+    ts.tv_nsec = ts.tv_nsec % 1000;
+
+    /* Now, as said in the beginning,
+     * we are left with only the nanoseconds:
+     *      000.000.NNN
+     * and so we just copy them over. */
+    o->ns = ts.tv_nsec;
+
 
     return 0;
 }
@@ -44,12 +103,67 @@ i32 p_time_since(p_time_t *o, p_time_t *since)
 
     if (p_time(o)) return 1;
 
-    o->ns -= since->ns;
-    o->us -= since->us;
-    o->ms -= since->ms;
-    o->s -= since->s;
+    i64 carry = 0, total = 0;
+
+    if (since->ns > o->ns) {
+        o->ns -= 1000 - since->ns;
+        carry = -since->ns / 1000;
+    } else {
+        o->ns -= since->ns;
+    }
+
+    total = since->us + carry;
+    carry = 0;
+    if (total > o->us) {
+        o->us -= 1000 - since->us;
+        carry = -since->us / 1000;
+    } else {
+        o->us -= total;
+    }
+
+    total = since->ms + carry;
+    carry = 0;
+    if (total > o->ms) {
+        o->ms -= 1000 - since->ms;
+        carry = -since->ms / 1000;
+    } else {
+        o->ms -= total;
+    }
+
+    total = since->s + carry;
+    o->s -= total;
 
     return 0;
+}
+
+i64 p_time_delta_us(p_time_t *t0)
+{
+    if (t0 == NULL) return 0;
+
+    p_time_t t1 = { 0 };
+    (void) p_time_since(&t1, t0);
+    
+    return t1.s * 1000000 + t1.ms * 1000 + t1.us;
+}
+
+i64 p_time_delta_ms(p_time_t *t0)
+{
+    if (t0 == NULL) return 0;
+
+    p_time_t t1 = { 0 };
+    (void) p_time_since(&t1, t0);
+    
+    return t1.s * 1000 + t1.ms;
+}
+
+i64 p_time_delta_s(p_time_t *t0)
+{
+    if (t0 == NULL) return 0;
+
+    p_time_t t1 = { 0 };
+    (void) p_time_since(&t1, t0);
+
+    return t1.s;
 }
 
 void p_time_nanosleep(p_time_t *time)

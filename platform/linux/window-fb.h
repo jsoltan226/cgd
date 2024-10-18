@@ -9,6 +9,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdbool.h>
+#include <termios.h>
 #include <linux/fb.h>
 
 struct window_fb {
@@ -27,6 +28,9 @@ struct window_fb {
     rect_t win_area;
 
     bool closed;
+
+    i32 tty_fd;
+    struct termios orig_term_config;
 };
 
 i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags);

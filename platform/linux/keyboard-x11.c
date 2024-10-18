@@ -51,6 +51,7 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
 void X11_keyboard_destroy(struct keyboard_x11 *kb)
 {
     if (kb == NULL) return;
+    window_X11_deregister_keyboard(kb->win);
 }
 
 void X11_keyboard_store_key_event(

@@ -1,11 +1,13 @@
 #define _GNU_SOURCE
 #include <core/log.h>
 #include <core/util.h>
+#include <core/math.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
+#include <platform/time.h>
 #include <platform/mouse.h>
-#include <platform/window.h>
 #include <platform/event.h>
+#include <platform/window.h>
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <stdlib.h>
@@ -20,9 +22,14 @@
 #define MOUSE_FLAGS 0
 
 #define FPS 60
-#define RECT_W 10
-#define RECT_H 10
-#define RECT_COLOR (color_RGBA32_t){ 255, 50, 50, 255 }
+#define FRAME_DURATION (1000000 / FPS)
+
+#define POINTER_W 10
+#define POINTER_H 10
+#define POINTER_COLOR ((color_RGBA32_t) { 255, 0, 0, 255 })
+
+#define BORDER_RECT (rect_t) { 0, 0, (WINDOW_RECT).w - 1, (WINDOW_RECT).h - 1 }
+#define BORDER_COLOR WHITE_PIXEL
 
 static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
@@ -48,28 +55,80 @@ int main(void)
         goto_error("Failed to initialize the mouse. Stop.");
 
     /* Main loop */
+    struct p_event ev;
     struct p_mouse_state mouse_state = { 0 };
-    while (!mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
-        /** Update section **/
-        struct p_event ev;
+    rect_t rect = { 0 };
+    vec2d_t anchor = { 0 };
+    color_RGBA32_t rect_color = { 0 };
+    bool mouse_held = false;
+    bool running = true;
+
+    while (running) {
+        p_time_t start_time;
+        p_time(&start_time);
+
         while (p_event_poll(&ev)) {
-            if (ev.type == P_EVENT_QUIT)
+            if (ev.type == P_EVENT_QUIT) {
+                running = false;
                 goto main_loop_breakout;
+            }
         }
 
         p_mouse_get_state(mouse, &mouse_state, true);
+        if (mouse_state.buttons[P_MOUSE_BUTTON_RIGHT].up) {
+            running = false;
+            break;
+        }
 
-        /** Render section **/
-        r_ctx_set_color(rctx, BLACK_PIXEL);
+        if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].down) {
+            anchor.x = mouse_state.x;
+            anchor.y = mouse_state.y;
+            rect.x = mouse_state.x;
+            rect.y = mouse_state.y;
+            rect.w = 1;
+            rect.h = 1;
+            mouse_held = true;
+            rect_color.r = 255;
+            rect_color.g = 0;
+            rect_color.b = 0;
+            rect_color.a = 255;
+        }
+        if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
+            memset(&rect, 0, sizeof(rect_t));
+            mouse_held = false;
+        }
+
+        if (!mouse_state.buttons[P_MOUSE_BUTTON_LEFT].pressed)
+            mouse_held = false;
+
+        if (mouse_held) {
+            rect.x = u_min(mouse_state.x, anchor.x);
+            rect.y = u_min(mouse_state.y, anchor.y);
+            rect.w = abs(mouse_state.x - (i32)anchor.x);
+            rect.h = abs(mouse_state.y - (i32)anchor.y);
+        }
+
         r_reset(rctx);
 
-        /* Draw a rectangle following the mouse */
-        r_ctx_set_color(rctx, RECT_COLOR); 
-        r_fill_rect(rctx, mouse_state.x, mouse_state.y, RECT_W, RECT_H);
+        if (mouse_held) {
+            /* Draw the rect */
+            r_ctx_set_color(rctx, rect_color);
+            r_draw_rect(rctx, rect_arg_expand(rect));
+        }
+
+        /* Draw the mouse pointer */
+        r_ctx_set_color(rctx, (pixel_t) { 255, 0, 0, 255 });
+        r_fill_rect(rctx, mouse_state.x, mouse_state.y, POINTER_W, POINTER_H);
+
+        /* Draw the window border */
+        r_ctx_set_color(rctx, BORDER_COLOR);
+        r_draw_rect(rctx, rect_arg_expand(BORDER_RECT));
 
         r_flush(rctx);
 
-        usleep(1000000 / FPS);
+        i64 delta_time = p_time_delta_us(&start_time);
+        if (delta_time < FRAME_DURATION)
+            p_time_usleep(FRAME_DURATION - delta_time);
     }
 
 main_loop_breakout:

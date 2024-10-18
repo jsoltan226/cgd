@@ -1,9 +1,11 @@
 #include "config.h"
+#include "core/shapes.h"
 #include <core/util.h>
 #include <gui/menu-mgr.h>
 #include <core/log.h>
 #include <asset-loader/plugin.h>
 #include <render/rctx.h>
+#include <render/rect.h>
 #include <platform/time.h>
 #include <platform/event.h>
 #include <platform/mouse.h>
@@ -104,15 +106,14 @@ int main(int argc, char **argv)
             /* RENDER SECTION */
             r_reset(rctx);
             menu_mgr_draw(MenuManager, rctx);
+            r_ctx_set_color(rctx, (color_RGBA32_t) { 200, 200, 200, 255 });
+            r_draw_rect(rctx, rect_arg_expand(gameRect));
             r_flush(rctx);
         }
 
-        p_time_t end_time;
-        p_time(&end_time);
-
-        i32 delta_time = end_time.us - start_time.us;
-        if(delta_time <= FRAME_DURATION)
-            p_time_usleep(FRAME_DURATION - delta_time);
+        i64 delta_time = p_time_delta_us(&start_time);
+        if(delta_time <= FRAME_DURATION_us)
+            p_time_usleep(FRAME_DURATION_us - delta_time);
     }
 main_loop_breakout:
 

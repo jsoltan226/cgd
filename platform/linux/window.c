@@ -55,11 +55,15 @@ struct p_window * p_window_open(const unsigned char *title,
             if (window_X11_open(&win->x11, title, area, flags))
                 goto_error("Failed to open X11 window");
             win->color_type = P_WINDOW_BGRA8888;
+            win->ev_offset.x = 0;
+            win->ev_offset.y = 0;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
             if (window_fb_open(&win->fb, area, flags))
                 goto_error("Failed to open framebuffer window");
             win->color_type = P_WINDOW_BGRA8888;
+            win->ev_offset.x = win->x;
+            win->ev_offset.y = win->y;
             break;
         case WINDOW_TYPE_DUMMY:
             dummy_window_init(&win->dummy);

@@ -37,6 +37,12 @@ void pressable_obj_update(pressable_obj_t *po, bool state)
     }
 }
 
+void pressable_obj_reset(pressable_obj_t *po)
+{
+    if (po == NULL) return;
+    memset(po, 0, sizeof(pressable_obj_t));
+}
+
 void pressable_obj_force_release(pressable_obj_t *po)
 {
     if (po == NULL) return;

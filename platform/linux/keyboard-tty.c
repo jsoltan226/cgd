@@ -18,7 +18,6 @@ static i32 tty_keyboard_next_key(struct keyboard_tty *kb);
 static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE_LEN]);
 static enum p_keyboard_keycode parse_standard_char(char c);
 
-#define TTYDEV_FILEPATH "/dev/tty"
 i32 tty_keyboard_init(struct keyboard_tty *kb)
 {
     memset(kb, 0, sizeof(struct keyboard_tty));
@@ -35,25 +34,10 @@ i32 tty_keyboard_init(struct keyboard_tty *kb)
     if (!isatty(kb->fd))
         goto_error("%s is not a tty!", TTYDEV_FILEPATH);
 
-    /* Get the terminal configuration */
-    tcgetattr(kb->fd, &kb->orig_termios);
-
-    /* Save terminal configuration before modifying it
-     * so that it can be restored during cleanup */
-    memcpy(&kb->termios, &kb->orig_termios, sizeof(struct termios));
-    kb->is_orig_termios_initialized_ = true;
-
-    /* Set the tty to raw mode so that we get input on a per-character basis
-     * instead of a per-line basis */
-    kb->termios.c_lflag &= ~(ICANON | ECHO);
-    kb->termios.c_iflag &= ~(IXON | ICRNL);
-    tcsetattr(kb->fd, TCSANOW, &kb->termios);
-    
-    /* Make sure that the changes were all successfully applied */
-    struct termios tmp = { 0 };
-    tcgetattr(kb->fd, &tmp);
-    if (memcmp(&tmp, &kb->termios, sizeof(struct termios)))
-        goto_error("Failed to set tty to raw mode: %s", strerror(errno));
+    /* Set the terminal to raw mode */
+    if (tty_keyboard_set_term_raw_mode(kb->fd, &kb->orig_termios,
+            &kb->is_orig_termios_initialized_))
+        goto err;
 
     return 0;
 
@@ -93,6 +77,38 @@ void tty_keyboard_destroy(struct keyboard_tty *kb)
     }
     memset(kb, 0, sizeof(struct keyboard_tty));
     kb->fd = -1;
+}
+
+i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
+    bool *is_orig_termios_initialized_o)
+{
+    u_check_params(orig_termios_o != NULL && fd != -1);
+    struct termios tmp = { 0 };
+    
+    /* Get the terminal configuration */
+    tcgetattr(fd, orig_termios_o);
+
+    /* Save terminal configuration before modifying it
+     * so that it can be restored during cleanup */
+    memcpy(&tmp, orig_termios_o, sizeof(struct termios));
+    if (is_orig_termios_initialized_o != NULL)
+        *is_orig_termios_initialized_o = true;
+
+    /* Set the tty to raw mode so that we get input on a per-character basis
+     * instead of a per-line basis */
+    tmp.c_lflag &= ~(ICANON | ECHO);
+    tmp.c_iflag &= ~(IXON | ICRNL);
+    tcsetattr(fd, TCSANOW, &tmp);
+    
+    /* Make sure that the changes were all successfully applied */
+    struct termios chk = { 0 };
+    tcgetattr(fd, &chk);
+    if (memcmp(&tmp, &chk, sizeof(struct termios))) {
+        s_log_error("Failed to set tty to raw mode: %s", strerror(errno));
+        return 1;
+    }
+
+    return 0;
 }
 
 static i32 tty_keyboard_next_key(struct keyboard_tty *kb)

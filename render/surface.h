@@ -3,10 +3,12 @@
 
 #include "rctx.h"
 #include <core/pixel.h>
+#include <core/shapes.h>
 #include <platform/window.h>
 
 struct r_surface {
     struct pixel_flat_data data;
+    rect_t data_rect;
     struct r_ctx *rctx;
     enum p_window_color_type color_format;
 };

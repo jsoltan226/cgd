@@ -84,6 +84,10 @@ int main(void)
         r_reset(rctx);
         r_surface_blit(surface_1, SURFACE_1_SRCRECT, SURFACE_1_DSTRECT);
         r_surface_blit(surface_1, SURFACE_1_SRCRECT, &(rect_t) { 100, 100, 300, 100 });
+        r_surface_blit(surface_1, SURFACE_1_SRCRECT, &(rect_t) { 100, 100, 300, 1000 });
+        r_surface_blit(surface_1, SURFACE_1_SRCRECT, &(rect_t) { -100, 100, 30, 100 });
+        r_surface_blit(surface_1, SURFACE_1_SRCRECT, &(rect_t) { 100, 100, 0, 100 });
+        r_surface_blit(surface_1, SURFACE_1_SRCRECT, &(rect_t) { 100, 100, -10, 100 });
         r_ctx_set_color(rctx, (color_RGBA32_t) { 255, 0, 255, 255 });
         r_draw_line(rctx, (vec2d_t) { 100, 100 }, (vec2d_t) { 110, 200 });
         r_flush(rctx);

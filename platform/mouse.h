@@ -26,6 +26,7 @@ enum p_mouse_button_mask {
 struct p_mouse_state {
     pressable_obj_t buttons[P_MOUSE_N_BUTTONS];
     i32 x, y;
+    bool is_out_of_window;
 };
 
 struct p_mouse * p_mouse_init(struct p_window *win, u32 flags);

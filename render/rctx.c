@@ -1,4 +1,5 @@
 #include "rctx.h"
+#include "core/math.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
@@ -45,6 +46,7 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 
     ctx->pixels.w = ctx->win_meta.w;
     ctx->pixels.h = ctx->win_meta.h;
+    u_rect_from_pixel_data(&ctx->pixels, &ctx->pixels_rect);
 
     p_window_bind_fb(win, &ctx->pixels);
 

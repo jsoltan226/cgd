@@ -36,8 +36,6 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
         m->type = mouse_fallback_modes[win->type][i];
         switch(m->type) {
             case MOUSE_TYPE_X11:
-                m->window_offset.x = 0;
-                m->window_offset.y = 0;
                 if (mouse_X11_init(&m->x11, &win->x11, flags))
                     s_log_warn("Failed to set up mouse with X11");
                 else
@@ -47,8 +45,6 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
                 /* Set the mouse X and Y to the middle of the window */
                 m->pos.x = (f32)(win->x + win->w) / 2.f;
                 m->pos.y = (f32)(win->y + win->h) / 2.f;
-                m->window_offset.x = win->x;
-                m->window_offset.y = win->y;
                 if (mouse_evdev_init(&m->evdev, flags))
                     s_log_warn("Failed to set up mouse using /dev/input");
                 else
@@ -88,21 +84,25 @@ void p_mouse_get_state(struct p_mouse *mouse,
                 break;
         }
         
-        const rect_t mouse_r = {
-            .x = mouse->pos.x + mouse->window_offset.x,
-            .y = mouse->pos.y + mouse->window_offset.y,
+        const rect_t
+        mouse_r = {
+            .x = mouse->pos.x + mouse->win->ev_offset.x,
+            .y = mouse->pos.y + mouse->win->ev_offset.y,
             .w = 0,
             .h = 0,
-        };
-        const rect_t window_r = {
+        },
+        window_r = {
             .x = 0,
             .y = 0,
             .w = mouse->win->w,
             .h = mouse->win->h
         };
+        mouse->is_out_of_window = !u_collision(&mouse_r, &window_r);
+
+        /* Discard the button presses if they occur outside of the window */
         for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
-            if (mouse->buttons[i].up && !u_collision(&mouse_r, &window_r))
-                pressable_obj_force_release(&mouse->buttons[i]);
+            if (mouse->buttons[i].up && mouse->is_out_of_window)
+                pressable_obj_reset(&mouse->buttons[i]);
         }
     }
 

@@ -1,4 +1,6 @@
 #include "../mouse.h"
+#include "core/log.h"
+#include "core/math.h"
 #include <core/int.h>
 #include <core/pressable-obj.h>
 #include <core/vector.h>
@@ -74,12 +76,28 @@ void mouse_evdev_update(struct p_mouse *mouse)
                     &mouse->pos.x, &mouse->pos.y);
 
             for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
-                if (!updated_buttons[i] && 
-                    (mouse->buttons[i].pressed || mouse->buttons[i].up)
+                if (!updated_buttons[i] &&
+                    (mouse->buttons[i].pressed || mouse->buttons[i].down)
                    ) {
                     pressable_obj_update(&mouse->buttons[i], true);
                 }
             }
+
+            /* Update mouse out-of-window status */
+            const rect_t
+            mouse_rect = {
+                .x = mouse->pos.x,
+                .y = mouse->pos.y,
+                .w = 0,
+                .h = 0,
+            },
+            window_rect = {
+                .x = mouse->win->x,
+                .y = mouse->win->y,
+                .w = mouse->win->w,
+                .h = mouse->win->h,
+            };
+            mouse->is_out_of_window = !u_collision(&mouse_rect, &window_rect);
         }
     }
 }
