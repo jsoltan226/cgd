@@ -12,6 +12,7 @@
 #include <render/rect.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
 
 #define MODULE_NAME "mouse-test"
 
@@ -88,9 +89,13 @@ int main(void)
             rect.w = 1;
             rect.h = 1;
             mouse_held = true;
-            rect_color.r = 255;
-            rect_color.g = 0;
-            rect_color.b = 0;
+
+            /* Set the rect color to a random value */
+            srand(start_time.ns);
+            const i32 r = rand();
+            rect_color.r = (r >> 24) & 0xff;
+            rect_color.g = (r >> 16) & 0xff;
+            rect_color.b = (r >> 8) & 0xff;
             rect_color.a = 255;
         }
         if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {

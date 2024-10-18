@@ -93,7 +93,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 err:
     if (namelist != NULL && n_dirents > -1) {
         for (u32 i = 0; i < n_dirents; i++) {
-            u_nzfree(namelist[i]);
+            u_nfree(namelist[i]);
         }
         u_nfree(namelist);
     }
