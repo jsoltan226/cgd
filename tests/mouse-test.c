@@ -1,3 +1,4 @@
+#include "core/vector.h"
 #define _GNU_SOURCE
 #include <core/log.h>
 #include <core/util.h>
@@ -12,7 +13,6 @@
 #include <render/rect.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <math.h>
 
 #define MODULE_NAME "mouse-test"
 
@@ -63,6 +63,11 @@ int main(void)
     color_RGBA32_t rect_color = { 0 };
     bool mouse_held = false;
     bool running = true;
+    struct rect_desc {
+        rect_t rect;
+        color_RGBA32_t color;
+    };
+    VECTOR(struct rect_desc) rects = vector_new(struct rect_desc);
 
     while (running) {
         p_time_t start_time;
@@ -86,8 +91,8 @@ int main(void)
             anchor.y = mouse_state.y;
             rect.x = mouse_state.x;
             rect.y = mouse_state.y;
-            rect.w = 1;
-            rect.h = 1;
+            rect.w = 0;
+            rect.h = 0;
             mouse_held = true;
 
             /* Set the rect color to a random value */
@@ -96,11 +101,20 @@ int main(void)
             rect_color.r = (r >> 24) & 0xff;
             rect_color.g = (r >> 16) & 0xff;
             rect_color.b = (r >> 8) & 0xff;
-            rect_color.a = 255;
+            rect_color.a = (r >> 0) & 0xff;
         }
         if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
+            vector_push_back(rects,
+                (struct rect_desc) {
+                    .rect = { rect_arg_expand(rect) },
+                    .color = rect_color,
+                }
+            );
             memset(&rect, 0, sizeof(rect_t));
             mouse_held = false;
+        }
+        if (mouse_state.buttons[P_MOUSE_BUTTON_MIDDLE].up) {
+            vector_clear(rects);
         }
 
         if (!mouse_state.buttons[P_MOUSE_BUTTON_LEFT].pressed)
@@ -115,8 +129,13 @@ int main(void)
 
         r_reset(rctx);
 
+        for (u32 i = 0; i < vector_size(rects); i++) {
+            r_ctx_set_color(rctx, rects[i].color);
+            r_fill_rect(rctx, rect_arg_expand(rects[i].rect));
+        }
+
         if (mouse_held) {
-            /* Draw the rect */
+            /* Draw the rect outline */
             r_ctx_set_color(rctx, rect_color);
             r_draw_rect(rctx, rect_arg_expand(rect));
         }
@@ -138,12 +157,8 @@ int main(void)
 
 main_loop_breakout:
 
-    if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up)
-        s_log_info("Pressed left mouse button. Exiting...");
-    else /* if (ev.type == P_EVENT_QUIT) */
-        s_log_info("Received QUIT event. Exiting...");
-
     /* Cleanup */
+    vector_destroy(rects);
     r_ctx_destroy(&rctx);
     p_mouse_destroy(&mouse);
     p_window_close(&win);

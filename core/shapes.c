@@ -2,12 +2,19 @@
 #include "math.h"
 #include <stdlib.h>
 
-void rect_clip(rect_t *r, const rect_t * restrict max)
+void rect_clip(rect_t *r, const rect_t *max)
 {
     if (r == NULL || max == NULL) return;
 
-    r->x = u_clamp(r->x, max->x, max->x + max->w - 1);
-    r->y = u_clamp(r->y, max->y, max->y + max->h - 1);
-    r->w = u_clamp(r->w, 0, max->w - r->x);
-    r->h = u_clamp(r->h, 0, max->h - r->y);
+    vec2d_t a1, b1;
+
+    a1.x = u_max(r->x, max->x);
+    a1.y = u_max(r->y, max->y);
+    b1.x = u_min(r->x + r->w, max->x + max->w);
+    b1.y = u_min(r->y + r->h, max->y + max->h);
+
+    r->x = a1.x;
+    r->y = a1.y;
+    r->w = u_max(0, b1.x - a1.x);
+    r->h = u_max(0, b1.y - a1.y);
 }

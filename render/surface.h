@@ -21,8 +21,8 @@ struct r_surface * r_surface_init(struct r_ctx *rctx,
 
 void r_surface_blit(
     struct r_surface *surface,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
+    const rect_t *src_rect,
+    const rect_t *dst_rect
 );
 
 void r_surface_destroy(struct r_surface **surface_p);

@@ -68,16 +68,30 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
     u_nzfree(ev);
 }
 
-static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
+static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
 {
-    switch(ev->event_type) {
+    const union {
+        xcb_input_key_press_event_t *key_press;
+        xcb_input_key_press_event_t *key_release;
+        xcb_input_button_press_event_t *button_press;
+        xcb_input_button_release_event_t *button_release;
+        xcb_input_motion_event_t *motion;
+    } ev = { (void *)ge_ev };
+
+    /* Used in mouse event cases */
+    struct mouse_x11_atomic_rw *mouse_rw;
+    u32 button_bits;
+
+    switch(ge_ev->event_type) {
     case XCB_INPUT_KEY_PRESS:
+        if (ev.key_press->deviceid != win->master_keyboard_id)
+            break;
         if (!win->registered_keyboard)
             break;
 
         const xcb_keysym_t press_keysym = win->xcb.xcb_key_symbols_get_keysym(
             win->key_symbols,
-            ((xcb_input_key_press_event_t *)ev)->detail,
+            ev.key_press->detail,
             0
         );
         X11_keyboard_store_key_event(
@@ -87,12 +101,14 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
         );
         break;
     case XCB_INPUT_KEY_RELEASE:
+        if (ev.key_release->deviceid != win->master_keyboard_id)
+            break;
         if (!win->registered_keyboard)
             break;
 
         const xcb_keysym_t release_keysym = win->xcb.xcb_key_symbols_get_keysym(
             win->key_symbols,
-            ((xcb_input_key_release_event_t *)ev)->detail,
+            ev.key_release->detail,
             0
         );
         X11_keyboard_store_key_event(
@@ -101,63 +117,58 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev)
             KEYBOARD_X11_RELEASE
         );
         break;
-    case XCB_INPUT_BUTTON_PRESS: {
-        if (!win->registered_mouse) break;
+    case XCB_INPUT_BUTTON_PRESS:
+        if (ev.button_press->deviceid != win->master_mouse_id)
+            break;
 
-        xcb_input_button_press_event_t *bev =
-            (xcb_input_button_press_event_t *)ev;
-        struct mouse_x11_atomic_rw *mouse = (struct mouse_x11_atomic_rw *)
+        if (!win->registered_mouse) break;
+        mouse_rw = (struct mouse_x11_atomic_rw *)
             &win->registered_mouse->atomic_mouse;
 
-        u32 button_bits = atomic_load(&mouse->button_bits);
+        button_bits = atomic_load(&mouse_rw->button_bits);
 
-        if (bev->detail == 1)
+        if (ev.button_press->detail == 1)
             button_bits |= P_MOUSE_LEFTBUTTONMASK;
-        else if (bev->detail == 2)
+        if (ev.button_press->detail == 2)
             button_bits |= P_MOUSE_MIDDLEBUTTONMASK;
-        else if (bev->detail == 3)
+        if (ev.button_press->detail == 3)
             button_bits |= P_MOUSE_RIGHTBUTTONMASK;
   
-        atomic_store(&mouse->button_bits, button_bits);
+        atomic_store(&mouse_rw->button_bits, button_bits);
 
         break;
-    }
-    case XCB_INPUT_BUTTON_RELEASE: {
-        if (!win->registered_mouse) break;
+    case XCB_INPUT_BUTTON_RELEASE:
+        if (ev.button_release->deviceid != win->master_mouse_id)
+            break;
 
-        xcb_input_button_release_event_t *bev =
-            (xcb_input_button_release_event_t *)ev;
-        struct mouse_x11_atomic_rw *mouse = (struct mouse_x11_atomic_rw *)
+        if (!win->registered_mouse) break;
+        mouse_rw = (struct mouse_x11_atomic_rw *)
             &win->registered_mouse->atomic_mouse;
 
-        u32 button_bits = atomic_load(&mouse->button_bits);
+        button_bits = atomic_load(&mouse_rw->button_bits);
 
-        if (bev->detail == 1)
+        if (ev.button_release->detail == 1)
             button_bits &= ~P_MOUSE_LEFTBUTTONMASK;
-        if (bev->detail == 2)
+        if (ev.button_release->detail == 2)
             button_bits &= ~P_MOUSE_MIDDLEBUTTONMASK;
-        if (bev->detail == 3)
+        if (ev.button_release->detail == 3)
             button_bits &= ~P_MOUSE_RIGHTBUTTONMASK;
   
-        atomic_store(&mouse->button_bits, button_bits);
+        atomic_store(&mouse_rw->button_bits, button_bits);
 
         break;
-    }
-    case XCB_INPUT_MOTION: {
-        if (!win->registered_mouse) break;
+    case XCB_INPUT_MOTION:
+        if (ev.button_release->deviceid != win->master_mouse_id)
+            break;
 
-        xcb_input_motion_event_t *mev = (xcb_input_motion_event_t *)ev;
-
-        struct mouse_x11_atomic_rw *mouse = (struct mouse_x11_atomic_rw *)
+        if (win->registered_mouse == NULL) break;
+        mouse_rw = (struct mouse_x11_atomic_rw *)
             &win->registered_mouse->atomic_mouse;
 
-        const f32 x = u_fp1616_to_f32(mev->event_x);
-        const f32 y = u_fp1616_to_f32(mev->event_y);
-        atomic_store(&mouse->x, x);
-        atomic_store(&mouse->y, y);
+        atomic_store(&mouse_rw->x, u_fp1616_to_f32(ev.motion->event_x));
+        atomic_store(&mouse_rw->y, u_fp1616_to_f32(ev.motion->event_y));
 
         break;
-    }
     default:
         break;
     }

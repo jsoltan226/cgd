@@ -106,7 +106,7 @@ void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
 
     for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
         if (!updated_keys[i] && (pobjs[i].pressed || pobjs[i].up))
-            pressable_obj_update(&pobjs[i], true);
+            pressable_obj_update(&pobjs[i], pobjs[i].pressed);
     }
 }
 

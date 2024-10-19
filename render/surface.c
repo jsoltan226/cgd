@@ -1,3 +1,5 @@
+#include "platform/window.h"
+#include "rctx.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
@@ -18,24 +20,19 @@
 
 #define MODULE_NAME "surface"
 
-static void memcpy_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
+typedef void (blit_function_t)(
+    const struct pixel_flat_data *restrict src_data,
+    struct pixel_flat_data *restrict dst_data,
+    const rect_t *src_rect,
+    const rect_t *dst_rect,
+    const f32 scale_x,
+    const f32 scale_y,
+    const enum p_window_color_type dst_pixelfmt
 );
-static void scale_matching_format_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
-);
-static void scale_normal_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
-);
+static blit_function_t unscaled_unconverted_blit;
+static blit_function_t unscaled_converted_blit;
+static blit_function_t scaled_unconverted_blit;
+static blit_function_t scaled_converted_blit;
 
 struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
     enum p_window_color_type color_format)
@@ -77,52 +74,67 @@ struct r_surface * r_surface_init(struct r_ctx *rctx,
 }
 
 void r_surface_blit(struct r_surface *surface,
-    const rect_t * restrict src_rect, const rect_t * restrict dst_rect)
+    const rect_t *src_rect, const rect_t *dst_rect)
 {
     u_check_params(surface != NULL);
 
-    rect_t final_src_rect = { 0 }, final_dst_rect = { 0 };
-    if (src_rect == NULL) {
-        memcpy(&final_src_rect, &surface->data_rect, sizeof(rect_t));
-    } else {
-        memcpy(&final_src_rect, src_rect, sizeof(rect_t));
-        rect_clip(&final_src_rect, &surface->data_rect);
-    }
+    /* Handle src_rect and dst_rect being NULL */
+    rect_t final_src_rect, final_dst_rect;
+    memcpy(&final_src_rect,
+        src_rect != NULL ? src_rect : &surface->data_rect,
+        sizeof(rect_t)
+    );
+    memcpy(&final_dst_rect,
+        dst_rect != NULL ? dst_rect : &surface->rctx->pixels_rect,
+        sizeof(rect_t)
+    );
 
-    if (dst_rect == NULL) {
-        memcpy(&final_dst_rect, &surface->rctx->pixels_rect, sizeof(rect_t));
-    } else {
-        memcpy(&final_dst_rect, dst_rect, sizeof(rect_t));
-        rect_clip(&final_dst_rect, &surface->rctx->pixels_rect);
-        s_log_debug("Original dst_rect: { %i %i %i %i }; clipped dst_rect: { %i %i %i %i }",
-            rectp_arg_expand(dst_rect), rect_arg_expand(final_dst_rect));
-    }
+    /* The scale must be calculated before clipping the rects */
+    const f32 scale_x = (f32)final_src_rect.w / final_dst_rect.w;
+    const f32 scale_y = (f32)final_src_rect.h / final_dst_rect.h;
+    
+    /* Clip the rects to make sure we don't read or write out of bounds */
+    rect_t tmp = { rect_arg_expand(final_dst_rect) };
+    rect_clip(&final_dst_rect, &surface->rctx->pixels_rect);
+    final_src_rect.x += (tmp.w - final_dst_rect.w) * scale_x;
+    final_src_rect.y += (tmp.h - final_dst_rect.h) * scale_y;
+    rect_clip(&final_src_rect, &surface->data_rect);
 
-    /* Return early if there is nothing to draw */
+    /* Return early if there is nothing to do */
     if (final_src_rect.w == 0 || final_src_rect.h == 0 ||
-        final_dst_rect.w == 0 || final_dst_rect.h == 0 ||
-        !u_collision(&final_src_rect, &surface->data_rect) ||
-        !u_collision(&final_dst_rect, &surface->rctx->pixels_rect)
-    )
+        final_dst_rect.w == 0 || final_dst_rect.h == 0)
         return;
 
-    const bool pixel_format_matches =
-        surface->color_format == surface->rctx->win_meta.color_type;
+    /* Use faster blitting functions if we can */
+    const u8 needs_pixel_conversion =
+        (surface->color_format != surface->rctx->win_meta.color_type)
+        << 0;
 
-    const bool scale_matches =
-        (final_src_rect.w == final_dst_rect.w) &&
-        (final_src_rect.h == final_dst_rect.h);
+    const u8 needs_scaling =
+        (final_src_rect.w != final_dst_rect.w ||
+         final_src_rect.h != final_dst_rect.h)
+        << 1;
 
-    if (scale_matches && pixel_format_matches) {
-        memcpy_blit(&surface->data, surface->rctx,
-            &final_src_rect, &final_dst_rect);
-    } else if (!scale_matches && pixel_format_matches) {
-        scale_matching_format_blit(&surface->data, surface->rctx,
-            &final_src_rect, &final_dst_rect);
-    } else {
-        scale_normal_blit(&surface->data, surface->rctx,
-            &final_src_rect, &final_dst_rect);
-    }
+    /* This is basically c++ polymorphism */
+#define CONVERSION 1 << 0
+#define SCALING 1 << 1
+#define NO_CONVERSION 0
+#define NO_SCALING 0
+    static blit_function_t *const blit_function_table[4] = {
+        [NO_SCALING | NO_CONVERSION]    = unscaled_unconverted_blit,
+        [NO_SCALING | CONVERSION]       = unscaled_converted_blit,
+        [SCALING | NO_CONVERSION]       = scaled_unconverted_blit,
+        [SCALING | CONVERSION]          = scaled_converted_blit,
+    };
+
+    s_assert((needs_scaling | needs_pixel_conversion) < 4, "how?");
+    blit_function_table[needs_pixel_conversion | needs_scaling]
+    (
+        &surface->data, &surface->rctx->pixels,
+        &final_src_rect, &final_dst_rect,
+        scale_x, scale_y,
+        surface->rctx->win_meta.color_type
+    );
 }
 
 void r_surface_destroy(struct r_surface **surface_p)
@@ -136,77 +148,123 @@ void r_surface_destroy(struct r_surface **surface_p)
     u_nzfree(surface);
 }
 
-static void memcpy_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
+static void unscaled_unconverted_blit(
+    const struct pixel_flat_data *restrict src_data,
+    struct pixel_flat_data *restrict dst_data,
+    const rect_t *src_rect,
+    const rect_t *dst_rect,
+    const f32 scale_x,
+    const f32 scale_y,
+    const enum p_window_color_type dst_pixelfmt
 )
 {
-    for (u32 y = 0; y < src_rect->h; y++) {
-        const u32 offset = ((dst_rect->y + y) * rctx->pixels.w) + dst_rect->x;
-        memcpy(rctx->pixels.buf + offset, data->buf + y * data->w,
-            u_min(data->w, rctx->pixels.w) * sizeof(pixel_t));
+    (void) scale_x;
+    (void) scale_y;
+    (void) dst_pixelfmt;
+
+    for (u32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
+        const u32 dst_offset = ((dst_rect->y + y) * dst_data->w) + dst_rect->x;
+        const u32 src_offset = ((src_rect->y + y) * src_data->w) + src_rect->x;
+
+        memcpy(
+            dst_data->buf + dst_offset,
+            src_data->buf + src_offset,
+            dst_rect->w * sizeof(pixel_t)
+        );
     }
 }
 
-static void scale_matching_format_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
+static void unscaled_converted_blit(
+    const struct pixel_flat_data *restrict src_data,
+    struct pixel_flat_data *restrict dst_data,
+    const rect_t *src_rect,
+    const rect_t *dst_rect,
+    const f32 scale_x,
+    const f32 scale_y,
+    const enum p_window_color_type dst_pixelfmt
 )
 {
-    const f32 scale_x = (f32)dst_rect->w / src_rect->w;
-    const f32 scale_y = (f32)dst_rect->h / dst_rect->h;
+    (void) scale_x;
+    (void) scale_y;
 
     for (u32 dy = 0; dy < dst_rect->h; dy++) {
         for (u32 dx = 0; dx < dst_rect->w; dx++) {
-
-            /* Calculate the nearest neighbouring pixel's position */
-            const i32 sx = src_rect->x + (i32)(dx / scale_x);
-            const i32 sy = src_rect->y + (i32)(dy / scale_y);
-
-            const pixel_t src_pixel = *(data->buf + (sy * data->w) + sx);
-
-            r_putpixel_fast_matching_pixelfmt_(
-                rctx->pixels.buf,
-                dst_rect->x + dx,
-                dst_rect->y + dy,
-                rctx->pixels.w,
-                src_pixel
-            );
-        }
-    }
-}
-
-static void scale_normal_blit(
-    const struct pixel_flat_data * restrict data,
-    struct r_ctx *rctx,
-    const rect_t * restrict src_rect,
-    const rect_t * restrict dst_rect
-)
-{
-    /* We can assume that src_rect->w != and dst_rect->h != 0 */
-    const f32 scale_x = (f32)dst_rect->w / src_rect->w;
-    const f32 scale_y = (f32)dst_rect->h / dst_rect->h;
-
-    for (u32 dy = 0; dy < dst_rect->h; dy++) {
-        for (u32 dx = 0; dx < dst_rect->w; dx++) {
-
-            /* Calculate the nearest neighbouring pixel's position */
-            const i32 sx = src_rect->x + (i32)(dx / scale_x);
-            const i32 sy = src_rect->y + (i32)(dy / scale_y);
-
-            const pixel_t src_pixel = *(data->buf + (sy * data->w) + sx);
+            const u32 src_offset =
+                (src_data->w * (src_rect->y + dy)) + (src_rect->x + dx);
 
             r_putpixel_fast_(
-                rctx->pixels.buf,
+                dst_data->buf,
                 dst_rect->x + dx,
                 dst_rect->y + dy,
-                rctx->pixels.w,
-                src_pixel, rctx->win_meta.color_type
+                dst_data->w,
+                *(src_data->buf + src_offset),
+                dst_pixelfmt
             );
         }
+    }
+}
+
+static void scaled_unconverted_blit(
+    const struct pixel_flat_data *restrict src_data,
+    struct pixel_flat_data *restrict dst_data,
+    const rect_t *src_rect,
+    const rect_t *dst_rect,
+    const f32 scale_x,
+    const f32 scale_y,
+    const enum p_window_color_type dst_pixelfmt
+)
+{
+    (void) dst_pixelfmt;
+
+    f32 sx = (f32)src_rect->x;
+    f32 sy = (f32)src_rect->y;
+
+    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+            const pixel_t src_pixel =
+                *(src_data->buf + ((i32)sy * src_data->w) + (i32)sx);
+
+            r_putpixel_fast_matching_pixelfmt_(
+                dst_data->buf,
+                x, y, dst_data->w,
+                src_pixel
+            );
+            sx += scale_x;
+        }
+        sx = 0;
+        sy += scale_y;
+    }
+}
+
+static void scaled_converted_blit(
+    const struct pixel_flat_data *restrict src_data,
+    struct pixel_flat_data *restrict dst_data,
+    const rect_t *src_rect,
+    const rect_t *dst_rect,
+    const f32 scale_x,
+    const f32 scale_y,
+    const enum p_window_color_type dst_pixelfmt
+)
+{
+    f32 sx = src_rect->x;
+    f32 sy = src_rect->y;
+    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+            const pixel_t src_pixel = *(
+                src_data->buf
+                + ((src_rect->y + (i32)sy) * src_data->w)
+                + (src_rect->x + (i32)sx)
+            );
+
+            r_putpixel_fast_(
+                dst_data->buf,
+                x, y, dst_data->w,
+                src_pixel,
+                dst_pixelfmt
+            );
+            sx += scale_x;
+        }
+        sx = 0;
+        sy += scale_y;
     }
 }

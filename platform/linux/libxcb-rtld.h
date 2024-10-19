@@ -102,7 +102,20 @@
         xcb_connection_t *conn, xcb_window_t window,                           \
         uint16_t num_mask, const xcb_input_event_mask_t *masks                 \
     )                                                                          \
-
+    X_(xcb_input_xi_query_device_cookie_t, xcb_input_xi_query_device,          \
+        xcb_connection_t *conn, xcb_input_device_id_t deviceid                 \
+    )                                                                          \
+    X_(xcb_input_xi_query_device_reply_t *, xcb_input_xi_query_device_reply,   \
+        xcb_connection_t *conn, xcb_input_xi_query_device_cookie_t cookie,     \
+        xcb_generic_error_t **e                                                \
+    )                                                                          \
+    X_(xcb_input_xi_device_info_iterator_t,                                    \
+       xcb_input_xi_query_device_infos_iterator,                               \
+        const xcb_input_xi_query_device_reply_t *R                             \
+    )                                                                          \
+    X_(void, xcb_input_xi_device_info_next,                                    \
+        xcb_input_xi_device_info_iterator_t *i                                 \
+    )                                                                          \
 
 #define LIBXCB_KEYSYMS_SO_NAME "libxcb-keysyms.so"
 #define LIBXCB_KEYSYMS_SYM_LIST                                                \

@@ -77,9 +77,10 @@ void mouse_evdev_update(struct p_mouse *mouse)
 
             for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
                 if (!updated_buttons[i] &&
-                    (mouse->buttons[i].pressed || mouse->buttons[i].down)
-                   ) {
-                    pressable_obj_update(&mouse->buttons[i], true);
+                    (mouse->buttons[i].pressed || mouse->buttons[i].up)
+                ) {
+                    pressable_obj_update(&mouse->buttons[i],
+                        mouse->buttons[i].pressed);
                 }
             }
 

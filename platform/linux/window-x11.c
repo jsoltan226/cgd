@@ -16,11 +16,11 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <xcb/xcb.h>
+#include <xcb/shm.h>
 #include <xcb/xproto.h>
 #include <xcb/xinput.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
-#include <xcb/shm.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
@@ -40,6 +40,11 @@ static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
 
 static i32 check_xinput2_extension(struct window_x11 *win);
+static i32 get_master_input_devices(
+    struct window_x11 *win,
+    xcb_input_device_id_t *master_mouse_id,
+    xcb_input_device_id_t *master_keyboard_id
+);
 
 static i32 attach_shm(struct window_x11 *win);
 static void detach_shm(struct window_x11 *win);
@@ -169,28 +174,45 @@ i32 window_X11_open(struct window_x11 *win,
     if (libxcb_error) goto_error("Failed to create the Graphics Context");
 
     /* Initialize the XInput2 externsion */
+    /* Get the master keyboard and master mouse device IDs */
+    if (get_master_input_devices(win,
+            &win->master_mouse_id, &win->master_keyboard_id
+        )
+    ) goto_error("Failed to query master input device IDs");
 
     /* Credits: https://gist.github.com/LemonBoy/dfe1d7ea428794c65b3d
      * Like come on xcb, WTF?!??!?!! */
-    const volatile struct xi2_mask {
-        xcb_input_event_mask_t head;
-        xcb_input_xi_event_mask_t mask;
-    } mask = {
+    const struct xi2_mask {
+        const xcb_input_event_mask_t head;
+        const xcb_input_xi_event_mask_t mask;
+    } keyboard_mask = {
         .head = {
-            .deviceid = XCB_INPUT_DEVICE_ALL,
-            .mask_len = sizeof(mask.mask) / sizeof(u32),
+            .deviceid = win->master_keyboard_id,
+            .mask_len = sizeof(keyboard_mask.mask) / sizeof(u32),
+        },
+        .mask = XCB_INPUT_XI_EVENT_MASK_KEY_PRESS
+        | XCB_INPUT_XI_EVENT_MASK_KEY_RELEASE,
+    }, mouse_mask = {
+        .head = {
+            .deviceid = win->master_mouse_id,
+            .mask_len = sizeof(mouse_mask.mask) / sizeof(u32),
         },
         .mask = XCB_INPUT_XI_EVENT_MASK_MOTION
         | XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS
-        | XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE
-        | XCB_INPUT_XI_EVENT_MASK_KEY_PRESS
-        | XCB_INPUT_XI_EVENT_MASK_KEY_RELEASE,
+        | XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE,
     };
 
     vc = win->xcb.xcb_input_xi_select_events_checked(
-        win->conn, win->win, 1, (const xcb_input_event_mask_t *)&mask.head
+        win->conn, win->win, 1, &keyboard_mask.head
     );
-    if (libxcb_error) goto_error("Failed to enable input handling with Xi2");
+    if (libxcb_error)
+        goto_error("Failed to enable keyboard input handling with Xi2");
+
+    vc = win->xcb.xcb_input_xi_select_events_checked(
+        win->conn, win->win, 1, &mouse_mask.head
+    );
+    if (libxcb_error)
+        goto_error("Failed to enable mouse input handling with Xi2");
 
     /* Map the window so that it's visible */
     vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
@@ -410,6 +432,42 @@ static i32 check_xinput2_extension(struct window_x11 *win)
     u_nzfree(reply);
     
     return 0;
+}
+
+static i32 get_master_input_devices(
+    struct window_x11 *win,
+    xcb_input_device_id_t *master_mouse_id,
+    xcb_input_device_id_t *master_keyboard_id
+)
+{
+    xcb_input_xi_query_device_cookie_t cookie =
+        win->xcb.xcb_input_xi_query_device(win->conn, XCB_INPUT_DEVICE_ALL);
+
+    xcb_input_xi_query_device_reply_t *reply =
+        win->xcb.xcb_input_xi_query_device_reply(win->conn, cookie, NULL);
+    if (reply == NULL)
+        return -1;
+
+    xcb_input_xi_device_info_iterator_t iterator =
+        win->xcb.xcb_input_xi_query_device_infos_iterator(reply);
+
+    bool found_keyboard = false, found_mouse = false;
+    while (iterator.rem > 0 && !(found_keyboard && found_mouse)) {
+        xcb_input_xi_device_info_t *device_info = iterator.data;
+        
+        if (device_info->type == XCB_INPUT_DEVICE_TYPE_MASTER_KEYBOARD) {
+            *master_keyboard_id = device_info->deviceid;
+            found_keyboard = true;
+        } else if (device_info->type == XCB_INPUT_DEVICE_TYPE_MASTER_POINTER) {
+            *master_mouse_id = device_info->deviceid;
+            found_mouse = true;
+        }
+
+        win->xcb.xcb_input_xi_device_info_next(&iterator);
+    }
+
+    u_nfree(reply);
+    return found_mouse && found_keyboard ? 0 : 1;
 }
 
 static i32 attach_shm(struct window_x11 *win)

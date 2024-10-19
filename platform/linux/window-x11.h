@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xinput.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_keysyms.h>
 #define P_INTERNAL_GUARD__
@@ -49,6 +50,8 @@ struct window_x11 {
 
     struct keyboard_x11 *registered_keyboard;
     struct mouse_x11 *registered_mouse;
+
+    xcb_input_device_id_t master_mouse_id, master_keyboard_id;
 
     xcb_key_symbols_t *key_symbols;
 };

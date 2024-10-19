@@ -41,7 +41,9 @@ void * vector_increase_size__(void *v)
 
     if (meta->n_items >= meta->capacity) {
         v = vector_realloc__(v, meta->capacity * 2);
-        meta = get_metadata_ptr(v); /* `meta` might have been moved by `realloc()` */
+
+        /* `meta` might have been moved by `realloc()` */
+        meta = get_metadata_ptr(v);
         meta->capacity *= 2;
     }
 

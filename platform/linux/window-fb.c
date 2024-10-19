@@ -140,9 +140,15 @@ void window_fb_close(struct window_fb *fb)
         fb->pixel_data.h = 0;
     }
 
-    /* Restore the terminal configuration (if it was changed) */
     if (fb->tty_fd != -1) {
-        tcsetattr(fb->tty_fd, TCSANOW, &fb->orig_term_config);
+        /* Restore the terminal configuration */
+        (void) tcsetattr(fb->tty_fd, TCSANOW, &fb->orig_term_config);
+
+        /* Discard any characters written on stdin
+         * (Clear the command line) */
+        (void) tcflush(fb->tty_fd, TCIOFLUSH);
+
+        /* Close the tty file descriptor */
         close(fb->tty_fd);
         fb->tty_fd = -1;
     }

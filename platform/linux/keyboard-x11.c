@@ -1,4 +1,5 @@
 #include "../keyboard.h"
+#include "core/log.h"
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pressable-obj.h>
@@ -41,6 +42,8 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
             pressable_obj_update(&pobjs[i], true);
         else if (ev == KEYBOARD_X11_RELEASE)
             pressable_obj_update(&pobjs[i], false);
+        else if (pobjs[i].pressed || pobjs[i].up)
+            pressable_obj_update(&pobjs[i], pobjs[i].pressed);
 
         /* Nothing really happens if there is a data race here */
         atomic_store((volatile _Atomic i8 *)&kb->key_events[i],

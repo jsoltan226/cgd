@@ -14,8 +14,8 @@
  * returns true if 2 rectangles overlap
  */
 static inline bool u_collision(
-    const rect_t * restrict r1,
-    const rect_t * restrict r2
+    const rect_t *r1,
+    const rect_t *r2
 )
 {
     return (

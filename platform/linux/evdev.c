@@ -73,7 +73,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
     const u32 fail_threshhold = n_dirents * MINIMAL_SUCCESSFUL_EVDEVS_LOADED;
 
     /* If half of the devices failed to load, something is probably wrong */
-    if (n_failed > fail_threshhold) {
+    if (n_failed > fail_threshhold && type == EVDEV_KEYBOARD) {
         s_log_warn("Too many event devices failed to load (%u/%u)"
             ", max # of fails was %u",
             n_failed, n_dirents, fail_threshhold
