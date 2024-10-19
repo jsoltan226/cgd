@@ -2,7 +2,7 @@
 #include <core/log.h>
 #include <core/int.h>
 #include <core/pixel.h>
-#include <core/librtld.h>
+#include <platform/librtld.h>
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
@@ -10,7 +10,7 @@
 
 #define MODULE_NAME "io-PNG"
 
-#define LIBPNG_NAME "libpng.so"
+#define LIBPNG_NAME "libpng"
 #define LIBPNG_SYM_LIST                                                             \
     X_(int, png_sig_cmp, (png_bytep sig, size_t start, size_t num_to_check))        \
     X_(png_structp, png_create_read_struct,                                         \
@@ -77,7 +77,7 @@
         (png_structpp png_ptr_ptr, png_infopp info_ptr_ptr)                         \
     )                                                                               \
 
-static struct lib *libPNG = NULL;
+static struct p_lib *libPNG = NULL;
 
 #define X_(ret_type, name, ...) \
     ret_type (*name) __VA_ARGS__;
@@ -352,12 +352,12 @@ i32 load_libPNG()
     };
 #undef X_
     
-    libPNG = librtld_load(LIBPNG_NAME, sym_names);
+    libPNG = p_librtld_load(LIBPNG_NAME, sym_names);
     if (libPNG == NULL)
         return 1;
 
 #define X_(ret_type, name, ...) \
-    PNG.name = librtld_get_sym_handle(libPNG, #name);
+    PNG.name = p_librtld_get_sym_handle(libPNG, #name);
 
     LIBPNG_SYM_LIST
 
@@ -369,7 +369,7 @@ i32 load_libPNG()
 void close_libPNG()
 {
     if (libPNG != NULL)
-        librtld_close(libPNG);
+        p_librtld_close(&libPNG);
     else
         s_log_warn("%s: libPNG already closed!");
 }

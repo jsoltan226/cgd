@@ -4,7 +4,6 @@
 #include <core/util.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
-#include <core/librtld.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>

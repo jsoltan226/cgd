@@ -1,7 +1,7 @@
+#include "../librtld.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
-#include <core/librtld.h>
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
@@ -13,13 +13,13 @@
 
 #define ERROR_MAGIC -1
 
-static struct lib *g_libxcb_lib = NULL;
-static struct lib *g_libxcb_image_lib = NULL;
-static struct lib *g_libxcb_icccm_lib = NULL;
-static struct lib *g_libxcb_input_lib = NULL;
-static struct lib *g_libxcb_keysyms_lib = NULL;
+static struct p_lib *g_libxcb_lib = NULL;
+static struct p_lib *g_libxcb_image_lib = NULL;
+static struct p_lib *g_libxcb_icccm_lib = NULL;
+static struct p_lib *g_libxcb_input_lib = NULL;
+static struct p_lib *g_libxcb_keysyms_lib = NULL;
 
-static struct lib *g_libxcb_shm_lib = NULL;
+static struct p_lib *g_libxcb_shm_lib = NULL;
 static bool g_libxcb_shm_ok = true;
 
 static struct libxcb g_libxcb_syms = { 0 };
@@ -85,18 +85,18 @@ i32 libxcb_load(struct libxcb *o)
         *(i32 *)&g_libxcb_syms.handleno_ = -1; /* Cast away const */
         *(bool *)&g_libxcb_syms.failed_ = false; /* Cast away const */
 
-        g_libxcb_lib = librtld_load(LIBXCB_SO_NAME, libxcb_sym_names);
+        g_libxcb_lib = p_librtld_load(LIBXCB_SO_NAME, libxcb_sym_names);
 
-        g_libxcb_image_lib = librtld_load(LIBXCB_IMAGE_SO_NAME,
+        g_libxcb_image_lib = p_librtld_load(LIBXCB_IMAGE_SO_NAME,
                 libxcb_image_sym_names);
 
-        g_libxcb_icccm_lib = librtld_load(LIBXCB_ICCCM_SO_NAME,
+        g_libxcb_icccm_lib = p_librtld_load(LIBXCB_ICCCM_SO_NAME,
                 libxcb_icccm_sym_names);
 
-        g_libxcb_input_lib = librtld_load(LIBXCB_INPUT_SO_NAME,
+        g_libxcb_input_lib = p_librtld_load(LIBXCB_INPUT_SO_NAME,
                 libxcb_input_sym_names);
 
-        g_libxcb_keysyms_lib = librtld_load(LIBXCB_KEYSYMS_SO_NAME,
+        g_libxcb_keysyms_lib = p_librtld_load(LIBXCB_KEYSYMS_SO_NAME,
                 libxcb_keysyms_sym_names);
 
         if (g_libxcb_lib == NULL ||
@@ -110,34 +110,34 @@ i32 libxcb_load(struct libxcb *o)
             goto end;
         }
 
-        g_libxcb_shm_lib = librtld_load(LIBXCB_SHM_SO_NAME,
+        g_libxcb_shm_lib = p_librtld_load(LIBXCB_SHM_SO_NAME,
             libxcb_shm_sym_names);
         if (g_libxcb_shm_lib == NULL)
             g_libxcb_shm_ok = false;
 
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                librtld_get_sym_handle(g_libxcb_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_lib, #name);
             LIBXCB_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                librtld_get_sym_handle(g_libxcb_image_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_image_lib, #name);
             LIBXCB_IMAGE_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                librtld_get_sym_handle(g_libxcb_icccm_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_icccm_lib, #name);
             LIBXCB_ICCCM_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                librtld_get_sym_handle(g_libxcb_input_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_input_lib, #name);
             LIBXCB_INPUT_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                librtld_get_sym_handle(g_libxcb_keysyms_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_keysyms_lib, #name);
             LIBXCB_KEYSYMS_SYM_LIST
 #undef X_
         if (g_libxcb_shm_ok) {
 #define X_(ret_type, name, ...) g_libxcb_syms.shm.name = \
-                librtld_get_sym_handle(g_libxcb_shm_lib, #name);
+                p_librtld_get_sym_handle(g_libxcb_shm_lib, #name);
             LIBXCB_SHM_SYM_LIST
 #undef X_
             /* Cast away const */
@@ -174,31 +174,14 @@ void libxcb_unload(struct libxcb *xcb)
     }
 
     if (--g_n_active_handles == 0) {
-        if (g_libxcb_lib != NULL) {
-            librtld_close(g_libxcb_lib);
-            g_libxcb_lib = NULL;
-        }
-        if (g_libxcb_icccm_lib != NULL) {
-            librtld_close(g_libxcb_icccm_lib);
-            g_libxcb_icccm_lib = NULL;
-        }
-        if (g_libxcb_image_lib != NULL) {
-            librtld_close(g_libxcb_image_lib);
-            g_libxcb_image_lib = NULL;
-        }
-        if (g_libxcb_input_lib != NULL) {
-            librtld_close(g_libxcb_input_lib);
-            g_libxcb_input_lib = NULL;
-        }
-        if (g_libxcb_keysyms_lib != NULL) {
-            librtld_close(g_libxcb_keysyms_lib);
-            g_libxcb_keysyms_lib = NULL;
-        }
-
-        if (g_libxcb_shm_lib != NULL && g_libxcb_shm_ok) {
-            librtld_close(g_libxcb_shm_lib);
-            g_libxcb_shm_lib = NULL;
-        }
+        /* `p_librtld_close` automatically handles invalid arguments,
+         * so we don't have to check if the handles are NULL */
+        p_librtld_close(&g_libxcb_lib);
+        p_librtld_close(&g_libxcb_icccm_lib);
+        p_librtld_close(&g_libxcb_image_lib);
+        p_librtld_close(&g_libxcb_input_lib);
+        p_librtld_close(&g_libxcb_keysyms_lib);
+        p_librtld_close(&g_libxcb_shm_lib);
 
         memset(&g_libxcb_syms, 0, sizeof(struct libxcb));
     }

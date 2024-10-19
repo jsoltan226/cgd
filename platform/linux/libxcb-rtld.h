@@ -14,7 +14,7 @@
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
 
-#define LIBXCB_SO_NAME "libxcb.so.1"
+#define LIBXCB_SO_NAME "libxcb"
 #define LIBXCB_SYM_LIST                                                        \
     X_(xcb_generic_error_t *, xcb_request_check,                               \
         xcb_connection_t *c, xcb_void_cookie_t cookie                          \
@@ -62,7 +62,7 @@
     )                                                                          \
 
 
-#define LIBXCB_IMAGE_SO_NAME "libxcb-image.so"
+#define LIBXCB_IMAGE_SO_NAME "libxcb-image"
 #define LIBXCB_IMAGE_SYM_LIST                                                  \
     X_(xcb_void_cookie_t, xcb_image_put,                                       \
         xcb_connection_t *conn, xcb_drawable_t draw, xcb_gcontext_t gc,        \
@@ -76,7 +76,7 @@
     X_(void, xcb_image_destroy, xcb_image_t *image)                            \
 
 
-#define LIBXCB_ICCCM_SO_NAME "libxcb-icccm.so.4"
+#define LIBXCB_ICCCM_SO_NAME "libxcb-icccm"
 #define LIBXCB_ICCCM_SYM_LIST                                                  \
     X_(xcb_void_cookie_t, xcb_icccm_set_wm_normal_hints_checked,               \
         xcb_connection_t *c, xcb_window_t window, xcb_size_hints_t *hints      \
@@ -89,7 +89,7 @@
     )                                                                          \
 
 
-#define LIBXCB_INPUT_SO_NAME "libxcb-xinput.so"
+#define LIBXCB_INPUT_SO_NAME "libxcb-xinput"
 #define LIBXCB_INPUT_SYM_LIST                                                  \
     X_(xcb_input_xi_query_version_cookie_t, xcb_input_xi_query_version,        \
         xcb_connection_t *c, uint16_t major_version, uint16_t minor_version    \
@@ -117,7 +117,7 @@
         xcb_input_xi_device_info_iterator_t *i                                 \
     )                                                                          \
 
-#define LIBXCB_KEYSYMS_SO_NAME "libxcb-keysyms.so"
+#define LIBXCB_KEYSYMS_SO_NAME "libxcb-keysyms"
 #define LIBXCB_KEYSYMS_SYM_LIST                                                \
     X_(xcb_key_symbols_t *, xcb_key_symbols_alloc, xcb_connection_t *c)        \
     X_(xcb_keysym_t, xcb_key_symbols_get_keysym,                               \
@@ -126,7 +126,7 @@
     X_(void, xcb_key_symbols_free, xcb_key_symbols_t *syms)                    \
 
 
-#define LIBXCB_SHM_SO_NAME "libxcb-shm.so"
+#define LIBXCB_SHM_SO_NAME "libxcb-shm"
 #define LIBXCB_SHM_SYM_LIST                                                    \
     X_(xcb_void_cookie_t, xcb_shm_attach_checked,                              \
         xcb_connection_t *c, xcb_shm_seg_t shmseg,                             \
