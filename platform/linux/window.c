@@ -66,7 +66,7 @@ struct p_window * p_window_open(const unsigned char *title,
             win->ev_offset.y = win->y;
             break;
         case WINDOW_TYPE_DUMMY:
-            dummy_window_init(&win->dummy);
+            window_dummy_init(&win->dummy);
             win->color_type = P_WINDOW_RGBA8888;
             break;
     }
@@ -91,8 +91,7 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
             window_fb_bind_fb(&win->fb, fb);
             break;
         default: case WINDOW_TYPE_DUMMY:
-            s_log_fatal(MODULE_NAME, __func__,
-                "Attempt to bind framebuffer to a window of invalid type");
+            window_dummy_bind_fb(&win->dummy, fb);
             break;
     }
 }
@@ -107,7 +106,10 @@ void p_window_unbind_fb(struct p_window *win)
         case WINDOW_TYPE_FRAMEBUFFER:
             window_fb_unbind_fb(&win->fb);
             break;
-        default: case WINDOW_TYPE_DUMMY:
+        case WINDOW_TYPE_DUMMY:
+            window_dummy_unbind_fb(&win->dummy);
+            break;
+        default:
             break;
     }
 }
@@ -126,7 +128,7 @@ void p_window_close(struct p_window **win_p)
             window_fb_close(&win->fb);
             break;
         case WINDOW_TYPE_DUMMY:
-            dummy_window_destroy(&win->dummy);
+            window_dummy_destroy(&win->dummy);
             break;
     }
 

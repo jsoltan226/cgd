@@ -124,7 +124,7 @@ test-hooks: asset-load-test-hook
 
 .PHONY: asset-load-test-hook
 asset-load-test-hook:
-	@test -f assets/tests/rand_9_3_1_0_0_0_0.png || $(ECHO) "7Z	assets/tests/random_pngs.7z" && $(PRINTF) 'Y\nA\n' | $(7Z) e -oassets/tests assets/tests/random_pngs.7z >/dev/null
+	@test -f assets/tests/asset_load_test/rand_9_3_1_0_0_0_0.png || $(ECHO) "7Z	assets/tests/asset_load_test/random_pngs.7z" && $(PRINTF) 'Y\nA\n' | $(7Z) e -oassets/tests/asset_load_test assets/tests/asset_load_test/random_pngs.7z >/dev/null
 
 
 # Test execution targets
@@ -173,7 +173,7 @@ mostlyclean:
 
 clean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE)"
-	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/*.png
+	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/asset_load_test/*.png
 	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
 
 # Output execution targets

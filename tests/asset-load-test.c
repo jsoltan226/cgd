@@ -6,11 +6,11 @@
 #include <asset-loader/plugin.h>
 #include <asset-loader/asset.h>
 #include <render/rctx.h>
+#include <platform/time.h>
 #include <platform/window.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
 #define MODULE_NAME "asset-load-test"
 
@@ -19,7 +19,7 @@
 #define WINDOW_FLAGS (P_WINDOW_TYPE_DUMMY)
 
 #define IMG_REL_PATH_BUF_SIZE 256
-#define IMG_REL_PATH_PREFIX "tests/"
+#define IMG_REL_PATH_PREFIX "tests/asset_load_test/"
 static const char * const * test_img_names;
 
 static struct p_window *win = NULL;
@@ -58,8 +58,9 @@ int main(void)
         asset_destroy(&a);
     } while (0);
 
-    struct timeval start, stop;
-    gettimeofday(&start, NULL);
+    p_time_t start_time;
+    p_time(&start_time);
+
     u32 i = 0, ntested = 0;
     while (test_img_names[i] != NULL) {
         char path_buf[IMG_REL_PATH_BUF_SIZE] = { 0 };
@@ -76,17 +77,13 @@ int main(void)
         ntested++;
         i++;
     }
-
-    gettimeofday(&stop, NULL);
-
-    i64 deltatime_microseconds = ((stop.tv_sec - start.tv_sec)*1000000 + (stop.tv_usec - start.tv_usec));
     s_log_debug("Test result is OK");
     s_log_info("[PROFILING]: Total n iterations: %u", ntested);
     s_log_info("[PROFILING]: Time (s): %lf",
-        (f64)deltatime_microseconds/1000000.f
+        (f64)p_time_delta_us(&start_time) / 1000000.f
     );
     s_log_info("[PROFILING]: Iterations/s: %lf",
-        (f64)(ntested*1000000.f) / (f64)deltatime_microseconds
+        (f64)(ntested*1000000.f) / (f64)p_time_delta_us(&start_time)
     );
     asset_unload_all_plugins();
     r_ctx_destroy(&rctx);

@@ -1,17 +1,16 @@
-INTEGRATE THE LOGGING
-Integrate the asset system properly
-Add a context
-Add a file with instructions regarding the coding style
-Split LOG_DEBUG into multiple levels
+Fix `asset-load-test`
+Fix button not drawing
+Properly implement double-buffering in the renderer/window
+Make the renderer run in a separate thread
 
+(Future) FUCKING WINDOWS SUPPORT
+(Future) make proper OpenGL and Vulkan renderers
+(Future) Split LOG_DEBUG into multiple levels
 (Future) Implement lazy loading of menus in menu-mgr
 (Future) Add popup menus
-(Future) Add hot code reloading with dlopen()
 (Future) Add clicking sound in buttons
 (Future) Add switch menu animations
 
-(Future) Add the goddamn editor
-(Future) Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time)
-(Far future) Switch to OpenGL for graphics, make a proper renderer
-
-(Future) make the makefile less of a mess
+(Far future) Add a file with instructions regarding the coding style
+(Far future) Add the goddamn editor
+(Far future) Move configuration to a config file opened and parsed during loading (at runtime) instead of config.h (at compile time)

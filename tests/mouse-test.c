@@ -1,4 +1,5 @@
 #include "core/vector.h"
+#include "render/line.h"
 #define _GNU_SOURCE
 #include <core/log.h>
 #include <core/util.h>
@@ -143,6 +144,10 @@ int main(void)
         /* Draw the mouse pointer */
         r_ctx_set_color(rctx, (pixel_t) { 255, 0, 0, 255 });
         r_fill_rect(rctx, mouse_state.x, mouse_state.y, POINTER_W, POINTER_H);
+        r_draw_line(rctx, anchor, (vec2d_t) {
+            mouse_state.x + (f32)POINTER_W/2,
+            mouse_state.y + (f32)POINTER_H/2
+        });
 
         /* Draw the window border */
         r_ctx_set_color(rctx, BORDER_COLOR);

@@ -1,7 +1,9 @@
-## NEWS for Wed 21.08.2024
+## NEWS for Sun 20.10.2024
 
-* We're dropping SDL2, baby!
-
-## NEWS for Thu 22.08.2024
-
-* Added a "driver" to read keyboard input from the tty
+* Fixed `render/line`, `window-dummy` and `asset-load-test`
+    * Made `r_draw_line` actually... draw lines!
+    * Updated `asset-load-test` to use `p_time` instead of the unix-specific `sys/time.h`
+    * Added framebuffer bind/unbind functions to `window-dummy`, making it actually useful when only dealing with a renderer and no input handling (which is the case in `asset-load-test`)
+    * Moved `assets/tests/random_pngs.7z` to `assets/tests/asset_load_test` to avoid cluttering the main `assets/tests` directory
+    * Finished writing `surface-test`
+    * Updated `TODO`, probably for the first time in months

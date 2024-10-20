@@ -2,16 +2,23 @@
 #include <platform/window.h>
 #include <stdlib.h>
 #define R_INTERNAL_GUARD__
-#include "rctx-internal.h"
-#undef R_INTERNAL_GUARD__
-#define R_INTERNAL_GUARD__
 #include "putpixel-fast.h"
 #undef R_INTERNAL_GUARD__
 
-void r_putpixel(struct r_ctx *ctx, i32 x, i32 y, pixel_t val)
+void r_putpixel_rgba(struct pixel_flat_data *data, i32 x, i32 y, pixel_t val)
 {
-    if (ctx == NULL || x >= ctx->pixels.w || y >= ctx->pixels.h) return;
+    if (data == NULL || data->buf == NULL || x >= data->w || y >= data->h)
+        return;
 
-    r_putpixel_fast_(ctx->pixels.buf, x, y, ctx->pixels.w, val,
-        ctx->win_meta.color_type);
+    r_putpixel_fast_(data->buf, x, y, data->w, val,
+        P_WINDOW_RGBA8888);
+}
+
+void r_putpixel_bgra(struct pixel_flat_data *data, i32 x, i32 y, pixel_t val)
+{
+    if (data == NULL || data->buf == NULL || x >= data->w || y >= data->h)
+        return;
+
+    r_putpixel_fast_(data->buf, x, y, data->w, val,
+        P_WINDOW_BGRA8888);
 }
