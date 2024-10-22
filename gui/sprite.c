@@ -36,7 +36,7 @@ sprite_t * sprite_init(const struct sprite_config *cfg, struct r_ctx *rctx)
 
 void sprite_draw(sprite_t *s, struct r_ctx *rctx)
 {
-    if (s == NULL || rctx) return;
+    if (s == NULL || rctx == NULL) return;
 
     r_surface_blit(s->asset->surface,
         &s->src_rect,

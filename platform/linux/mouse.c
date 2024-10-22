@@ -120,6 +120,18 @@ const pressable_obj_t * p_mouse_get_button(struct p_mouse *mouse,
     return &mouse->buttons[button];
 }
 
+void p_mouse_reset(struct p_mouse *mouse, u32 button_mask)
+{
+    if (button_mask & P_MOUSE_LEFTBUTTONMASK)
+        pressable_obj_reset(&mouse->buttons[P_MOUSE_BUTTON_LEFT]);
+
+    if (button_mask & P_MOUSE_RIGHTBUTTONMASK)
+        pressable_obj_reset(&mouse->buttons[P_MOUSE_BUTTON_RIGHT]);
+
+    if (button_mask & P_MOUSE_MIDDLEBUTTONMASK)
+        pressable_obj_reset(&mouse->buttons[P_MOUSE_BUTTON_MIDDLE]);
+}
+
 void p_mouse_force_release(struct p_mouse *mouse, u32 button_mask)
 {
     u_check_params(mouse != NULL);

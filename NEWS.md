@@ -12,3 +12,8 @@
 * Fixed the scaling issues in `r_surface_blit`
     * Renamed keyboard 'mode' to 'type' in `platform/linux/keyboard`
     * Fixed OOB reads and bad scaling due to improper handling of src_rects in `r_surface_blit`
+
+* Fixed the button not drawing
+    * Fixed an incorrect check in `sprite_draw` (which caused the button to not draw)
+    * Made the mouse reset when switching menus ("reset" instead of "force release")
+    * Deleted the `config/` directory. Why did it exist for so long lol?

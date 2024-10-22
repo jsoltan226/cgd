@@ -107,13 +107,13 @@ void menu_mgr_update(struct MenuManager *mmgr,
     {
         mmgr->curr_menu->flags ^= MENU_STATUS_SWITCH;
         menu_mgr_push_menu(mmgr, mmgr->curr_menu->switch_target);
-        p_mouse_force_release(mouse, P_MOUSE_EVERYBUTTONMASK);
+        p_mouse_reset(mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 
     if(mmgr->curr_menu->flags & MENU_STATUS_GOBACK){
         mmgr->curr_menu->flags ^= MENU_STATUS_GOBACK;
         menu_mgr_pop_menu(mmgr);
-        p_mouse_force_release(mouse, P_MOUSE_EVERYBUTTONMASK);
+        p_mouse_reset(mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 }
 
