@@ -7,3 +7,8 @@
     * Moved `assets/tests/random_pngs.7z` to `assets/tests/asset_load_test` to avoid cluttering the main `assets/tests` directory
     * Finished writing `surface-test`
     * Updated `TODO`, probably for the first time in months
+
+## NEWS for Tue 22.10.2024
+* Fixed the scaling issues in `r_surface_blit`
+    * Renamed keyboard 'mode' to 'type' in `platform/linux/keyboard`
+    * Fixed OOB reads and bad scaling due to improper handling of src_rects in `r_surface_blit`

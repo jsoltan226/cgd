@@ -1,4 +1,3 @@
-Fix `asset-load-test`
 Fix button not drawing
 Properly implement double-buffering in the renderer/window
 Make the renderer run in a separate thread

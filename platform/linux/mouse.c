@@ -57,7 +57,7 @@ struct p_mouse * p_mouse_init(struct p_window *win, u32 flags)
     } while (mouse_fallback_modes[win->type][i++] != MOUSE_TYPE_FAIL);
 
 mouse_setup_success:
-    s_log_info("%s() OK, mouse is type \"%s\"",
+    s_log_info("%s() OK, mouse type is \"%s\"",
         __func__, mouse_type_strings[m->type]);
     
     return m;

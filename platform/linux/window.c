@@ -71,6 +71,8 @@ struct p_window * p_window_open(const unsigned char *title,
             break;
     }
     
+    s_log_info("%s() OK, window type is \"%s\"",
+        __func__, window_type_strings[win->type]);
     return win;
 err:
     p_window_close(&win);

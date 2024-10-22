@@ -1,5 +1,6 @@
 #include "platform/window.h"
 #include "rctx.h"
+#include "rect.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
@@ -94,10 +95,16 @@ void r_surface_blit(struct r_surface *surface,
     const f32 scale_y = (f32)final_src_rect.h / final_dst_rect.h;
     
     /* Clip the rects to make sure we don't read or write out of bounds */
-    rect_t tmp = { rect_arg_expand(final_dst_rect) };
+    rect_t tmp = final_dst_rect;
     rect_clip(&final_dst_rect, &surface->rctx->pixels_rect);
-    final_src_rect.x += (tmp.w - final_dst_rect.w) * scale_x;
-    final_src_rect.y += (tmp.h - final_dst_rect.h) * scale_y;
+
+    /* "Project" the changes made to dst_rect onto src_rect */
+    final_src_rect.x -= (tmp.x - final_dst_rect.x) * scale_x;
+    final_src_rect.y -= (tmp.y - final_dst_rect.y) * scale_y;
+    final_src_rect.w -= (tmp.w - final_dst_rect.w) * scale_x;
+    final_src_rect.h -= (tmp.h - final_dst_rect.h) * scale_y;
+
+    /* Again, ensure that we don't read out of bounds */
     rect_clip(&final_src_rect, &surface->data_rect);
 
     /* Return early if there is nothing to do */
@@ -127,9 +134,10 @@ void r_surface_blit(struct r_surface *surface,
         [SCALING | CONVERSION]          = scaled_converted_blit,
     };
 
-    s_assert((needs_scaling | needs_pixel_conversion) < 4, "how?");
-    blit_function_table[needs_pixel_conversion | needs_scaling]
-    (
+    const u8 index = needs_scaling | needs_pixel_conversion;
+    s_assert(index >= 0 && index < 4, "how?");
+
+    blit_function_table[index] (
         &surface->data, &surface->rctx->pixels,
         &final_src_rect, &final_dst_rect,
         scale_x, scale_y,
