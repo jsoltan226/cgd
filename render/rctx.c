@@ -70,6 +70,7 @@ void r_ctx_destroy(struct r_ctx **ctx_p)
     struct r_ctx *ctx = *ctx_p;
 
     p_window_unbind_fb(ctx->win);
+    free(ctx->pixels.buf);
     u_nzfree(ctx);
 }
 

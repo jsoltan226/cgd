@@ -1,5 +1,5 @@
-#ifndef P_WINDOW_FB_H_
-#define P_WINDOW_FB_H_
+#ifndef P_WINDOW_FBDEV_H_
+#define P_WINDOW_FBDEV_H_
 
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
@@ -12,7 +12,7 @@
 #include <termios.h>
 #include <linux/fb.h>
 
-struct window_fb {
+struct window_fbdev {
     i32 fd;
     struct fb_fix_screeninfo fixed_info;
     struct fb_var_screeninfo var_info;
@@ -20,12 +20,11 @@ struct window_fb {
     void *mem;
     u64 mem_size;
 
-    struct pixel_flat_data pixel_data;
-
     u32 xres, yres;
     u32 padding;
 
-    rect_t win_area;
+    rect_t win_rect;
+    rect_t display_rect;
 
     bool closed;
 
@@ -33,13 +32,11 @@ struct window_fb {
     struct termios orig_term_config;
 };
 
-i32 window_fb_open(struct window_fb *fb, const rect_t *area, const u32 flags);
+i32 window_fbdev_open(struct window_fbdev *win,
+    const rect_t *area, const u32 flags);
+void window_fbdev_close(struct window_fbdev *win);
 
-void window_fb_close(struct window_fb *fb);
+void window_fbdev_render_to_display(struct window_fbdev *win,
+    const struct pixel_flat_data *fb);
 
-i32 window_fb_render_to_display(struct window_fb *fb);
-
-void window_fb_bind_fb(struct window_fb *win, struct pixel_flat_data *fb);
-void window_fb_unbind_fb(struct window_fb *win);
-
-#endif /* P_WINDOW_FB_H_ */
+#endif /* P_WINDOW_FBDEV_H_ */

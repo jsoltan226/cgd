@@ -45,7 +45,7 @@ static i32 get_master_input_devices(
     xcb_input_device_id_t *master_keyboard_id
 );
 
-static i32 attach_shm(struct window_x11 *win);
+static i32 attach_shm(struct window_x11 *win, u32 w, u32 h);
 static void detach_shm(struct window_x11 *win);
 
 #define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
@@ -292,18 +292,22 @@ void window_X11_close(struct window_x11 *win)
     memset(win, 0, sizeof(struct window_x11));
 }
 
-void window_X11_render(struct window_x11 *win)
+void window_X11_render(struct window_x11 *win, struct pixel_flat_data *fb)
 {
-    u_check_params(win != NULL && win->fb != NULL &&
-        win->fb->buf != NULL && win->fb->w > 0 && win->fb->h > 0);
+    u_check_params(win != NULL && fb != NULL &&
+        fb->buf != NULL && fb->w > 0 && fb->h > 0);
 
     if (win->shm_attached) {
-#define TOTAL_W win->fb->w
-#define TOTAL_H win->fb->h
+        memcpy(win->shm_info.shmaddr,
+            fb->buf,
+            fb->w * fb->h * sizeof(pixel_t)
+        );
+#define TOTAL_W fb->w
+#define TOTAL_H fb->h
 #define SRC_X 0
 #define SRC_Y 0
-#define SRC_W win->fb->w
-#define SRC_H win->fb->h
+#define SRC_W fb->w
+#define SRC_H fb->h
 #define DST_X 0
 #define DST_Y 0
 #define SEND_EVENT false
@@ -325,11 +329,9 @@ void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
 {
     u_check_params(win != NULL && fb != NULL);
 
-    win->fb = fb;
-
     if (win->xcb.shm.has_shm_extension_) {
         win->xcb_image = NULL;
-        if (attach_shm(win))
+        if (attach_shm(win, fb->w, fb->h))
             goto shm_attach_fail;
     } else {
 shm_attach_fail:
@@ -344,14 +346,15 @@ shm_attach_fail:
 
 void window_X11_unbind_fb(struct window_x11 *win)
 {
-    if (win == NULL || win->fb == NULL || win->fb->buf == NULL)
+    if (win == NULL)
         return;
 
     if (win->shm_attached) {
         detach_shm(win);
     } else {
-        if (win->fb->buf != NULL) free(win->fb->buf);
         if (win->xcb_image != NULL) {
+            /* Set these to NULL so that `xcb_image_destroy` doesnt
+             * also free our framebuffer */
             win->xcb_image->base = NULL;
             win->xcb_image->data = NULL;
 
@@ -359,8 +362,6 @@ void window_X11_unbind_fb(struct window_x11 *win)
             win->xcb_image = NULL;
         }
     }
-
-    memset(win->fb, 0, sizeof(struct pixel_flat_data));
 }
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
@@ -469,7 +470,7 @@ static i32 get_master_input_devices(
     return found_mouse && found_keyboard ? 0 : 1;
 }
 
-static i32 attach_shm(struct window_x11 *win)
+static i32 attach_shm(struct window_x11 *win, u32 w, u32 h)
 {
     if (!win->xcb.shm.has_shm_extension_) return -1;
 
@@ -479,7 +480,7 @@ static i32 attach_shm(struct window_x11 *win)
 
     win->shm_info.shmid = shmget(
         IPC_PRIVATE,
-        win->fb->w * win->fb->h * sizeof(pixel_t),
+        w * h * sizeof(pixel_t),
         IPC_CREAT | 0600
     );
     if (win->shm_info.shmid == -1)
@@ -506,9 +507,6 @@ static i32 attach_shm(struct window_x11 *win)
     }
     win->shm_attached = true;
 
-    if (win->fb->buf != NULL) free(win->fb->buf);
-    win->fb->buf = (pixel_t *)win->shm_info.shmaddr;
-
     return 0;
 
 err:
@@ -528,6 +526,4 @@ static void detach_shm(struct window_x11 *win)
     }
     win->shm_info.shmid = -1;
     win->shm_info.shmseg = -1;
-
-    win->fb->buf = NULL;
 }

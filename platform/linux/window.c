@@ -9,7 +9,7 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #define P_INTERNAL_GUARD__
-#include "window-fb.h"
+#include "window-fbdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -37,6 +37,7 @@ struct p_window * p_window_open(const unsigned char *title,
     win->y = area->y;
     win->w = area->w;
     win->h = area->h;
+    win->bound_fb = NULL;
 
     if (flags & P_WINDOW_TYPE_NORMAL)
         win->type = WINDOW_TYPE_X11;
@@ -59,7 +60,7 @@ struct p_window * p_window_open(const unsigned char *title,
             win->ev_offset.y = 0;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            if (window_fb_open(&win->fb, area, flags))
+            if (window_fbdev_open(&win->fbdev, area, flags))
                 goto_error("Failed to open framebuffer window");
             win->color_type = P_WINDOW_BGRA8888;
             win->ev_offset.x = win->x;
@@ -84,36 +85,22 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
     u_check_params(win != NULL && fb != NULL);
     s_assert(fb->w == win->w && fb->h == win->h,
         "%s: Invalid framebuffer size", __func__);
+    s_assert(win->bound_fb == NULL,
+        "A framebuffer is already bound to this window.");
 
-    switch(win->type) {
-        case WINDOW_TYPE_X11:
-            window_X11_bind_fb(&win->x11, fb);
-            break;
-        case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_bind_fb(&win->fb, fb);
-            break;
-        default: case WINDOW_TYPE_DUMMY:
-            window_dummy_bind_fb(&win->dummy, fb);
-            break;
-    }
+    win->bound_fb = fb;
+    if (win->type == WINDOW_TYPE_X11)
+        window_X11_bind_fb(&win->x11, fb);
 }
 
 void p_window_unbind_fb(struct p_window *win)
 {
     u_check_params(win != NULL);
-    switch(win->type) {
-        case WINDOW_TYPE_X11:
-            window_X11_unbind_fb(&win->x11);
-            break;
-        case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_unbind_fb(&win->fb);
-            break;
-        case WINDOW_TYPE_DUMMY:
-            window_dummy_unbind_fb(&win->dummy);
-            break;
-        default:
-            break;
-    }
+    
+    if (win->type == WINDOW_TYPE_X11)
+        window_X11_unbind_fb(&win->x11);
+
+    win->bound_fb = NULL;
 }
 
 void p_window_close(struct p_window **win_p)
@@ -122,12 +109,13 @@ void p_window_close(struct p_window **win_p)
 
     struct p_window *win = *win_p;
 
+    p_window_unbind_fb(win);
     switch (win->type) {
         case WINDOW_TYPE_X11:
             window_X11_close(&win->x11);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_close(&win->fb);
+            window_fbdev_close(&win->fbdev);
             break;
         case WINDOW_TYPE_DUMMY:
             window_dummy_destroy(&win->dummy);
@@ -144,10 +132,10 @@ void p_window_render(struct p_window *win)
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            window_X11_render(&win->x11);
+            window_X11_render(&win->x11, win->bound_fb);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            window_fb_render_to_display(&win->fb);
+            window_fbdev_render_to_display(&win->fbdev, win->bound_fb);
             break;
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */

@@ -28,7 +28,7 @@ void tty_keyboard_update_all_keys(struct keyboard_tty *kb,
 
 void tty_keyboard_destroy(struct keyboard_tty *kb);
 
-/* Exposed here for use in `window-fb`.
+/* Exposed here for use in `window-fbdev`.
  * Returns 0 on success and non-zero on failure.
  *
  * `fd` should be an open file descriptor of the tty.

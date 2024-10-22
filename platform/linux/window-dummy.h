@@ -8,14 +8,9 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 struct window_dummy {
-    struct pixel_flat_data *bound_fb;
 };
 
 void window_dummy_init(struct window_dummy *win);
 void window_dummy_destroy(struct window_dummy *win);
-
-void window_dummy_bind_fb(struct window_dummy *win,
-    struct pixel_flat_data *fb);
-void window_dummy_unbind_fb(struct window_dummy *win);
 
 #endif /* WINDOW_DUMMY_H_ */

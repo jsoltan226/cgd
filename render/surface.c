@@ -1,6 +1,5 @@
 #include "platform/window.h"
 #include "rctx.h"
-#include "rect.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>

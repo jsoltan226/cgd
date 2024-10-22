@@ -7,9 +7,10 @@
 
 #include "../window.h"
 #include <core/int.h>
+#include <core/pixel.h>
 #include <core/shapes.h>
 #define P_INTERNAL_GUARD__
-#include "window-fb.h"
+#include "window-fbdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -43,9 +44,11 @@ struct p_window {
 
     union {
         struct window_x11 x11;
-        struct window_fb fb;
+        struct window_fbdev fbdev;
         struct window_dummy dummy;
     };
+    
+    struct pixel_flat_data *bound_fb;
 
     enum p_window_color_type color_type;
 

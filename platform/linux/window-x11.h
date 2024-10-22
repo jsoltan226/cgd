@@ -41,7 +41,6 @@ struct window_x11 {
 
     xcb_gcontext_t gc;
     xcb_image_t *xcb_image;
-    struct pixel_flat_data *fb;
 
     struct window_x11_listener {
         _Atomic bool running;
@@ -66,7 +65,7 @@ i32 window_X11_open(struct window_x11 *x11,
 void window_X11_close(struct window_x11 *x11);
 
 /* Does not perform any parameter validation! */
-void window_X11_render(struct window_x11 *x11);
+void window_X11_render(struct window_x11 *x11, struct pixel_flat_data *fb);
 
 void window_X11_bind_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
 void window_X11_unbind_fb(struct window_x11 *win);

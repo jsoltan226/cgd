@@ -17,3 +17,9 @@
     * Fixed an incorrect check in `sprite_draw` (which caused the button to not draw)
     * Made the mouse reset when switching menus ("reset" instead of "force release")
     * Deleted the `config/` directory. Why did it exist for so long lol?
+
+* Implemented double-buffering in `p_window_render`
+    * What the commit title says
+    * `p_window_unbind_fb` no longer frees the bound framebuffer
+    * Deleted `window-fb-test`
+    * Renamed `window-fb` to `window-fbdev`
