@@ -9,7 +9,7 @@
     * Fixed the libpng interlace handling error messages in `io-PNG`
     * Made `io-PNG` use custom libPNG error and warning handler functions
 
-* Implemented a wrapper for platform threading
+* Implemented a wrapper for platform multithreading
     * Implemented a wrapper for linux AND WINDOWS (!!!!!) threads and mutexes
     * Renamed `window_X11_bind_fb` to `window_X11_attach_fb` (and also obviously `window_X11_unbind_fb` to `window_X11_detach_fb`)
     * Added a separate `.clangd` file for windows development
