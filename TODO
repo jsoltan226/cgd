@@ -1,3 +1,5 @@
+Platform code for multithreading (replacing pthread)
+Thread safety for global variables
 Make the renderer run in a separate thread
 
 (Future) FUCKING WINDOWS SUPPORT

@@ -50,5 +50,5 @@ void sprite_destroy(sprite_t **spr_p)
     sprite_t *spr = *spr_p;
 
     asset_destroy(&spr->asset);
-    u_nzfree(spr);
+    u_nzfree(spr_p);
 }

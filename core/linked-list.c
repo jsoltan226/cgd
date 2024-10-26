@@ -13,7 +13,7 @@ struct linked_list * linked_list_create(void *head_content)
     struct ll_node *first_node = linked_list_create_node(head_content);
     if (first_node == NULL) {
         s_log_error("linked_list_create_node() returned NULL!");
-        u_nzfree(ll);
+        u_nzfree(&ll);
         return NULL;
     }
 
@@ -62,7 +62,7 @@ void linked_list_destroy_node(struct ll_node **node_p)
 
     if (node->prev != NULL) node->prev->next = node->next;
     if (node->next != NULL) node->next->prev = node->prev;
-    u_nzfree(node);
+    u_nzfree(node_p);
 }
 
 void linked_list_destroy(struct linked_list **list_p, bool free_content)
@@ -72,7 +72,7 @@ void linked_list_destroy(struct linked_list **list_p, bool free_content)
     struct linked_list *list = *list_p;
 
     linked_list_recursive_destroy_nodes(&list->head, free_content);
-    u_nzfree(list);
+    u_nzfree(list_p);
 }
 
 void linked_list_recursive_destroy_nodes(struct ll_node **head_p, bool free_content)
@@ -82,8 +82,8 @@ void linked_list_recursive_destroy_nodes(struct ll_node **head_p, bool free_cont
     struct ll_node *curr_node = *head_p;
     while (curr_node != NULL) {
         struct ll_node *next_node = curr_node->next;
-        if (free_content) u_nzfree(curr_node->content);
-        u_nzfree(curr_node);
+        if (free_content) u_nzfree(&curr_node->content);
+        u_nzfree(&curr_node);
         curr_node = next_node;
     };
 }

@@ -199,7 +199,6 @@ int main(void)
 
     r_surface_destroy(&surface2);
     asset_destroy(&asset);
-    asset_unload_all_plugins();
     r_ctx_destroy(&rctx);
     p_keyboard_destroy(&kb);
     p_window_close(&win);
@@ -210,7 +209,6 @@ int main(void)
 err:
     if (surface2 != NULL) r_surface_destroy(&surface2);
     if (asset != NULL) asset_destroy(&asset);
-    asset_unload_all_plugins();
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if(kb != NULL) p_keyboard_destroy(&kb);
     if (win != NULL) p_window_close(&win);

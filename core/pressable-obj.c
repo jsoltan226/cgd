@@ -59,5 +59,5 @@ void pressable_obj_destroy(pressable_obj_t **po_p)
 {
     if (po_p == NULL || *po_p == NULL) return;
 
-    u_nzfree(*po_p);
+    u_nzfree(po_p);
 }

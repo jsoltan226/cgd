@@ -142,7 +142,7 @@ void menu_mgr_destroy(struct MenuManager **mmgr_p)
         vector_destroy(mmgr->global_event_listeners);
     }
 
-    u_nzfree(mmgr);
+    u_nzfree(mmgr_p);
 }
 
 void menu_mgr_pop_menu(struct MenuManager *mmgr)

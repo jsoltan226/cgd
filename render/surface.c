@@ -51,7 +51,7 @@ struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
     return ret;
 
 err:
-    if (pixel_data.buf != NULL) u_nfree(pixel_data.buf);
+    if (pixel_data.buf != NULL) u_nfree(&pixel_data.buf);
     return NULL;
 }
 
@@ -150,9 +150,9 @@ void r_surface_destroy(struct r_surface **surface_p)
     struct r_surface *surface = *surface_p;
 
     if (surface->data.buf != NULL)
-        u_nfree(surface->data.buf);
+        u_nfree(&surface->data.buf);
 
-    u_nzfree(surface);
+    u_nzfree(surface_p);
 }
 
 static void unscaled_unconverted_blit(

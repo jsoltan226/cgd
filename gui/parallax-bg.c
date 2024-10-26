@@ -98,5 +98,5 @@ void parallax_bg_destroy(struct parallax_bg **bg_p)
         vector_destroy(bg->layers);
     }
 
-    u_nzfree(bg);
+    u_nzfree(bg_p);
 }

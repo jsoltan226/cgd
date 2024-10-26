@@ -77,7 +77,8 @@ EXEARGS =
 all: CFLAGS = -ggdb -O0 -Wall
 all: $(OBJDIR) $(BINDIR) $(EXE)
 
-release: CFLAGS = -O3 -Wall -Werror -DNDEBUG -DCGD_BUILDTYPE_RELEASE
+release: LDFLAGS += -flto
+release: CFLAGS = -O3 -Wall -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
 release: clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run

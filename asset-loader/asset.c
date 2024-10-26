@@ -17,6 +17,8 @@
 
 #define MODULE_NAME "assetld"
 
+static i32 g_n_active_handles = 0;
+
 const char * asset_get_assets_dir();
 static i32 get_bin_dir(char *buf, u32 buf_size);
 
@@ -65,6 +67,7 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
         goto_error("Failed to create a surface from the pixel_data!");
 
     fclose(fp);
+    g_n_active_handles++;
     return a;
 
 err:
@@ -98,7 +101,12 @@ void asset_destroy(struct asset **asset)
     else if (a->pixel_data.buf)
         free(a->pixel_data.buf);
 
-    u_nzfree(a);
+    u_nzfree(&a);
+    if (--g_n_active_handles == 0)
+        asset_unload_all_plugins();
+    else if (g_n_active_handles < 0)
+        s_log_error("%s(): Invalid value of g_n_active_handles: %i",
+            __func__, g_n_active_handles);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };

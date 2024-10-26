@@ -35,22 +35,22 @@ typedef const char filepath_t[u_FILEPATH_MAX];
 } while (0)
 
 /* Free and nullify */
-#define u_nfree(ptr) do {           \
-    free(ptr);                      \
-    ptr = NULL;                     \
-} while (0);
+#define u_nfree(ptr_ptr) do {   \
+    free(*(ptr_ptr));           \
+    *(ptr_ptr) = NULL;          \
+} while (0)
 
 /* Zero-out and free */
-#define u_zfree(ptr) do {           \
-    memset(ptr, 0, sizeof(*ptr));   \
-    free(ptr);                      \
-} while (0);
+#define u_zfree(ptr_ptr) do {                   \
+    memset(*(ptr_ptr), 0, sizeof(**(ptr_ptr))); \
+    free(*(ptr_ptr));                           \
+} while (0)
 
 /* Zero-out, free and nullify */
-#define u_nzfree(ptr) do {          \
-    memset(ptr, 0, sizeof(*ptr));   \
-    free(ptr);                      \
-    ptr = NULL;                     \
+#define u_nzfree(ptr_ptr) do {                  \
+    memset(*(ptr_ptr), 0, sizeof(**(ptr_ptr))); \
+    free(*(ptr_ptr));                           \
+    *(ptr_ptr) = NULL;                          \
 } while (0)
 
 #endif /* UTIL_H_ */

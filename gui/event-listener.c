@@ -71,5 +71,5 @@ void event_listener_destroy(struct event_listener **evl_p)
 {
     if (evl_p == NULL || *evl_p == NULL) return;
 
-    u_nzfree(*evl_p);
+    u_nzfree(evl_p);
 }

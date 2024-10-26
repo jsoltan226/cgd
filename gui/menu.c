@@ -186,7 +186,7 @@ void menu_destroy(struct Menu **mn_p)
 
     parallax_bg_destroy(&mn->bg);
 
-    u_nzfree(mn);
+    u_nzfree(mn_p);
 }
 
 void menu_init_onevent_obj(struct on_event_obj *oeObj,

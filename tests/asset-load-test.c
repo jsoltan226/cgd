@@ -24,14 +24,11 @@ static const char * const * test_img_names;
 
 static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
+static struct asset *dummy = NULL;
 
 int main(void)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
-
-    s_log_debug("Loading libPNG...");
-    if (asset_load_plugin_by_type(IMG_TYPE_PNG))
-        goto_error("Failed to load libPNG!");
 
     s_log_debug("Opening a window");
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
@@ -44,19 +41,13 @@ int main(void)
         goto_error("Failed initialize the renderer");
 
     /* Execute once outside of profiling to load functions into cache */
-    do {
-        char path_buf[IMG_REL_PATH_BUF_SIZE] = { 0 };
-        strcpy(path_buf, IMG_REL_PATH_PREFIX);
-        strcat(path_buf, test_img_names[0]);
+    char path_buf[IMG_REL_PATH_BUF_SIZE] = { 0 };
+    strcpy(path_buf, IMG_REL_PATH_PREFIX);
+    strcat(path_buf, test_img_names[0]);
 
-        struct asset *a = asset_load(path_buf, rctx);
-
-        if (a == NULL) {
-            s_log_error("Test FAILED for \"%s\"", path_buf);
-            goto err;
-        }
-        asset_destroy(&a);
-    } while (0);
+    dummy = asset_load(path_buf, rctx);
+    if (dummy == NULL)
+        goto_error("Test FAILED for \"%s\"", path_buf);
 
     p_time_t start_time;
     p_time(&start_time);
@@ -85,14 +76,14 @@ int main(void)
     s_log_info("[PROFILING]: Iterations/s: %lf",
         (f64)(ntested*1000000.f) / (f64)p_time_delta_us(&start_time)
     );
-    asset_unload_all_plugins();
+    asset_destroy(&dummy);
     r_ctx_destroy(&rctx);
     p_window_close(&win);
     return EXIT_SUCCESS;
 
 err:
     s_log_error("Test result is FAIL, cleaning up...", NULL);
-    asset_unload_all_plugins();
+    if (dummy != NULL) asset_destroy(&dummy);
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;

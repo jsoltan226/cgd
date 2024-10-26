@@ -122,7 +122,7 @@ void p_window_close(struct p_window **win_p)
             break;
     }
 
-    u_nzfree(win);
+    u_nzfree(win_p);
     p_event_send(&(struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 }
 

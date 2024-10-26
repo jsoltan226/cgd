@@ -17,8 +17,8 @@
 #define MODULE_NAME "main"
 
 enum EXIT_CODES {
-    EXIT_OK                         = EXIT_SUCCESS,
-    ERR_OTHER                       = EXIT_FAILURE,
+    EXIT_OK                         = 0,
+    ERR_OTHER                       = 1,
     ERR_CREATE_WINDOW               = 2,
     ERR_CREATE_RENDERER             = 3,
     ERR_INIT_KEYBOARD               = 4,
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
     mouse = p_mouse_init(win, 0);
     if (mouse == NULL)
-        goto_error(ERR_INIT_KEYBOARD, "Failed to initialize the mouse");
+        goto_error(ERR_INIT_MOUSE, "Failed to initialize the mouse");
 
     s_log_info("Initializing the GUI...");
     s_log_debug("Initializing the menu manager");
@@ -126,9 +126,7 @@ cleanup:
     if (keyboard != NULL) p_keyboard_destroy(&keyboard);
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (win != NULL) p_window_close(&win);
-    asset_unload_all_plugins();
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
     exit(EXIT_CODE);
 }
-

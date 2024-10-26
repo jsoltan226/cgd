@@ -173,7 +173,7 @@ void p_keyboard_destroy(struct p_keyboard **kb_p)
             break;
     }
 
-    u_nzfree(kb);
+    u_nzfree(kb_p);
 }
 
 #undef KB_TYPES_LIST

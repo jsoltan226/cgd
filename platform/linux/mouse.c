@@ -166,5 +166,5 @@ void p_mouse_destroy(struct p_mouse **mouse_p)
             break;
     }
 
-    u_nzfree(mouse);
+    u_nzfree(mouse_p);
 }

@@ -24,7 +24,7 @@ struct hashmap * hashmap_create(u32 initial_length)
     map->bucket_lists = calloc(initial_length, sizeof(struct linked_list *));
     if (map->bucket_lists == NULL) {
         s_log_error("calloc() for map->bucket_lists failed!");
-        u_nzfree(map);
+        u_nzfree(&map);
         return NULL;
     }
 
@@ -51,7 +51,7 @@ i32 hashmap_insert(struct hashmap *map, const char *key, const void *entry)
                 "hashmap_insert: linked_list_create() for bucket list @ index %i returned NULL!",
                 index
             );
-            u_nzfree(new_record);
+            u_nzfree(&new_record);
             return 1;
         }
     } else {
@@ -79,7 +79,7 @@ void * hashmap_lookup_record(struct hashmap *map, const char *key)
 void hashmap_delete_record(struct hashmap *map, const char *key)
 {
     struct ll_node *node = lookup_bucket_list_node(map, key);
-    u_nzfree(node->content);
+    u_nzfree(&node->content);
     linked_list_destroy_node(&node);
 }
 
@@ -95,7 +95,7 @@ void hashmap_destroy(struct hashmap **map_p)
     }
     free(map->bucket_lists);
 
-    u_nzfree(map);
+    u_nzfree(map_p);
 }
 
 static inline u32 hash(const char *key, u32 max)

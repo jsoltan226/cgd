@@ -102,5 +102,5 @@ void button_destroy(struct button **btn_p)
     struct button *btn = *btn_p;
 
     sprite_destroy(&btn->sprite);
-    u_nzfree(btn);
+    u_nzfree(btn_p);
 }

@@ -62,8 +62,8 @@ struct p_lib * p_librtld_load(const char *libname, const char **symnames)
 
 err:
     if (lib->handle != NULL) dlclose(lib->handle);
-    if (lib->syms != NULL) u_nzfree(lib->syms);
-    u_nzfree(lib);
+    if (lib->syms != NULL) u_nzfree(&lib->syms);
+    u_nzfree(&lib);
     return NULL;
 }
 
@@ -76,9 +76,10 @@ void p_librtld_close(struct p_lib **lib_p)
         dlclose(lib->handle);
         lib->handle = NULL;
     }
-    if (lib->so_name != NULL) u_nfree(lib->so_name);
-    if (lib->syms != NULL) u_nfree(lib->syms);
-    u_nzfree(lib);
+    if (lib->so_name != NULL) u_nfree(&lib->so_name);
+    if (lib->syms != NULL) u_nfree(&lib->syms);
+
+    u_nzfree(lib_p);
 }
 
 void * p_librtld_get_sym_handle(struct p_lib *lib, const char *symname)

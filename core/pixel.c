@@ -32,9 +32,9 @@ void pixel_row_data_destroy(struct pixel_row_data *data)
 
     if (data->rows != NULL) {
         for (u32 i = 0; i < data->h; i++)
-            u_nfree(data->rows[i]);
+            u_nfree(&data->rows[i]);
 
-        u_nfree(data->rows);
+        u_nfree(&data->rows);
     }
     memset(data, 0, sizeof(struct pixel_row_data));
 }
