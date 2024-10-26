@@ -7,7 +7,6 @@
 #include <core/shapes.h>
 #include <stdlib.h>
 #include <string.h>
-#include <X11/Xlib.h>
 #define P_INTERNAL_GUARD__
 #include "window-fbdev.h"
 #undef P_INTERNAL_GUARD__
@@ -90,7 +89,7 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
 
     win->bound_fb = fb;
     if (win->type == WINDOW_TYPE_X11)
-        window_X11_bind_fb(&win->x11, fb);
+        window_X11_attach_fb(&win->x11, fb);
 }
 
 void p_window_unbind_fb(struct p_window *win)
@@ -98,7 +97,7 @@ void p_window_unbind_fb(struct p_window *win)
     u_check_params(win != NULL);
     
     if (win->type == WINDOW_TYPE_X11)
-        window_X11_unbind_fb(&win->x11);
+        window_X11_detach_fb(&win->x11);
 
     win->bound_fb = NULL;
 }

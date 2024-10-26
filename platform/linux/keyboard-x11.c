@@ -1,11 +1,9 @@
 #include "../keyboard.h"
-#include "core/log.h"
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pressable-obj.h>
 #include <stdatomic.h>
 #include <string.h>
-#include <pthread.h>
 
 #define P_INTERNAL_GUARD__
 #include "keyboard-x11.h"

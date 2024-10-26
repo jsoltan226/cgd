@@ -1,8 +1,9 @@
-Platform code for multithreading (replacing pthread)
 Thread safety for global variables
+FUCKING WINDOWS SUPPORT
 Make the renderer run in a separate thread
 
-(Future) FUCKING WINDOWS SUPPORT
+(Future) Automatic dependecy management
+(Future) Actual build configs
 (Future) make proper OpenGL and Vulkan renderers
 (Future) Split LOG_DEBUG into multiple levels
 (Future) Implement lazy loading of menus in menu-mgr

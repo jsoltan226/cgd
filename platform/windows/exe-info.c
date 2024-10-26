@@ -3,6 +3,8 @@
 #include <core/log.h>
 #include <stdio.h>
 #include <windows.h>
+#include <libloaderapi.h>
+#include <errhandlingapi.h>
 
 #define MODULE_NAME "exe-info"
 

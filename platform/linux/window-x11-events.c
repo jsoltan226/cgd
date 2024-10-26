@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include "../event.h"
 #include "../mouse.h"
-#include "../keyboard.h"
+#include "../thread.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/math.h>
@@ -40,7 +40,7 @@ void * window_X11_event_listener_fn(void *arg)
     while (atomic_load(&win->listener.running))
         handle_event(win, win->xcb.xcb_wait_for_event(win->conn));
 
-    pthread_exit(NULL);
+    p_mt_thread_exit(NULL);
 }
 
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)

@@ -5,11 +5,11 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
+#include "../thread.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xinput.h>
@@ -44,7 +44,7 @@ struct window_x11 {
 
     struct window_x11_listener {
         _Atomic bool running;
-        pthread_t thread;
+        p_mt_thread_t thread;
     } listener;
 
     struct keyboard_x11 *registered_keyboard;
@@ -67,8 +67,8 @@ void window_X11_close(struct window_x11 *x11);
 /* Does not perform any parameter validation! */
 void window_X11_render(struct window_x11 *x11, struct pixel_flat_data *fb);
 
-void window_X11_bind_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
-void window_X11_unbind_fb(struct window_x11 *win);
+void window_X11_attach_fb(struct window_x11 *x11, struct pixel_flat_data *fb);
+void window_X11_detach_fb(struct window_x11 *win);
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
     struct keyboard_x11 *kb);

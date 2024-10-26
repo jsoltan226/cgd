@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "../event.h"
+#include "../thread.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
@@ -8,12 +9,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <pthread.h>
 
 #define MODULE_NAME "event"
 
 static VECTOR(struct p_event) g_event_queue = NULL;
-static pthread_mutex_t g_event_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static p_mt_mutex_t g_event_queue_mutex = NULL;
 
 static void setup_event_queue(bool warn);
 static void destroy_event_queue();
@@ -24,7 +24,10 @@ i32 p_event_poll(struct p_event *o)
     u_check_params(o != NULL);
     u32 n_events = 0;
 
-    pthread_mutex_lock(&g_event_queue_mutex);
+    if (g_event_queue_mutex == NULL)
+        g_event_queue_mutex = p_mt_mutex_create();
+    
+    p_mt_mutex_lock(g_event_queue_mutex);
 
     if (g_event_queue == NULL)
         setup_event_queue(true);
@@ -43,7 +46,7 @@ i32 p_event_poll(struct p_event *o)
         s_log_debug("Caught QUIT event");
 
 ret:
-    pthread_mutex_unlock(&g_event_queue_mutex);
+    p_mt_mutex_unlock(g_event_queue_mutex);
     return n_events;
 }
 
@@ -51,7 +54,10 @@ void p_event_send(const struct p_event *ev)
 {
     u_check_params(ev != NULL);
 
-    pthread_mutex_lock(&g_event_queue_mutex);
+    if (g_event_queue_mutex == NULL)
+        g_event_queue_mutex = p_mt_mutex_create();
+
+    p_mt_mutex_lock(g_event_queue_mutex);
 
     switch (ev->type) {
         case P_EVENT_CTL_INIT_:
@@ -59,6 +65,7 @@ void p_event_send(const struct p_event *ev)
             break;
         case P_EVENT_CTL_DESTROY_:
             destroy_event_queue();
+            p_mt_mutex_destroy(&g_event_queue_mutex);
             break;
         default:
             if (g_event_queue == NULL)
@@ -67,7 +74,8 @@ void p_event_send(const struct p_event *ev)
             break;
     }
 
-    pthread_mutex_unlock(&g_event_queue_mutex);
+    if (g_event_queue_mutex != NULL)
+        p_mt_mutex_unlock(g_event_queue_mutex);
 }
 
 static void setup_event_queue(bool warn)

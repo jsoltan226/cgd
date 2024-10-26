@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "../window.h"
+#include "../thread.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -11,7 +12,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
-#include <pthread.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <xcb/xcb.h>
@@ -229,10 +229,10 @@ i32 window_X11_open(struct window_x11 *win,
 
     /* Create the thread that listens for events */
     atomic_init(&win->listener.running, true);
-    if (pthread_create(&win->listener.thread, NULL,
-        window_X11_event_listener_fn, win))
+    if (p_mt_thread_create(&win->listener.thread,
+        window_X11_event_listener_fn, win, 0))
     {
-        goto_error("Failed to create listener thread: %s", strerror(errno));
+        goto_error("Failed to create listener thread.");
     }
 
     s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
@@ -275,11 +275,11 @@ void window_X11_close(struct window_x11 *win)
                         XCB_EVENT_MASK_EXPOSURE, ev_base);
                 (void) win->xcb.xcb_flush(win->conn);
 
-                pthread_join(win->listener.thread, NULL);
+                (void) p_mt_thread_wait(&win->listener.thread);
             } else {
                 /* Forcibly terminate the listener if (somehow)
                  * the window does not exist but the thread is running */
-                pthread_kill(win->listener.thread, SIGKILL);
+                p_mt_thread_terminate(&win->listener.thread);
             }
         }
 
@@ -325,7 +325,7 @@ void window_X11_render(struct window_x11 *win, struct pixel_flat_data *fb)
     (void) win->xcb.xcb_flush(win->conn);
 }
 
-void window_X11_bind_fb(struct window_x11 *win, struct pixel_flat_data *fb)
+void window_X11_attach_fb(struct window_x11 *win, struct pixel_flat_data *fb)
 {
     u_check_params(win != NULL && fb != NULL);
 
@@ -344,7 +344,7 @@ shm_attach_fail:
     }
 }
 
-void window_X11_unbind_fb(struct window_x11 *win)
+void window_X11_detach_fb(struct window_x11 *win)
 {
     if (win == NULL)
         return;

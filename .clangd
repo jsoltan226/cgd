@@ -1,8 +1,1 @@
-CompileFlags: 
-  Add: 
-    - "-I."
-    - "-I.."
-    - "-I../.."
-    - "-std=c11"
-    - "-xc"
-    - "-Wall"
+.clangd-linux

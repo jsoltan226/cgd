@@ -1,10 +1,10 @@
+#include "../thread.h"
 #include "../librtld.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
 #include <string.h>
 #include <stdbool.h>
-#include <pthread.h>
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
@@ -24,7 +24,7 @@ static bool g_libxcb_shm_ok = true;
 
 static struct libxcb g_libxcb_syms = { 0 };
 static i32 g_n_active_handles = 0;
-static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+static p_mt_mutex_t g_mutex = NULL;
 
 #define X_(ret_type, name, ...) #name,
 static const char *libxcb_sym_names[] = {
@@ -65,7 +65,10 @@ i32 libxcb_load(struct libxcb *o)
     u_check_params(o != NULL);
     memset(o, 0, sizeof(struct libxcb));
 
-    pthread_mutex_lock(&g_mutex);
+    if (g_mutex == NULL)
+        g_mutex = p_mt_mutex_create();
+
+    p_mt_mutex_lock(g_mutex);
 
     if (g_n_active_handles == ERROR_MAGIC) {
         ret = -1;
@@ -154,7 +157,7 @@ i32 libxcb_load(struct libxcb *o)
     g_n_active_handles++;
 
 end:
-    pthread_mutex_unlock(&g_mutex);
+    p_mt_mutex_unlock(g_mutex);
     *(bool *)&o->failed_ = ret != 0; /* Cast away const */
     return ret;
 }
@@ -162,7 +165,7 @@ end:
 void libxcb_unload(struct libxcb *xcb)
 {
     if (xcb == NULL || xcb->failed_) return;
-    pthread_mutex_lock(&g_mutex);
+    p_mt_mutex_lock(g_mutex);
 
     if (g_n_active_handles == ERROR_MAGIC) goto end;
     else if (g_n_active_handles <= 0) goto end;
@@ -184,8 +187,9 @@ void libxcb_unload(struct libxcb *xcb)
         p_librtld_close(&g_libxcb_shm_lib);
 
         memset(&g_libxcb_syms, 0, sizeof(struct libxcb));
+        p_mt_mutex_destroy(&g_mutex);
     }
 
 end:
-    pthread_mutex_unlock(&g_mutex);
+    if (g_mutex) p_mt_mutex_unlock(g_mutex);
 }

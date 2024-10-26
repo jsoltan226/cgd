@@ -1,0 +1,14 @@
+CompileFlags: 
+  Add: 
+    - "-I."
+    - "-I.."
+    - "-I../.."
+    - -isystem
+    - /usr/x86_64-w64-mingw32/include
+    - -target
+    - x86_64-w64-mingw32
+    - -D_WIN32
+    - -DWIN32_LEAN_AND_MEAN
+    - "-std=c11"
+    - "-xc"
+    - "-Wall"

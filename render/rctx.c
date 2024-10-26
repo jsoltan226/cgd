@@ -8,7 +8,6 @@
 #include <platform/window.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
 
 #define R_INTERNAL_GUARD__
 #include "rctx-internal.h"
