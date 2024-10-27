@@ -160,9 +160,9 @@ static i32 test()
             vector_at(vector_small, vsmall_new_size), vector_back(vector_small));
 
 err:
-    if (vector_small != NULL) vector_destroy(vector_small);
-    if (vector_large != NULL) vector_destroy(vector_large);
-    if (vector_cloned != NULL) vector_destroy(vector_cloned);
+    if (vector_small != NULL) vector_destroy(&vector_small);
+    if (vector_large != NULL) vector_destroy(&vector_large);
+    if (vector_cloned != NULL) vector_destroy(&vector_cloned);
     return ERROR ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 

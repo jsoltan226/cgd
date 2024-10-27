@@ -128,5 +128,5 @@ cleanup:
     if (win != NULL) p_window_close(&win);
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
-    exit(EXIT_CODE);
+    return EXIT_CODE;
 }

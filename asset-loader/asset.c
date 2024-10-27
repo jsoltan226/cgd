@@ -14,10 +14,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
 
 #define MODULE_NAME "assetld"
 
-static i32 g_n_active_handles = 0;
+/* No need for a mutex here since
+ * we're only incrementing and decrementing here.
+ * But I still made it atomic just to be safe. */
+static _Atomic i32 g_n_active_handles = 0;
+
+#define add_n_active_handles(diff) do {                         \
+    const i32 current_val = atomic_load(&g_n_active_handles);   \
+    atomic_store(&g_n_active_handles, current_val + diff);      \
+} while (0)
 
 const char * asset_get_assets_dir();
 static i32 get_bin_dir(char *buf, u32 buf_size);
@@ -67,7 +76,7 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
         goto_error("Failed to create a surface from the pixel_data!");
 
     fclose(fp);
-    g_n_active_handles++;
+    add_n_active_handles(1);
     return a;
 
 err:
@@ -102,11 +111,15 @@ void asset_destroy(struct asset **asset)
         free(a->pixel_data.buf);
 
     u_nzfree(&a);
-    if (--g_n_active_handles == 0)
+
+    add_n_active_handles(-1);
+    const i32 curr_n_active_handles = atomic_load(&g_n_active_handles);
+
+    if (curr_n_active_handles == 0)
         asset_unload_all_plugins();
-    else if (g_n_active_handles < 0)
+    else if (curr_n_active_handles < 0)
         s_log_error("%s(): Invalid value of g_n_active_handles: %i",
-            __func__, g_n_active_handles);
+            __func__, curr_n_active_handles);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };

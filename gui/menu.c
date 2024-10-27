@@ -169,19 +169,19 @@ void menu_destroy(struct Menu **mn_p)
     if (mn->sprites != NULL) {
         for(int i = 0; i < vector_size(mn->sprites); i++)
             sprite_destroy(&mn->sprites[i]);
-        vector_destroy(mn->sprites);
+        vector_destroy(&mn->sprites);
     }
 
     if (mn->buttons != NULL) {
         for(int i = 0; i < vector_size(mn->buttons); i++)
             button_destroy(&mn->buttons[i]);
-        vector_destroy(mn->buttons);
+        vector_destroy(&mn->buttons);
     }
 
     if (mn->event_listeners != NULL) {
         for(int i = 0; i < vector_size(mn->event_listeners); i++)
             event_listener_destroy(&mn->event_listeners[i]);
-        vector_destroy(mn->event_listeners);
+        vector_destroy(&mn->event_listeners);
     }
 
     parallax_bg_destroy(&mn->bg);

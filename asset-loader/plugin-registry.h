@@ -8,6 +8,7 @@
 #include "plugin.h"
 #include "img-type.h"
 #include "io-PNG.h"
+#include <platform/thread.h>
 
 static struct asset_plugin plugin_registry[] = {
     (struct asset_plugin) {
@@ -18,5 +19,7 @@ static struct asset_plugin plugin_registry[] = {
         .unload_fn = close_libPNG
     },
 };
+
+static p_mt_mutex_t plugin_registry_mutex = P_MT_MUTEX_INITIALIZER;
 
 #endif /* ASSET_PLUGIN_REGISTRY_H_ */

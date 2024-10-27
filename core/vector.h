@@ -106,8 +106,11 @@ void * vector_resize__(void *v, u32 new_size);
 #define vector_copy vector_clone
 void * vector_clone(void *v);
 
-/* Destroy `v` */
-#define vector_destroy(v) do { vector_destroy__(v); v = NULL; } while (0)
-void vector_destroy__(void *v);
+/* Destroy the vector that `v_p` points to. */
+#define vector_destroy(v_p) do {        \
+    vector_free__(&(**v_p));            \
+    *v_p = NULL;                        \
+} while (0)
+void vector_free__(void *v);
 
 #endif /* VECTOR_H_ */
