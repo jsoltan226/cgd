@@ -64,9 +64,9 @@ void evdev_keyboard_destroy(struct keyboard_evdev *kb)
         for (u32 i = 0; i < vector_size(kb->kbdevs); i++) {
             if (kb->kbdevs[i].fd != -1) close(kb->kbdevs[i].fd);
         }
-        vector_destroy(kb->kbdevs);
+        vector_destroy(&kb->kbdevs);
     }
-    if (kb->poll_fds != NULL) vector_destroy(kb->poll_fds);
+    if (kb->poll_fds != NULL) vector_destroy(&kb->poll_fds);
 
     /* All members are already reset */
 }

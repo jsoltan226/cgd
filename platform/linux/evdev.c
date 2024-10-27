@@ -106,7 +106,7 @@ err:
              * which will zero out the entire thing anyway
              */
         }
-        vector_destroy(v);
+        vector_destroy(&v);
     }
 
     return NULL;

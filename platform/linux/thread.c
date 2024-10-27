@@ -3,6 +3,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
+#include <core/vector.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -14,7 +15,16 @@
 struct p_mt_mutex {
     pthread_mutex_t mutex_handle;
     bool initialized;
+    bool is_static;
 };
+
+static pthread_mutex_t master_mutex = PTHREAD_MUTEX_INITIALIZER;
+static VECTOR(struct p_mt_mutex *) global_mutex_registry = NULL;
+
+static void add_mutex_to_registry(struct p_mt_mutex *m);
+
+static bool registered_atexit_cleanup = false;
+static void cleanup_global_mutexes(void);
 
 i32 p_mt_thread_create(p_mt_thread_t *o,
     p_mt_thread_fn_t thread_fn, void *arg,
@@ -68,24 +78,32 @@ p_mt_mutex_t p_mt_mutex_create(void)
     /* Always returns 0 */
     (void) pthread_mutex_init(&m->mutex_handle, NULL);
     m->initialized = true;
+    m->is_static = false;
 
     return m;
 }
 
-void p_mt_mutex_lock(p_mt_mutex_t mutex)
+void p_mt_mutex_lock(p_mt_mutex_t *mutex_p)
 {
-    u_check_params(mutex != NULL &&
-        ((struct p_mt_mutex *)mutex)->initialized);
+    u_check_params(mutex_p != NULL);
+    if (*mutex_p == P_MT_MUTEX_INITIALIZER) {
+        *mutex_p = p_mt_mutex_create();
+        (*mutex_p)->is_static = true;
+        add_mutex_to_registry(*mutex_p);
+    } else if (*mutex_p == NULL || !(*mutex_p)->initialized) {
+        *mutex_p = p_mt_mutex_create();
+    }
 
-    pthread_mutex_lock(&((struct p_mt_mutex *)mutex)->mutex_handle);
+    pthread_mutex_lock(&(*mutex_p)->mutex_handle);
 }
 
-void p_mt_mutex_unlock(p_mt_mutex_t mutex)
+void p_mt_mutex_unlock(p_mt_mutex_t *mutex_p)
 {
-    u_check_params(mutex != NULL &&
-        ((struct p_mt_mutex *)mutex)->initialized);
+    u_check_params(mutex_p != NULL);
+    if (*mutex_p == NULL || !(*mutex_p)->initialized)
+        return;
 
-    pthread_mutex_unlock(&((struct p_mt_mutex *)mutex)->mutex_handle);
+    pthread_mutex_unlock(&(*mutex_p)->mutex_handle);
 }
 
 void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
@@ -94,10 +112,58 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
 
     struct p_mt_mutex *m = *mutex_p;
 
-    if (!m->initialized) return;
+    if (!m->initialized || m->is_static) return;
+
+    /* If the mutex is locked, block until it gets unlocked */
+    pthread_mutex_lock(&m->mutex_handle);
+
+    /* Once we are sure that the mutex is not in use,
+     * unlock it so that it can be destroyed */
+    pthread_mutex_unlock(&m->mutex_handle);
+
     pthread_mutex_destroy(&m->mutex_handle);
     
     /* Also sets `m->initialized` to false */
     memset(m, 0, sizeof(struct p_mt_mutex));
     u_nfree(mutex_p);
+}
+
+void p_mt_mutex_global_cleanup()
+{
+    pthread_mutex_lock(&master_mutex);
+    cleanup_global_mutexes();
+    pthread_mutex_unlock(&master_mutex);
+}
+
+static void add_mutex_to_registry(struct p_mt_mutex *m)
+{
+    pthread_mutex_lock(&master_mutex);
+    if (global_mutex_registry == NULL)
+        global_mutex_registry = vector_new(struct p_mt_mutex *);
+
+    if (!registered_atexit_cleanup) {
+        s_log_debug("Registering global mutex cleanup function...");
+        if (atexit(cleanup_global_mutexes)) {
+            s_log_fatal(MODULE_NAME, __func__,
+                "Failed to atexit() the global mutex cleanup function."
+            );
+        }
+        registered_atexit_cleanup = true;
+    }
+
+    vector_push_back(global_mutex_registry, m);
+
+    pthread_mutex_unlock(&master_mutex);
+}
+
+static void cleanup_global_mutexes(void)
+{
+    for (u32 i = 0; i < vector_size(global_mutex_registry); i++) {
+        p_mt_mutex_destroy(&global_mutex_registry[i]);
+    }
+    s_log_debug("Cleaned up all (%u) global mutexes...",
+        vector_size(global_mutex_registry)
+    );
+
+    vector_destroy(&global_mutex_registry);
 }

@@ -114,8 +114,8 @@ void mouse_evdev_destroy(struct mouse_evdev *mouse)
                 mouse->mouse_devs[i].fd = -1;
             }
         }
-        vector_destroy(mouse->mouse_devs);
-        vector_destroy(mouse->poll_fds);
+        vector_destroy(&mouse->mouse_devs);
+        vector_destroy(&mouse->poll_fds);
     }
 }
 

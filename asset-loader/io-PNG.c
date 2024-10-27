@@ -4,6 +4,7 @@
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pixel.h>
+#include <platform/thread.h>
 #include <platform/librtld.h>
 #include <pngconf.h>
 #include <stdlib.h>
@@ -95,6 +96,7 @@ static void noreturn libPNG_error_handler(png_structp png_ptr,
     png_const_charp error_message);
 
 static struct p_lib *libPNG = NULL;
+static p_mt_mutex_t libPNG_mutex = P_MT_MUTEX_INITIALIZER;
 
 #define X_(ret_type, name, ...) \
     ret_type (*name) __VA_ARGS__;
@@ -332,8 +334,10 @@ err:
 
 i32 load_libPNG()
 {
+    p_mt_mutex_lock(&libPNG_mutex);
     if (libPNG != NULL) {
         s_log_warn("%s: libPNG already loaded!", __func__);
+        p_mt_mutex_unlock(&libPNG_mutex);
         return 0;
     }
 
@@ -347,8 +351,10 @@ i32 load_libPNG()
 #undef X_
     
     libPNG = p_librtld_load(LIBPNG_NAME, sym_names);
-    if (libPNG == NULL)
+    if (libPNG == NULL) {
+        p_mt_mutex_unlock(&libPNG_mutex);
         return 1;
+    }
 
 #define X_(ret_type, name, ...) \
     PNG.name = p_librtld_get_sym_handle(libPNG, #name);
@@ -357,14 +363,17 @@ i32 load_libPNG()
 
 #undef X_
 
+    p_mt_mutex_unlock(&libPNG_mutex);
     return 0;
 }
 
 void close_libPNG()
 {
-    if (libPNG != NULL)
+    if (libPNG != NULL) {
+        p_mt_mutex_lock(&libPNG_mutex);
         p_librtld_close(&libPNG);
-    else
+        p_mt_mutex_unlock(&libPNG_mutex);
+    } else
         s_log_warn("%s: libPNG already closed!");
 }
 

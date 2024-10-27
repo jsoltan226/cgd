@@ -195,7 +195,7 @@ void * vector_clone(void *v)
     return new_v;
 }
 
-void vector_destroy__(void *v)
+void vector_free__(void *v)
 {
     if (v == NULL) return;
     

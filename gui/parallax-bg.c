@@ -95,7 +95,7 @@ void parallax_bg_destroy(struct parallax_bg **bg_p)
         for(u32 i = 0; i < vector_size(bg->layers); i++)
             asset_destroy(&bg->layers[i].asset);
 
-        vector_destroy(bg->layers);
+        vector_destroy(&bg->layers);
     }
 
     u_nzfree(bg_p);

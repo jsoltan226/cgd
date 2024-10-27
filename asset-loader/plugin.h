@@ -33,7 +33,8 @@ enum asset_plugin_loaded_status {
     PLUGIN_NOT_LOADED       = 0,
     PLUGIN_LOADED           = 1,
 };
-enum asset_plugin_loaded_status asset_get_plugin_loaded(enum asset_img_type type);
+enum asset_plugin_loaded_status
+asset_get_plugin_loaded(enum asset_img_type type);
 
 void asset_unload_all_plugins();
 

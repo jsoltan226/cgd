@@ -39,14 +39,33 @@ void p_mt_thread_terminate(p_mt_thread_t *thread_p);
 struct p_mt_mutex;
 typedef struct p_mt_mutex * p_mt_mutex_t;
 
+/* Should be used for static (global) mutexes ONLY.
+ * If a static mutex is initialized to this value,
+ * it will be autmatically cleaned up when the program exits. */
+#define P_MT_MUTEX_INITIALIZER (void *)-1
+
 /* Returns a newly allocated mutex. Always succeeds. */
 p_mt_mutex_t p_mt_mutex_create(void);
 
-/* (Un)Locks `mutex`. */
-void p_mt_mutex_lock(p_mt_mutex_t mutex);
-void p_mt_mutex_unlock(p_mt_mutex_t mutex);
+/* Locks the mutex pointed to by `mutex_p`.
+ *
+ * If it's NULL, a new mutex is allocated and `*mutex_p` is set to point to it.
+ *
+ * If the value of `*mutex_p` is equal to `P_MT_MUTEX_INITIALIZER`,
+ * then in addition to the above, the new mutex is also registered
+ * for automatic cleanup at program exit. */
+void p_mt_mutex_lock(p_mt_mutex_t *mutex_p);
 
-/* Deallocates `mutex`. */
+/* Unlocks the mutex that `mutex_p` points to.
+ * If `mutex_p` points to NULL, nothing happens. */
+void p_mt_mutex_unlock(p_mt_mutex_t *mutex_p);
+
+/* Deallocates the mutex that `mutex_p` points to. */
 void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p);
+
+/* Deallocates all global mutexes initialized with `P_MT_MUTEX_INITIALIZER`.
+ * Shouldn't be used outside of testing as it might leave dangling pointers,
+ * plus it isn't really useful anyway. */
+void p_mt_mutex_global_cleanup();
 
 #endif /* P_THREAD_H_ */

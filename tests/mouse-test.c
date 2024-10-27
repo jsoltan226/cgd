@@ -33,9 +33,15 @@
 #define BORDER_RECT (rect_t) { 0, 0, (WINDOW_RECT).w - 1, (WINDOW_RECT).h - 1 }
 #define BORDER_COLOR WHITE_PIXEL
 
+struct rect_desc {
+    rect_t rect;
+    color_RGBA32_t color;
+};
+
 static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
 static struct p_mouse *mouse = NULL;
+static VECTOR(struct rect_desc) rects = NULL;
 
 int main(void)
 {
@@ -64,11 +70,7 @@ int main(void)
     color_RGBA32_t rect_color = { 0 };
     bool mouse_held = false;
     bool running = true;
-    struct rect_desc {
-        rect_t rect;
-        color_RGBA32_t color;
-    };
-    VECTOR(struct rect_desc) rects = vector_new(struct rect_desc);
+    rects = vector_new(struct rect_desc);
 
     while (running) {
         p_time_t start_time;
@@ -163,7 +165,7 @@ int main(void)
 main_loop_breakout:
 
     /* Cleanup */
-    vector_destroy(rects);
+    vector_destroy(&rects);
     r_ctx_destroy(&rctx);
     p_mouse_destroy(&mouse);
     p_window_close(&win);
@@ -171,6 +173,7 @@ main_loop_breakout:
     return EXIT_SUCCESS;
 
 err:
+    if (rects != NULL) vector_destroy(&rects);
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (mouse != NULL) p_mouse_destroy(&mouse);
     if (win != NULL) p_window_close(&win);

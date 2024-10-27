@@ -132,14 +132,14 @@ void menu_mgr_destroy(struct MenuManager **mmgr_p)
     if (mmgr->full_menu_list != NULL) {
         for (u32 i = 0; i < vector_size(mmgr->full_menu_list); i++)
             menu_destroy(&mmgr->full_menu_list[i]);
-        vector_destroy(mmgr->full_menu_list);
+        vector_destroy(&mmgr->full_menu_list);
     }
-    vector_destroy(mmgr->menu_stack);
+    vector_destroy(&mmgr->menu_stack);
 
     if (mmgr->global_event_listeners != NULL) {
         for (u32 i = 0; i < vector_size(mmgr->global_event_listeners); i++)
             event_listener_destroy(&mmgr->global_event_listeners[i]);
-        vector_destroy(mmgr->global_event_listeners);
+        vector_destroy(&mmgr->global_event_listeners);
     }
 
     u_nzfree(mmgr_p);
