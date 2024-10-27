@@ -21,3 +21,6 @@
     * `p_mt_mutex_lock` will now create a new mutex if the given mutex pointer points to `NULL` (or `P_MT_MUTEX_INITIAZLIER`).
     * Made use of these mutexes to make places that use global variables thread-safe.
     * Made `vector_destroy` properly set the vector handle to `NULL`.
+
+* Added a windows implementation for `platform/event`
+    * Just copied whatever was in the linux implementation, leaving out the signal handlers lol
