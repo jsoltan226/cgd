@@ -27,7 +27,7 @@ const char * get_last_error_msg(void)
     );
     if (size == 0) {
         snprintf(g_errormsg_buf, G_ERRORMSG_BUF_SIZE - 1,
-            "Unknown error: %llu", msg_id);
+            "Unknown error: %lu", msg_id);
     }
 
     return g_errormsg_buf;

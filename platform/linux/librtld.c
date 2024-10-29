@@ -38,10 +38,8 @@ struct p_lib * p_librtld_load(const char *libname, const char **symnames)
         goto_error("Failed to dlopen() lib '%s': %s", lib->so_name, dlerror());
 
     char **curr_symname = (char **)symnames;
-    while (*curr_symname != NULL) {
+    while (*(curr_symname++) != NULL)
         lib->n_syms++;
-        curr_symname += 1;
-    }
     
     lib->syms = calloc(lib->n_syms, sizeof(p_sym_t));
     s_assert(lib->syms != NULL, "calloc() failed for lib syms");
