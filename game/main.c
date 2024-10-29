@@ -41,12 +41,7 @@ static struct r_ctx *rctx = NULL;
 static struct p_keyboard *keyboard = NULL;
 static struct p_mouse *mouse = NULL;
 
-/* Fix linker error ('undefined reference to WinMain') when compiling for windows */
-#ifdef _WIN32
-int WinMain(int argc, char **argv)
-#else
-int main(int argc, char **argv)
-#endif
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_INFO, stdout, stderr);
 

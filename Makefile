@@ -8,15 +8,18 @@ endif
 
 # Compiler and flags
 CC ?= cc
-CCLD ?= cc
+CCLD ?= $(CC)
 
 COMMON_CFLAGS = -Wall -I. -pipe -fPIC -pthread
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie
+ifeq ($(PLATFORM), windows)
+LDFLAGS += -municode -mwindows
+endif
 SO_LDFLAGS = -shared
 
-LIBS ?= -lm -ldl
+LIBS ?= -lm
 ifeq ($(TERMUX), 1)
 LIBS += $(PREFIX)/lib/libandroid-shmem.a -llog
 endif
@@ -37,10 +40,16 @@ RMRF = rm -rf
 
 # Executable file Prefix/Suffix
 EXEPREFIX =
+EXESUFFIX =
 ifeq ($(PLATFORM),windows)
 EXESUFFIX = .exe
 endif
-EXESUFFIX =
+
+SO_PREFIX =
+SO_SUFFIX =
+ifeq ($(PLATFORM),windows)
+SO_SUFFIX = .dll
+endif
 
 # Directories
 OBJDIR = obj
@@ -67,7 +76,7 @@ STRIP_OBJS = $(OBJDIR)/log.c.o
 
 # Executables
 EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TEST_LIB = $(BINDIR)/libmain_test.so
+TEST_LIB = $(BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
 EXEARGS =
 
 .PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
@@ -162,8 +171,8 @@ build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) compile-tests
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
-$(TEST_EXE_DIR)/%: CFLAGS = -ggdb -O0 -Wall
-$(TEST_EXE_DIR)/%: $(TEST_SRC_DIR)/%.c Makefile
+$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
+$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)
 
