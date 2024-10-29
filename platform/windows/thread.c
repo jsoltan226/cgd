@@ -17,8 +17,10 @@
 #include <synchapi.h>
 #include <handleapi.h>
 #include <minwinbase.h>
-#include <errhandlingapi.h>
 #include <processthreadsapi.h>
+#define P_INTERNAL_GUARD__
+#include "error.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "thread"
 
@@ -74,7 +76,7 @@ void * p_mt_thread_wait(p_mt_thread_t *thread_p)
     if (wait_ret != WAIT_OBJECT_0) {
         DWORD thread_id = GetThreadId(*thread_p);
         s_log_error("Failed to join thread %lu: %s",
-            thread_id, GetLastError());
+            thread_id, get_last_error_msg());
         return NULL;
     }
 
@@ -93,7 +95,7 @@ void p_mt_thread_terminate(p_mt_thread_t *thread_p)
     if (TerminateThread(*thread_p, 0) == 0) {
         DWORD thread_id = GetThreadId(*thread_p);
         s_log_error("Failed to terminate thread %lu: %s",
-            thread_id, GetLastError());
+            thread_id, get_last_error_msg());
     }
 
     CloseHandle(*thread_p);

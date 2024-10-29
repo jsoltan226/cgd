@@ -3,10 +3,9 @@
 #include "../thread.h"
 #include <core/log.h>
 #include <core/util.h>
-#include <errhandlingapi.h>
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WINWIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
@@ -14,6 +13,9 @@
 #include <minwindef.h>
 #define P_INTERNAL_GUARD__
 #include "window-internal.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "error.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
@@ -40,7 +42,8 @@ struct p_window * p_window_open(const unsigned char *title,
     };
 
     if (RegisterClass(&window_class) == 0)
-        goto_error("Failed to register the window class: %s", GetLastError());
+        goto_error("Failed to register the window class: %s",
+            get_last_error_msg());
 
     win->win = CreateWindowEx(0, (const char *)title, (const char *)title,
         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -48,7 +51,7 @@ struct p_window * p_window_open(const unsigned char *title,
         NULL, NULL, g_instance_handle, (void *)&win->state_ro
     );
     if (win->win == 0)
-        goto_error("Failed to create the window: %s", GetLastError());
+        goto_error("Failed to create the window: %s", get_last_error_msg());
 
     if (p_mt_thread_create(&win->event_dispatcher.thread,
         event_dispatcher_thread_fn, (void *)win, 0))
