@@ -94,7 +94,7 @@ i32 p_time(p_time_t *o)
     return 0;
 }
 
-i32 p_time_since(p_time_t *o, p_time_t *since)
+i32 p_time_since(p_time_t *o, const p_time_t * restrict since)
 {
     if (o == NULL || since == NULL) {
         s_log_error("Invalid parameters");
@@ -136,7 +136,7 @@ i32 p_time_since(p_time_t *o, p_time_t *since)
     return 0;
 }
 
-i64 p_time_delta_us(p_time_t *t0)
+i64 p_time_delta_us(const p_time_t *t0)
 {
     if (t0 == NULL) return 0;
 
@@ -146,7 +146,7 @@ i64 p_time_delta_us(p_time_t *t0)
     return t1.s * 1000000 + t1.ms * 1000 + t1.us;
 }
 
-i64 p_time_delta_ms(p_time_t *t0)
+i64 p_time_delta_ms(const p_time_t *t0)
 {
     if (t0 == NULL) return 0;
 
@@ -156,7 +156,7 @@ i64 p_time_delta_ms(p_time_t *t0)
     return t1.s * 1000 + t1.ms;
 }
 
-i64 p_time_delta_s(p_time_t *t0)
+i64 p_time_delta_s(const p_time_t *t0)
 {
     if (t0 == NULL) return 0;
 
@@ -166,7 +166,7 @@ i64 p_time_delta_s(p_time_t *t0)
     return t1.s;
 }
 
-void p_time_nanosleep(p_time_t *time)
+void p_time_nanosleep(const p_time_t *time)
 {
     u64 ns_sum = time->ns + (time->us * 1000) + (time->ms * 1000000);
 
@@ -183,15 +183,15 @@ void p_time_nanosleep(p_time_t *time)
 
 void p_time_usleep(u32 u_seconds)
 {
-    p_time_nanosleep(&(p_time_t) { .us = u_seconds });
+    p_time_nanosleep(&(const p_time_t) { .us = u_seconds });
 }
 
 void p_time_msleep(u32 m_seconds)
 {
-    p_time_nanosleep(&(p_time_t) { .ms = m_seconds });
+    p_time_nanosleep(&(const p_time_t) { .ms = m_seconds });
 }
 
 void p_time_sleep(u32 seconds)
 {
-    p_time_nanosleep(&(p_time_t) { .s = seconds });
+    p_time_nanosleep(&(const p_time_t) { .s = seconds });
 }
