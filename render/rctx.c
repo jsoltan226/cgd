@@ -19,8 +19,8 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 {
     u_check_params(win != NULL);
 
-    struct r_ctx *ctx = malloc(sizeof(struct r_ctx));
-    s_assert(ctx != NULL, "malloc() for struct r_ctx failed!");
+    struct r_ctx *ctx = calloc(1, sizeof(struct r_ctx));
+    s_assert(ctx != NULL, "calloc() for struct r_ctx failed!");
 
     switch (type) {
         case R_TYPE_OPENGL:
@@ -37,6 +37,8 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     ctx->win = win;
     if (p_window_get_meta(ctx->win, &ctx->win_meta))
         goto_error("Failed to get window metadata!");
+    else if (ctx->win_meta.w == 0 || ctx->win_meta.h == 0)
+        goto_error("Window size is 0");
 
     s_log_debug("win_meta->w: %u, win_meta->h: %u", ctx->win_meta.w, ctx->win_meta.h);
 

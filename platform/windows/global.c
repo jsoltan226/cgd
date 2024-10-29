@@ -3,4 +3,4 @@
 #include "global.h"
 #undef P_INTERNAL_GUARD__
 
-volatile const HINSTANCE g_instance_handle = NULL;
+volatile HINSTANCE g_instance_handle = NULL;

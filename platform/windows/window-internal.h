@@ -25,7 +25,7 @@ struct p_window {
 
     struct {
         p_mt_thread_t thread;
-        bool running;
+        _Atomic bool running;
     } event_dispatcher;
 
     struct window_state_ro state_ro;

@@ -32,7 +32,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 {
     /** INITIALIZE GLOBAL VARIABLES **/
     /* Cast away const */
-    *(volatile HINSTANCE *)&g_instance_handle = hInstance;
+    g_instance_handle = hInstance;
 
     /** PREPARE THE COMMAND LINE **/
     int argc = 0;

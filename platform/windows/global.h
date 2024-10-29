@@ -9,4 +9,4 @@
 #include <windows.h>
 #include <minwindef.h>
 
-extern volatile const HINSTANCE g_instance_handle;
+extern volatile HINSTANCE g_instance_handle;

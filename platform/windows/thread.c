@@ -72,6 +72,8 @@ void noreturn p_mt_thread_exit(void *ret)
 
 void * p_mt_thread_wait(p_mt_thread_t *thread_p)
 {
+    u_check_params(thread_p != NULL && *thread_p != NULL);
+
     DWORD wait_ret = WaitForSingleObject(*thread_p, INFINITE);
     if (wait_ret != WAIT_OBJECT_0) {
         DWORD thread_id = GetThreadId(*thread_p);

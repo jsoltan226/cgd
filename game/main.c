@@ -11,6 +11,7 @@
 #include <platform/mouse.h>
 #include <platform/window.h>
 #include <platform/keyboard.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,7 +44,9 @@ static struct p_mouse *mouse = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_INFO, stdout, stderr);
+    FILE *log_file = fopen("log.txt", "wb");
+    s_configure_log(LOG_DEBUG, log_file, log_file);
+    //s_configure_log(LOG_INFO, log_file, log_file);
 
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
@@ -123,5 +126,6 @@ cleanup:
     if (win != NULL) p_window_close(&win);
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
+    fclose(log_file);
     return EXIT_CODE;
 }

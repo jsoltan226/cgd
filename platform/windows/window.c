@@ -17,12 +17,14 @@
 #define P_INTERNAL_GUARD__
 #include "error.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "global.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
 
-extern HINSTANCE volatile const g_instance_handle;
-
 static void * event_dispatcher_thread_fn(void *arg);
+
 static LRESULT CALLBACK
 window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -35,9 +37,10 @@ struct p_window * p_window_open(const unsigned char *title,
     s_assert(g_instance_handle != NULL,
         "Global instance handle not initialized!");
 
+#define WINDOW_CLASS_NAME "cgd-window"
     const WNDCLASS window_class = {
         .hInstance = g_instance_handle,
-        .lpszClassName = (const char *)title,
+        .lpszClassName = WINDOW_CLASS_NAME,
         .lpfnWndProc = window_procedure,
     };
 
@@ -45,7 +48,7 @@ struct p_window * p_window_open(const unsigned char *title,
         goto_error("Failed to register the window class: %s",
             get_last_error_msg());
 
-    win->win = CreateWindowEx(0, (const char *)title, (const char *)title,
+    win->win = CreateWindowEx(0, WINDOW_CLASS_NAME, (const char *)title,
         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
         CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, g_instance_handle, (void *)&win->state_ro
@@ -84,7 +87,8 @@ void p_window_close(struct p_window **win_p)
     struct p_window *win = *win_p;
 
     if (win->event_dispatcher.running) {
-        p_mt_thread_wait(win->event_dispatcher.thread);
+        win->event_dispatcher.running = false;
+        p_mt_thread_wait(&win->event_dispatcher.thread);
     }
 
     /* We can ignore any (highly unlikely to occur) errors here,
@@ -111,10 +115,10 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
 static void * event_dispatcher_thread_fn(void *arg)
 {
     struct p_window *win = arg;
-    (void) win;
 
     MSG msg = { 0 };
-    while (GetMessage(&msg, NULL, 0, 0)) {
+    while (win->event_dispatcher.running) {
+        GetMessage(&msg, NULL, 0, 0);
         DispatchMessage(&msg);
     }
 
@@ -131,10 +135,11 @@ window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CLOSE:
         atomic_store(&state_rw->test, false);
         p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
+        return 0;
         break;
     default:
         atomic_store(&state_rw->test, true);
         break;
     }
-    return 0;
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
