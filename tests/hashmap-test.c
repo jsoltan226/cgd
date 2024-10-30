@@ -25,7 +25,7 @@ static const char * const key_value_pairs[MAP_SIZE][2] = {
     { "key9", "val9" },
 };
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_set_log_out_filep(stdout);
     s_set_log_err_filep(stdout);

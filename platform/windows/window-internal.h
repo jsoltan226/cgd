@@ -3,6 +3,7 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../thread.h"
+#include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdbool.h>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -31,4 +32,8 @@ struct p_window {
     struct window_state_ro state_ro;
 
     rect_t rect;
+
+    u32 screen_w, screen_h;
+
+    struct pixel_flat_data *bound_fb;
 };

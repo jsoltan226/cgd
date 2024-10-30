@@ -31,8 +31,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPWSTR lpCmdLine, int nShowCmd)
 {
     /** INITIALIZE GLOBAL VARIABLES **/
-    /* Cast away const */
     g_instance_handle = hInstance;
+    g_n_cmd_show = nShowCmd;
 
     /** PREPARE THE COMMAND LINE **/
     int argc = 0;

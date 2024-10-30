@@ -21,7 +21,7 @@ static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
 static struct p_keyboard *kb = NULL;
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
 

@@ -70,7 +70,7 @@ static struct r_ctx *rctx = NULL;
 static struct asset *asset = NULL;
 static struct r_surface *surface2 = NULL;
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
 

@@ -72,11 +72,15 @@ SRCS = $(filter-out $(TEST_SRCS),$(_all_srcs)) $(PLATFORM_SRCS)
 OBJS = $(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
 DEPS = $(patsubst %.o,%.d,$(OBJS))
 
+_main_obj = $(OBJDIR)/main.c.o
+_entry_point_obj = $(OBJDIR)/entry-point.c.o
+
 STRIP_OBJS = $(OBJDIR)/log.c.o
 
 # Executables
 EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
 TEST_LIB = $(BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
+TEST_LIB_OBJS = $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
 EXEARGS =
 
 .PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
@@ -98,9 +102,9 @@ $(EXE): $(OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
-$(TEST_LIB): $(OBJS)
-	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(filter-out $(OBJDIR)/main.o,$(OBJS))"
-	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(filter-out $(OBJDIR)/main.o,$(OBJS)) $(LIBS)
+$(TEST_LIB): $(TEST_LIB_OBJS)
+	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(TEST_LIB_OBJS)"
+	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(TEST_LIB_OBJS) $(LIBS)
 
 # Output directory rules
 $(OBJDIR):
@@ -166,15 +170,15 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 
 # Test compilation targets
 build-tests: CFLAGS = -ggdb -O0 -Wall
-build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) compile-tests
+build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
 $(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
 $(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
-	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB)"
-	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS)
+	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
+	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
 
 # Cleanup targets
 mostlyclean:

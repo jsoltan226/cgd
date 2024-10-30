@@ -58,7 +58,8 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
             asset_get_type_name(a->type));
     } else if(plugin_loaded == PLUGIN_NOT_LOADED) {
         if (asset_load_plugin_by_type(a->type))
-            goto_error("Failed to load plugin for type \"%s\"");
+            goto_error("Failed to load plugin for type \"%s\"",
+                asset_img_type_strings[a->type]);
     }
 
     switch(a->type) {
@@ -112,7 +113,6 @@ void asset_destroy(struct asset **asset)
 
     u_nzfree(&a);
 
-    add_n_active_handles(-1);
     const i32 curr_n_active_handles = atomic_load(&g_n_active_handles);
 
     if (curr_n_active_handles == 0)
@@ -120,6 +120,9 @@ void asset_destroy(struct asset **asset)
     else if (curr_n_active_handles < 0)
         s_log_error("%s(): Invalid value of g_n_active_handles: %i",
             __func__, curr_n_active_handles);
+
+    if (curr_n_active_handles > 0 )
+        add_n_active_handles(-1);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };
@@ -127,14 +130,14 @@ static char asset_dir_buf[u_BUF_SIZE] = { 0 };
 
 const char * asset_get_assets_dir()
 {
-    if (bin_dir_buf[0] != '/') {
+    if (bin_dir_buf[0] == '\0') {
         if (get_bin_dir(bin_dir_buf, u_BUF_SIZE)) {
             s_log_error("[%s] Failed to get the bin dir", __func__);
             return NULL;
         }
     }
 
-    if (asset_dir_buf[0] != '/') {
+    if (asset_dir_buf[0] == '\0') {
         strncpy(asset_dir_buf, bin_dir_buf, u_BUF_SIZE);
         asset_dir_buf[u_BUF_SIZE - 1] = '\0';
         strncat(
@@ -161,9 +164,8 @@ static i32 get_bin_dir(char *buf, u32 buf_size)
     }
 
     /* Cut off the string after the last '/' */
-    u32 i = buf_size - 1;
-    while (buf[i] != '/' && i-- >= 0);
-    buf[i + 1] = '\0';
+    char *p = strrchr(buf, '/');
+    if (p != NULL) *(p + 1) = '\0';
 
     return 0;
 

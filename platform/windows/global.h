@@ -10,3 +10,4 @@
 #include <minwindef.h>
 
 extern volatile HINSTANCE g_instance_handle;
+extern volatile int g_n_cmd_show;

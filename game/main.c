@@ -126,6 +126,7 @@ cleanup:
     if (win != NULL) p_window_close(&win);
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
+    fflush(log_file);
     fclose(log_file);
     return EXIT_CODE;
 }

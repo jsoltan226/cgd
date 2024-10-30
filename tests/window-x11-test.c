@@ -25,7 +25,7 @@
 struct p_window *win = NULL;
 struct r_ctx *rctx = NULL;
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_set_log_level(LOG_DEBUG);
     s_set_log_out_filep(stdout);

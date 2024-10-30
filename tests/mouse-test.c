@@ -43,7 +43,7 @@ static struct r_ctx *rctx = NULL;
 static struct p_mouse *mouse = NULL;
 static VECTOR(struct rect_desc) rects = NULL;
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
 

@@ -25,7 +25,7 @@ static u32 random_u32();
 
 #define N_ITERATIONS 20000
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
 

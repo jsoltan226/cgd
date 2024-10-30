@@ -13,7 +13,7 @@ static struct linked_list *ll = NULL;
 #define ITEM_STR_LEN 8
 static char item_str_table[ITEM_STR_LEN * LIST_LENGTH] = { 0 };
 
-int main(void)
+int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
 
