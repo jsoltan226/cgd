@@ -21,6 +21,10 @@ struct p_mt_mutex {
 static pthread_mutex_t master_mutex = PTHREAD_MUTEX_INITIALIZER;
 static VECTOR(struct p_mt_mutex *) global_mutex_registry = NULL;
 
+struct p_mt_cond {
+    pthread_cond_t cond;
+};
+
 static void add_mutex_to_registry(struct p_mt_mutex *m);
 
 static bool registered_atexit_cleanup = false;
@@ -112,16 +116,19 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
 
     struct p_mt_mutex *m = *mutex_p;
 
-    if (!m->initialized || m->is_static) return;
+    if (!m->initialized) return;
 
-    /* If the mutex is locked, block until it gets unlocked */
-    pthread_mutex_lock(&m->mutex_handle);
+    /* Static pthread mutexes don't need to be destroyed */
+    if (!m->is_static) {
+        /* If the mutex is locked, block until it gets unlocked */
+        pthread_mutex_lock(&m->mutex_handle);
 
-    /* Once we are sure that the mutex is not in use,
-     * unlock it so that it can be destroyed */
-    pthread_mutex_unlock(&m->mutex_handle);
+        /* Once we are sure that the mutex is not in use,
+         * unlock it so that it can be destroyed */
+        pthread_mutex_unlock(&m->mutex_handle);
 
-    pthread_mutex_destroy(&m->mutex_handle);
+        pthread_mutex_destroy(&m->mutex_handle);
+    }
     
     /* Also sets `m->initialized` to false */
     memset(m, 0, sizeof(struct p_mt_mutex));
@@ -133,6 +140,37 @@ void p_mt_mutex_global_cleanup()
     pthread_mutex_lock(&master_mutex);
     cleanup_global_mutexes();
     pthread_mutex_unlock(&master_mutex);
+}
+
+p_mt_cond_t p_mt_cond_create(void)
+{
+    p_mt_cond_t cond = calloc(1, sizeof(struct p_mt_cond));
+    s_assert(cond != NULL, "calloc() failed for struct cond");
+
+    (void) pthread_cond_init(&cond->cond, NULL);
+
+    return cond;
+}
+
+void p_mt_cond_wait(p_mt_cond_t cond, p_mt_mutex_t mutex)
+{
+    u_check_params(cond != NULL && mutex != NULL && mutex->initialized);
+    (void) pthread_cond_wait(&cond->cond, &mutex->mutex_handle);
+}
+
+void p_mt_cond_signal(p_mt_cond_t cond)
+{
+    u_check_params(cond != NULL);
+    (void) pthread_cond_signal(&cond->cond);
+}
+
+void p_mt_cond_destroy(p_mt_cond_t *cond_p)
+{
+    if (cond_p == NULL || *cond_p == NULL)
+        return;
+
+    (void) pthread_cond_destroy(&(*cond_p)->cond);
+    u_nzfree(cond_p);
 }
 
 static void add_mutex_to_registry(struct p_mt_mutex *m)
@@ -161,7 +199,7 @@ static void cleanup_global_mutexes(void)
     for (u32 i = 0; i < vector_size(global_mutex_registry); i++) {
         p_mt_mutex_destroy(&global_mutex_registry[i]);
     }
-    s_log_debug("Cleaned up all (%u) global mutexes...",
+    s_log_debug("Cleaned up all (%u) global mutexes.",
         vector_size(global_mutex_registry)
     );
 

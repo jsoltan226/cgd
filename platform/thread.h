@@ -66,6 +66,26 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p);
 /* Deallocates all global mutexes initialized with `P_MT_MUTEX_INITIALIZER`.
  * Shouldn't be used outside of testing as it might leave dangling pointers,
  * plus it isn't really useful anyway. */
-void p_mt_mutex_global_cleanup();
+void p_mt_mutex_global_cleanup(void);
+
+/** CONDITION VARIABLES **/
+struct p_mt_cond;
+typedef struct p_mt_cond * p_mt_cond_t;
+
+/* Returns a new condition variable. Always succeeds. */
+p_mt_cond_t p_mt_cond_create(void);
+
+/* Causes the current thread to block until the condition variable
+ * `cond` is signaled (using `p_mt_cond_signal`) from another thread.
+ * This function must be called when `mutex` is locked.
+ * It will also automatically unlock `mutex` prior to returning. */
+void p_mt_cond_wait(p_mt_cond_t cond, p_mt_mutex_t mutex);
+
+/* Wakes up all threads blocked on waiting (`p_mt_cond_wait`)
+ * for the condition variable `cond` */
+void p_mt_cond_signal(p_mt_cond_t cond);
+
+/* Destroys the condition variable that `cond_p` points to. */
+void p_mt_cond_destroy(p_mt_cond_t *cond_p);
 
 #endif /* P_THREAD_H_ */

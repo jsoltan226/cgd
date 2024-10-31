@@ -11,11 +11,11 @@
 #include <unistd.h>
 #include <string.h>
 
-#define MODULE_NAME "window-x11-test"
+#define MODULE_NAME "window-test"
 
 #define WINDOW_W    500
 #define WINDOW_H    500
-#define WINDOW_FLAGS (P_WINDOW_TYPE_NORMAL | P_WINDOW_POS_CENTERED_XY)
+#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 
 #define RECT_W 100
 #define RECT_H 100

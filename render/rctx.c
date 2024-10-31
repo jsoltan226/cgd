@@ -26,8 +26,7 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
         case R_TYPE_OPENGL:
         case R_TYPE_VULKAN:
             s_log_warn("The Vulkan and OpenGL renderers are not yet implemented."
-                "Falling back to software.");
-            break;
+                " Falling back to software.");
         case R_TYPE_SOFTWARE:
         default: case R_TYPE_DEFAULT:
             ctx->type = R_TYPE_SOFTWARE;
@@ -37,8 +36,6 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     ctx->win = win;
     if (p_window_get_meta(ctx->win, &ctx->win_meta))
         goto_error("Failed to get window metadata!");
-    else if (ctx->win_meta.w == 0 || ctx->win_meta.h == 0)
-        goto_error("Window size is 0");
 
     s_log_debug("win_meta->w: %u, win_meta->h: %u", ctx->win_meta.w, ctx->win_meta.h);
 

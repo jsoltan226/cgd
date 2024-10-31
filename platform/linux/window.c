@@ -38,13 +38,9 @@ struct p_window * p_window_open(const unsigned char *title,
     win->h = area->h;
     win->bound_fb = NULL;
 
-    if (flags & P_WINDOW_TYPE_NORMAL)
-        win->type = WINDOW_TYPE_X11;
-    else if (flags & P_WINDOW_TYPE_FRAMEBUFFER)
-        win->type = WINDOW_TYPE_FRAMEBUFFER;
-    else if (flags & P_WINDOW_TYPE_DUMMY) {
+    if (flags & P_WINDOW_TYPE_DUMMY)
         win->type = WINDOW_TYPE_DUMMY;
-    } else /* if (flags & P_WINDOW_TYPE_AUTO) */
+    else
         win->type = detect_environment();
 
     /* Init the event subsystem so that the user doesn't have to */

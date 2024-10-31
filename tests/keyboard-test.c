@@ -9,11 +9,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define MODULE_NAME "keyboard-x11-test"
+#define MODULE_NAME "keyboard-test"
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 500, 500 }
-#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY | P_WINDOW_TYPE_AUTO)
+#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 
 #define FPS 60
 

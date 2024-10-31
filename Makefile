@@ -46,7 +46,7 @@ EXESUFFIX = .exe
 endif
 
 SO_PREFIX =
-SO_SUFFIX =
+SO_SUFFIX = .so
 ifeq ($(PLATFORM),windows)
 SO_SUFFIX = .dll
 endif

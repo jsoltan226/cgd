@@ -36,15 +36,22 @@ static enum EXIT_CODES EXIT_CODE;
 } while (0);
 
 /* bool running = true (moved to config.h) */
+static FILE *log_file = NULL;
 static struct MenuManager *MenuManager = NULL;
 static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
 static struct p_keyboard *keyboard = NULL;
 static struct p_mouse *mouse = NULL;
 
+static void cleanup_log(void);
+
 int cgd_main(int argc, char **argv)
 {
-    FILE *log_file = fopen("log.txt", "wb");
+    log_file = fopen("log.txt", "wb");
+    if (atexit(cleanup_log)) {
+        s_log_error("Failed to atexit() the log cleanup function.");
+        return EXIT_FAILURE;
+    }
     s_configure_log(LOG_DEBUG, log_file, log_file);
     //s_configure_log(LOG_INFO, log_file, log_file);
 
@@ -126,7 +133,15 @@ cleanup:
     if (win != NULL) p_window_close(&win);
 
     s_log_info("Cleanup done, Exiting with code %i.", EXIT_CODE);
-    fflush(log_file);
-    fclose(log_file);
     return EXIT_CODE;
+}
+
+static void cleanup_log(void)
+{
+    if (log_file != NULL) {
+        fclose(log_file);
+        log_file = NULL;
+    }
+    s_set_log_out_filep(stdout);
+    s_set_log_err_filep(stderr);
 }

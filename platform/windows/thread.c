@@ -38,6 +38,10 @@ static struct p_mt_mutex master_mutex = {
 static VECTOR(struct p_mt_mutex *) global_mutex_registry = NULL;
 static bool registered_atexit_cleanup = false;
 
+struct p_mt_cond {
+    CONDITION_VARIABLE cond;
+};
+
 static void add_mutex_to_registry(struct p_mt_mutex *m);
 static void cleanup_global_mutexes(void);
 
@@ -167,6 +171,36 @@ void p_mt_mutex_global_cleanup(void)
         LeaveCriticalSection(&master_mutex.cs);
 }
 
+p_mt_cond_t p_mt_cond_create(void)
+{
+    p_mt_cond_t cond = calloc(1, sizeof(struct p_mt_cond));
+    s_assert(cond != NULL, "calloc() failed for new condition variable");
+
+    InitializeConditionVariable(&cond->cond);
+
+    return cond;
+}
+
+void p_mt_cond_wait(p_mt_cond_t cond, p_mt_mutex_t mutex)
+{
+    u_check_params(cond != NULL && mutex != NULL && mutex->initialized);
+    SleepConditionVariableCS(&cond->cond, &mutex->cs, INFINITE);
+}
+
+void p_mt_cond_signal(p_mt_cond_t cond)
+{
+    u_check_params(cond != NULL);
+    WakeConditionVariable(&cond->cond);
+}
+
+void p_mt_cond_destroy(p_mt_cond_t *cond_p)
+{
+    if (cond_p == NULL || *cond_p == NULL)
+        return;
+
+    u_nzfree(cond_p);
+}
+
 static void add_mutex_to_registry(struct p_mt_mutex *m)
 {
     if (!master_mutex.initialized) {
@@ -205,7 +239,7 @@ static void cleanup_global_mutexes(void)
         global_mutex_registry[i] = NULL;
     }
 
-    s_log_debug("Cleaned up all (%u) global mutexes...",
+    s_log_debug("Cleaned up all (%u) global mutexes.",
         vector_size(global_mutex_registry)
     );
     vector_destroy(&global_mutex_registry);

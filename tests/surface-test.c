@@ -26,7 +26,7 @@
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (const rect_t) { 0, 0, 500, 500 }
-#define WINDOW_FLAGS (P_WINDOW_TYPE_AUTO | P_WINDOW_POS_CENTERED_XY)
+#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 
 #define FPS 60
 

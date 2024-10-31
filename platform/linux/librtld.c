@@ -59,9 +59,7 @@ struct p_lib * p_librtld_load(const char *libname, const char **symnames)
     return lib;
 
 err:
-    if (lib->handle != NULL) dlclose(lib->handle);
-    if (lib->syms != NULL) u_nzfree(&lib->syms);
-    u_nzfree(&lib);
+    p_librtld_close(&lib);
     return NULL;
 }
 

@@ -113,7 +113,12 @@ void asset_destroy(struct asset **asset)
 
     u_nzfree(&a);
 
-    const i32 curr_n_active_handles = atomic_load(&g_n_active_handles);
+    i32 curr_n_active_handles = atomic_load(&g_n_active_handles);
+
+    if (curr_n_active_handles > 0) {
+        add_n_active_handles(-1);
+        curr_n_active_handles = atomic_load(&g_n_active_handles);
+    }
 
     if (curr_n_active_handles == 0)
         asset_unload_all_plugins();
@@ -121,8 +126,6 @@ void asset_destroy(struct asset **asset)
         s_log_error("%s(): Invalid value of g_n_active_handles: %i",
             __func__, curr_n_active_handles);
 
-    if (curr_n_active_handles > 0 )
-        add_n_active_handles(-1);
 }
 
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };

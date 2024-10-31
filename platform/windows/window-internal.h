@@ -13,27 +13,33 @@
 #include <windef.h>
 #include <minwindef.h>
 
-struct window_state_ro {
-    volatile _Atomic const bool test;
-};
-struct window_state_rw {
-    volatile _Atomic bool test;
-};
-
 struct p_window {
-    HWND win;
-    HINSTANCE instance_handle;
+    HWND win; /* The handle to the main window */
 
-    struct {
-        p_mt_thread_t thread;
-        _Atomic bool running;
-    } event_dispatcher;
+    p_mt_thread_t thread; /* The window thread */
+    bool initialized; /* Sanity check to avoid double-frees */
 
-    struct window_state_ro state_ro;
+    rect_t rect; /* The position and dimenisions of the window */
 
-    rect_t rect;
-
+    /* Screen resolution, used for positioning the window */
     u32 screen_w, screen_h;
 
+    /* The framebuffer that the `p_window_render` displays */
     struct pixel_flat_data *bound_fb;
+};
+
+struct window_init {
+    /* The p_window structure to be initialized */
+    struct p_window *win;
+
+    /* PARAMS */
+    const char *title;
+    const rect_t *area;
+    const u32 flags;
+
+    /* Temporary thread sync/communication objects */
+    p_mt_cond_t cond;
+    p_mt_mutex_t mutex;
+
+    i32 result;
 };
