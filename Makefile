@@ -23,6 +23,9 @@ LIBS ?= -lm
 ifeq ($(TERMUX), 1)
 LIBS += $(PREFIX)/lib/libandroid-shmem.a -llog
 endif
+ifeq ($(PLATFORM), windows)
+LIBS += -lgdi32
+endif
 
 STRIP?=strip
 DEBUGSTRIP?=strip -d

@@ -11,6 +11,7 @@
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windows.h>
 #include <windef.h>
+#include <wingdi.h>
 #include <minwindef.h>
 
 struct p_window {
@@ -24,8 +25,11 @@ struct p_window {
     /* Screen resolution, used for positioning the window */
     u32 screen_w, screen_h;
 
+    HDC dc; /* The device context of the window */
+
     /* The framebuffer that the `p_window_render` displays */
     struct pixel_flat_data *bound_fb;
+    BITMAPINFO bound_fb_bmi; /* The bitmap info of the bound framebuffer */
 };
 
 struct window_init {

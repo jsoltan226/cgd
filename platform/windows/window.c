@@ -5,7 +5,6 @@
 #include <core/util.h>
 #include <core/shapes.h>
 #include <malloc.h>
-#include <processthreadsapi.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
@@ -14,7 +13,9 @@
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windows.h>
 #include <wingdi.h>
+#include <winuser.h>
 #include <minwindef.h>
+#include <processthreadsapi.h>
 #define P_INTERNAL_GUARD__
 #include "window-internal.h"
 #undef P_INTERNAL_GUARD__
@@ -32,6 +33,7 @@
 static void * thread_fn(void *arg);
 static i32 do_window_init(struct p_window *win,
     const char *title, const rect_t *area, const u32 flags);
+static void do_window_cleanup(struct p_window *win);
 
 static LRESULT CALLBACK
 window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -108,18 +110,45 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
         fb->w, fb->h, win->rect.w, win->rect.h);
 
     win->bound_fb = fb;
+
+    /* Set the bitmap info structure so that we don't
+     * have to do it everytime `p_window_render` is called */
+    const BITMAPINFO bmi = {
+        .bmiHeader = {
+            .biSize = sizeof(BITMAPINFO),
+            .biWidth = fb->w,
+            .biHeight = -fb->h,
+            .biPlanes = 1,
+            .biBitCount = 32,
+            .biCompression = BI_RGB
+        },
+    };
+    memcpy(&win->bound_fb_bmi, &bmi, sizeof(BITMAPINFO));
 }
 
 void p_window_unbind_fb(struct p_window *win)
 {
     u_check_params(win != NULL);
     win->bound_fb = NULL;
+    memset(&win->bound_fb_bmi, 0, sizeof(BITMAPINFO));
 }
 
 void p_window_render(struct p_window *win)
 {
     u_check_params(win != NULL);
     if (win->bound_fb == NULL) return;
+
+#define DST_X 0
+#define DST_Y 0
+#define SRC_X 0
+#define SRC_Y 0
+#define WIDTH win->bound_fb->w
+#define HEIGHT win->bound_fb->h
+#define START_SCANLINE 0
+#define N_LINES HEIGHT
+    (void) SetDIBitsToDevice(win->dc, DST_X, DST_Y, WIDTH, HEIGHT,
+        SRC_X, SRC_Y, START_SCANLINE, N_LINES,
+        win->bound_fb->buf, &win->bound_fb_bmi, DIB_RGB_COLORS);
 }
 
 void p_window_close(struct p_window **win_p)
@@ -171,7 +200,7 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->y = win->rect.y;
     out->w = win->rect.w;
     out->h = win->rect.h;
-    out->color_type = P_WINDOW_RGBA8888;
+    out->color_type = P_WINDOW_BGRA8888;
 
     return 0;
 }
@@ -179,6 +208,7 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
 static void * thread_fn(void *arg)
 {
     struct window_init *init = arg;
+    struct p_window *win = init->win;
 
     const i32 result = do_window_init(init->win,
         init->title, init->area, init->flags);
@@ -204,6 +234,8 @@ static void * thread_fn(void *arg)
         }
         DispatchMessage(&msg);
     }
+
+    do_window_cleanup(win);
 
     p_mt_thread_exit(NULL);
 }
@@ -252,6 +284,12 @@ static i32 do_window_init(struct p_window *win,
     if (win->win == 0)
         goto_error("Failed to create the window: %s", get_last_error_msg());
 
+    /* Get the device context of the window */
+    win->dc = GetDC(win->win);
+    if (win->dc == NULL)
+        goto_error("Failed to get the window device context handle: %s",
+            get_last_error_msg());
+
     /* Make the window visible */
     (void) ShowWindow(win->win, g_n_cmd_show);
 
@@ -259,6 +297,12 @@ static i32 do_window_init(struct p_window *win,
 
 err:
     return 1;
+}
+
+static void do_window_cleanup(struct p_window *win)
+{
+    /* Release the window's device context */
+    (void) ReleaseDC(win->win, win->dc);
 }
 
 static LRESULT CALLBACK
