@@ -6,6 +6,7 @@
 enum p_event_type {
     P_EVENT_NONE = 0,
     P_EVENT_QUIT,
+    P_EVENT_PAUSE,
 
     P_EVENT_CTL_INIT_,
     P_EVENT_CTL_DESTROY_,

@@ -186,7 +186,7 @@ static const struct menu_manager_config menu_manager_cfg = {
             },
             .on_event_cfg = {
                 .onEventType = MENU_ONEVENT_QUIT,
-                .onEventArgs = { .bool_ptr = &running },
+                .onEventArgs = { { 0 } },
             },
         },
         {
@@ -197,7 +197,7 @@ static const struct menu_manager_config menu_manager_cfg = {
             },
             .on_event_cfg = {
                 .onEventType = MENU_ONEVENT_PAUSE,
-                .onEventArgs = { .bool_ptr = &paused },
+                .onEventArgs = { { 0 } },
             },
         },
         {

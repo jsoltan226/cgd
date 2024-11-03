@@ -31,6 +31,7 @@ i32 window_fbdev_open(struct window_fbdev *win,
     const rect_t *area, const u32 flags)
 {
     win->closed = false;
+    win->tty_fd = -1;
 
     win->fd = open(FBDEV_PATH, O_RDWR);
     if (win->fd == -1) {

@@ -10,8 +10,9 @@
 #include <core/util.h>
 #include <core/vector.h>
 #include <render/rctx.h>
-#include <platform/keyboard.h>
 #include <platform/mouse.h>
+#include <platform/event.h>
+#include <platform/keyboard.h>
 
 #define MODULE_NAME "menu"
 
@@ -23,6 +24,8 @@ static i32 menu_onevent_api_switch_menu(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_go_back(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_print_message(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_flip_bool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
+static i32 menu_onevent_api_quit(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
+static i32 menu_onevent_api_pause(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #ifndef CGD_BUILDTYPE_RELEASE
 static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
@@ -209,7 +212,14 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
             oeObj->argv_buf[1] = (u64)(void *)oeCfg->onEventArgs.switch_dest_ID;
             oeObj->argv_buf[2] = (u64)(void *)&menu_ptr->flags;
             break;
-        case MENU_ONEVENT_QUIT: case MENU_ONEVENT_PAUSE:
+        case MENU_ONEVENT_QUIT:
+            oeObj->fn = menu_onevent_api_quit;
+            memset(oeObj->argv_buf, 0, ONEVENT_OBJ_ARGV_SIZE);
+            break;
+        case MENU_ONEVENT_PAUSE:
+            oeObj->fn = menu_onevent_api_pause;
+            memset(oeObj->argv_buf, 0, ONEVENT_OBJ_ARGV_SIZE);
+            break;
         case MENU_ONEVENT_FLIPBOOL:
             oeObj->fn = menu_onevent_api_flip_bool;
             oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.bool_ptr;
@@ -327,6 +337,20 @@ static i32 menu_onevent_api_flip_bool(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
     *(bool *)argv_buf[0] = !(*(bool *)argv_buf[0]);
 
     return EXIT_SUCCESS;
+}
+
+static i32 menu_onevent_api_quit(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
+{
+    (void) argv_buf;
+    p_event_send(&(const struct p_event) { .type = P_EVENT_QUIT });
+    return 0;
+}
+
+static i32 menu_onevent_api_pause(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
+{
+    (void) argv_buf;
+    p_event_send(&(const struct p_event) { .type = P_EVENT_PAUSE });
+    return 0;
 }
 
 #ifndef CGD_BUILDTYPE_RELEASE

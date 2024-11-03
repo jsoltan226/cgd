@@ -86,7 +86,7 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
 
     u32 i = 0;
     do {
-        s_log_debug("Attempting keyboard init with mode \"%s\"...",
+        s_log_debug("Attempting keyboard init with type \"%s\"...",
             keyboard_type_strings[ fallback_types[win_type][i] ]
         );
         switch (fallback_types[win_type][i]) {
@@ -157,7 +157,7 @@ void p_keyboard_destroy(struct p_keyboard **kb_p)
     if (kb_p == NULL || *kb_p == NULL) return;
     struct p_keyboard *kb = *kb_p;
 
-    s_log_debug("Destroying keyboard (mode \"%s\")...",
+    s_log_debug("Destroying keyboard (type \"%s\")...",
         keyboard_type_strings[kb->type]);
     switch(kb->type) {
         case KB_TYPE_EVDEV:

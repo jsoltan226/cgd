@@ -94,9 +94,11 @@ int cgd_main(int argc, char **argv)
         /* Check for events */
         struct p_event ev;
         while(p_event_poll(&ev)) {
-            if(ev.type == P_EVENT_QUIT){
+            if (ev.type == P_EVENT_QUIT) {
                 running = false;
                 goto main_loop_breakout;
+            } else if (ev.type == P_EVENT_PAUSE) {
+                paused = !paused;
             }
         }
 
@@ -106,7 +108,7 @@ int cgd_main(int argc, char **argv)
         /* UPDATE SECTION */
         menu_mgr_update(MenuManager, keyboard, mouse, paused);
 
-        if(!paused){
+        if (!paused) {
 
             /* RENDER SECTION */
             r_reset(rctx);
