@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <stdnoreturn.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -36,7 +37,7 @@ static struct p_mt_mutex master_mutex = {
     .is_static = true,
 };
 static VECTOR(struct p_mt_mutex *) global_mutex_registry = NULL;
-static bool registered_atexit_cleanup = false;
+static volatile atomic_flag registered_atexit_cleanup = ATOMIC_FLAG_INIT;
 
 struct p_mt_cond {
     CONDITION_VARIABLE cond;
@@ -163,9 +164,7 @@ void p_mt_mutex_global_cleanup(void)
     if (master_mutex.initialized)
         EnterCriticalSection(&master_mutex.cs);
 
-    should_not_destroy_master_mutex = true;
     cleanup_global_mutexes();
-    should_not_destroy_master_mutex = false;
 
     if (master_mutex.initialized)
         LeaveCriticalSection(&master_mutex.cs);
@@ -210,13 +209,12 @@ static void add_mutex_to_registry(struct p_mt_mutex *m)
 
     EnterCriticalSection(&master_mutex.cs);
 
-    if (!registered_atexit_cleanup) {
+    if (!atomic_flag_test_and_set(&registered_atexit_cleanup)) {
         if (atexit(cleanup_global_mutexes)) {
             s_log_fatal(MODULE_NAME, __func__,
                 "Failed to atexit() the global mutex cleanup function."
             );
         }
-        registered_atexit_cleanup = true;
     }
 
     if (global_mutex_registry == NULL)

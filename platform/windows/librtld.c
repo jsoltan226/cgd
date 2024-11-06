@@ -28,19 +28,19 @@ struct p_lib {
     u32 n_syms;
 };
 
-#define DLL_SUFFIX ".dll"
+#define DLL_EXT ".dll"
 
 struct p_lib * p_librtld_load(const char *libname, const char **symnames)
 {
     struct p_lib *lib = calloc(1, sizeof(struct p_lib));
     s_assert(lib != NULL, "calloc() failed for struct lib");
 
-    lib->dll_name = malloc(strlen(libname) + u_strlen(DLL_SUFFIX) + 1);
+    lib->dll_name = malloc(strlen(libname) + u_strlen(DLL_EXT) + 1);
     s_assert(lib->dll_name != NULL, "malloc() failed for dll name string");
     strcpy(lib->dll_name, libname);
-    strcat(lib->dll_name, DLL_SUFFIX);
+    strcat(lib->dll_name, DLL_EXT);
 
-    lib->module_handle = LoadLibrary(lib->dll_name);
+    lib->module_handle = LoadLibraryA(lib->dll_name);
     if (lib->module_handle == NULL)
          goto_error("Failed to load library \"%s\": %s",
             lib->dll_name, get_last_error_msg());

@@ -2,6 +2,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
@@ -9,11 +10,13 @@
 #include <winnt.h>
 #include <synchapi.h>
 #include <minwindef.h>
-#include <sysinfoapi.h>
+#include <profileapi.h>
 
 #define MODULE_NAME "time"
 
-/* clangd is really stupid ngl */
+static volatile atomic_flag frequency_initialized = ATOMIC_FLAG_INIT;
+static _Atomic LARGE_INTEGER frequency;
+
 i32 p_time(p_time_t *o)
 {
     if (o == NULL) {
@@ -21,15 +24,24 @@ i32 p_time(p_time_t *o)
         return -1;
     }
 
-    FILETIME ft;
-    LARGE_INTEGER li;
+    /* We can ignore the race condition here, because
+     * `QueryPerformanceFrequency` always returns the same value,
+     * so `frequency` getting written to twice doesn't change anything */
+    if (!atomic_flag_test_and_set(&frequency_initialized)) {
+        LARGE_INTEGER tmp;
+        /* This function always succeeds on Windows XP or later */
+        (void) QueryPerformanceFrequency(&tmp);
 
-    GetSystemTimePreciseAsFileTime(&ft);
-    li.LowPart = ft.dwLowDateTime;
-    li.HighPart = ft.dwHighDateTime;
+        atomic_store(&frequency, tmp);
+    }
 
-    /* Convert to nanoseconds since Jan 1, 1601 */
-    i64 ns = (li.QuadPart - 116444736000000000LL) / 10;
+    LARGE_INTEGER counter;
+    /* This function also always succeeds on Windows XP or later */
+    (void) QueryPerformanceCounter(&counter);
+
+    /* Convert to nanoseconds based on the frequency */
+    u64 ns = (counter.QuadPart * 1000000000LL) /
+        atomic_load(&frequency).QuadPart;
 
     /* Fill the time struct */
     /* See `platform/linux/time.c` for more detailed explanations */
@@ -43,7 +55,7 @@ i32 p_time(p_time_t *o)
     return 0;
 }
 
-i32 p_time_since(p_time_t *o, const p_time_t * restrict since)
+i32 p_time_since(p_time_t *o, const p_time_t *since)
 {
     if (o == NULL || since == NULL) {
         s_log_error("Invalid parameters");

@@ -79,7 +79,7 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
     } ev = { (void *)ge_ev };
 
     /* Used in mouse event cases */
-    struct mouse_x11_atomic_rw *mouse_rw;
+    struct mouse_x11 *mouse = win->registered_mouse;
     u32 button_bits;
 
     switch(ge_ev->event_type) {
@@ -122,10 +122,8 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             break;
 
         if (!win->registered_mouse) break;
-        mouse_rw = (struct mouse_x11_atomic_rw *)
-            &win->registered_mouse->atomic_mouse;
 
-        button_bits = atomic_load(&mouse_rw->button_bits);
+        button_bits = atomic_load(&mouse->button_bits);
 
         if (ev.button_press->detail == 1)
             button_bits |= P_MOUSE_LEFTBUTTONMASK;
@@ -134,7 +132,7 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
         if (ev.button_press->detail == 3)
             button_bits |= P_MOUSE_RIGHTBUTTONMASK;
   
-        atomic_store(&mouse_rw->button_bits, button_bits);
+        atomic_store(&mouse->button_bits, button_bits);
 
         break;
     case XCB_INPUT_BUTTON_RELEASE:
@@ -142,10 +140,8 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             break;
 
         if (!win->registered_mouse) break;
-        mouse_rw = (struct mouse_x11_atomic_rw *)
-            &win->registered_mouse->atomic_mouse;
 
-        button_bits = atomic_load(&mouse_rw->button_bits);
+        button_bits = atomic_load(&mouse->button_bits);
 
         if (ev.button_release->detail == 1)
             button_bits &= ~P_MOUSE_LEFTBUTTONMASK;
@@ -154,19 +150,17 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
         if (ev.button_release->detail == 3)
             button_bits &= ~P_MOUSE_RIGHTBUTTONMASK;
   
-        atomic_store(&mouse_rw->button_bits, button_bits);
+        atomic_store(&mouse->button_bits, button_bits);
 
         break;
     case XCB_INPUT_MOTION:
         if (ev.button_release->deviceid != win->master_mouse_id)
             break;
 
-        if (win->registered_mouse == NULL) break;
-        mouse_rw = (struct mouse_x11_atomic_rw *)
-            &win->registered_mouse->atomic_mouse;
+        if (!win->registered_mouse) break;
 
-        atomic_store(&mouse_rw->x, u_fp1616_to_f32(ev.motion->event_x));
-        atomic_store(&mouse_rw->y, u_fp1616_to_f32(ev.motion->event_y));
+        atomic_store(&mouse->x, u_fp1616_to_f32(ev.motion->event_x));
+        atomic_store(&mouse->y, u_fp1616_to_f32(ev.motion->event_y));
 
         break;
     default:

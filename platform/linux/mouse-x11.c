@@ -21,13 +21,9 @@ i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
 {
     memset(mouse, 0, sizeof(struct mouse_x11));
 
-    /* Initialize the atomic struct */
-    struct mouse_x11_atomic_rw *mouse_rw =
-        (struct mouse_x11_atomic_rw *)&mouse->atomic_mouse;
-
-    atomic_init(&mouse_rw->x, 0);
-    atomic_init(&mouse_rw->y, 0);
-    atomic_init(&mouse_rw->button_bits, 0);
+    atomic_store(&mouse->x, 0);
+    atomic_store(&mouse->y, 0);
+    atomic_store(&mouse->button_bits, 0);
 
     /* Register mouse to enable X11 mouse event handling */
     if (window_X11_register_mouse(win, mouse)) return 1;
@@ -39,10 +35,10 @@ i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
 
 void mouse_X11_update(struct p_mouse *mouse)
 {
-    mouse->pos.x = atomic_load(&mouse->x11.atomic_mouse.x);
-    mouse->pos.y = atomic_load(&mouse->x11.atomic_mouse.y);
+    mouse->pos.x = atomic_load(&mouse->x11.x);
+    mouse->pos.y = atomic_load(&mouse->x11.y);
 
-    const u8 button_bits = atomic_load(&mouse->x11.atomic_mouse.button_bits);
+    const u8 button_bits = atomic_load(&mouse->x11.button_bits);
 
     pressable_obj_update(&mouse->buttons[P_MOUSE_BUTTON_LEFT],
         button_bits & P_MOUSE_LEFTBUTTONMASK);

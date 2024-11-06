@@ -23,7 +23,7 @@ enum keyboard_x11_key_event {
 
 struct keyboard_x11 {
     struct window_x11 *win;
-    _Atomic volatile const i8 key_events[P_KEYBOARD_N_KEYS];
+    _Atomic volatile i8 key_events[P_KEYBOARD_N_KEYS];
     xcb_key_symbols_t *key_symbols;
 };
 
@@ -35,7 +35,7 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
 void X11_keyboard_destroy(struct keyboard_x11 *kb);
 
 void X11_keyboard_store_key_event(
-    volatile _Atomic const i8 events[P_KEYBOARD_N_KEYS],
+    volatile _Atomic i8 events[P_KEYBOARD_N_KEYS],
     xcb_keysym_t keysym, enum keyboard_x11_key_event event
 );
 

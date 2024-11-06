@@ -72,7 +72,7 @@ void p_mouse_get_state(struct p_mouse *mouse,
         mouse->pos.y = (f32)window_pos.y;
 
         mouse->is_out_of_window = !u_collision(
-            &mouse->win->rect,
+            &mouse->win->client_rect,
             &(const rect_t) { mouse->pos.x, mouse->pos.y, 0, 0 }
         );
     }

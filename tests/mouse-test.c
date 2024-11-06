@@ -1,19 +1,18 @@
-#include "core/vector.h"
-#include "render/line.h"
-#define _GNU_SOURCE
 #include <core/log.h>
 #include <core/util.h>
 #include <core/math.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
+#include <core/vector.h>
 #include <platform/time.h>
 #include <platform/mouse.h>
 #include <platform/event.h>
 #include <platform/window.h>
 #include <render/rctx.h>
 #include <render/rect.h>
+#include <render/line.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #define MODULE_NAME "mouse-test"
 
@@ -45,7 +44,8 @@ static VECTOR(struct rect_desc) rects = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
+    FILE *log_fp = fopen("test_log.txt", "wb");
+    s_configure_log(LOG_DEBUG, log_fp, log_fp);
 
     /* Initialize the window */
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
@@ -99,12 +99,14 @@ int cgd_main(int argc, char **argv)
             mouse_held = true;
 
             /* Set the rect color to a random value */
-            srand(start_time.ns);
-            const i32 r = rand();
-            rect_color.r = (r >> 24) & 0xff;
-            rect_color.g = (r >> 16) & 0xff;
-            rect_color.b = (r >> 8) & 0xff;
-            rect_color.a = (r >> 0) & 0xff;
+            srand(start_time.us + start_time.s);
+            rect_color.r = rand() & 0xFF;
+            srand(rand());
+            rect_color.g = rand() & 0xFF;
+            srand(rand());
+            rect_color.b = rand() & 0xFF;
+            srand(rand());
+            rect_color.a = rand() & 0xFF;
         }
         if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
             vector_push_back(rects,
@@ -169,10 +171,18 @@ main_loop_breakout:
     r_ctx_destroy(&rctx);
     p_mouse_destroy(&mouse);
     p_window_close(&win);
+    s_set_log_out_filep(stdout);
+    s_set_log_err_filep(stderr);
+    fclose(log_fp);
+    log_fp = NULL;
 
     return EXIT_SUCCESS;
 
 err:
+    s_set_log_out_filep(stdout);
+    s_set_log_err_filep(stderr);
+    fclose(log_fp);
+    log_fp = NULL;
     if (rects != NULL) vector_destroy(&rects);
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (mouse != NULL) p_mouse_destroy(&mouse);

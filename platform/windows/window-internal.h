@@ -20,7 +20,8 @@ struct p_window {
     p_mt_thread_t thread; /* The window thread */
     bool initialized; /* Sanity check to avoid double-frees */
 
-    rect_t rect; /* The position and dimenisions of the window */
+    RECT window_rect; /* The posistion and dimensions of the whole window */
+    rect_t client_rect; /* The position and dimensions of the client area */
 
     /* Screen resolution, used for positioning the window */
     u32 screen_w, screen_h;

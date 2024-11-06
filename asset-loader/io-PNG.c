@@ -1,20 +1,19 @@
 #include "io-PNG.h"
-#include <png.h>
 #include <core/log.h>
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pixel.h>
 #include <platform/thread.h>
 #include <platform/librtld.h>
-#include <pngconf.h>
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
 #include <stdnoreturn.h>
+#include <png.h>
 
 #define MODULE_NAME "io-PNG"
 
-#define LIBPNG_NAME "libpng"
+#define LIBPNG_NAME "libpng16"
 #define LIBPNG_SYM_LIST                                                        \
     X_(int, png_sig_cmp, (png_bytep sig, size_t start, size_t num_to_check))   \
     X_(png_structp, png_create_read_struct,                                    \

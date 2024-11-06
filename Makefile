@@ -58,12 +58,12 @@ endif
 OBJDIR = obj
 BINDIR = bin
 TEST_SRC_DIR = tests
-TEST_EXE_DIR = $(TEST_SRC_DIR)/$(BINDIR)
+TEST_BINDIR = $(TEST_SRC_DIR)/$(BINDIR)
 PLATFORM_SRCDIR = platform
 
 # Test sources and objects
 TEST_SRCS = $(wildcard $(TEST_SRC_DIR)/*.c)
-TEST_EXES = $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
+TEST_EXES = $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
 TEST_LOGFILE = $(TEST_SRC_DIR)/testlog.txt
 
 # Sources and objects
@@ -82,7 +82,7 @@ STRIP_OBJS = $(OBJDIR)/log.c.o
 
 # Executables
 EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TEST_LIB = $(BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
+TEST_LIB = $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
 TEST_LIB_OBJS = $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
 EXEARGS =
 
@@ -105,7 +105,7 @@ $(EXE): $(OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
-$(TEST_LIB): $(TEST_LIB_OBJS)
+$(TEST_LIB): $(TEST_BINDIR) $(TEST_LIB_OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(TEST_LIB_OBJS)"
 	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(TEST_LIB_OBJS) $(LIBS)
 
@@ -118,9 +118,9 @@ $(BINDIR):
 	@$(ECHO) "MKDIR	$(BINDIR)"
 	@$(MKDIR) $(BINDIR)
 
-$(TEST_EXE_DIR):
-	@$(ECHO) "MKDIR	$(TEST_EXE_DIR)"
-	@$(MKDIR) $(TEST_EXE_DIR)
+$(TEST_BINDIR):
+	@$(ECHO) "MKDIR	$(TEST_BINDIR)"
+	@$(MKDIR) $(TEST_BINDIR)
 
 # Generic compilation targets
 $(OBJDIR)/%.c.o: %.c Makefile
@@ -148,7 +148,7 @@ asset-load-test-hook:
 run-tests: tests
 
 tests: CFLAGS = -ggdb -O0 -Wall
-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
+tests: $(OBJDIR) $(BINDIR) $(TEST_BINDIR) build-tests test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
 	for i in $(TEST_EXES); do \
@@ -173,13 +173,13 @@ tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) build-tests test-hooks
 
 # Test compilation targets
 build-tests: CFLAGS = -ggdb -O0 -Wall
-build-tests: $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
+build-tests: $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
 
-$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
-$(TEST_EXE_DIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
 
@@ -189,9 +189,9 @@ mostlyclean:
 	@$(RM) $(OBJS) $(DEPS) $(TEST_LOGFILE)
 
 clean:
-	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_EXE_DIR) $(TEST_LOGFILE)"
+	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_BINDIR) $(TEST_LOGFILE)"
 	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/asset_load_test/*.png
-	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_EXE_DIR)
+	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_BINDIR)
 
 # Output execution targets
 run:

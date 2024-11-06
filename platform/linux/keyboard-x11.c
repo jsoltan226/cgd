@@ -44,8 +44,7 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
             pressable_obj_update(&pobjs[i], pobjs[i].pressed);
 
         /* Nothing really happens if there is a data race here */
-        atomic_store((volatile _Atomic i8 *)&kb->key_events[i],
-            KEYBOARD_X11_NOTHING);
+        atomic_store(&kb->key_events[i], KEYBOARD_X11_NOTHING);
     }
 }
 
@@ -56,7 +55,7 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb)
 }
 
 void X11_keyboard_store_key_event(
-    volatile _Atomic const i8 events[P_KEYBOARD_N_KEYS],
+    volatile _Atomic i8 events[P_KEYBOARD_N_KEYS],
     xcb_keysym_t keysym, enum keyboard_x11_key_event event
 )
 {
@@ -75,5 +74,5 @@ void X11_keyboard_store_key_event(
     }
     if (p_kb_keycode == -1) return;
 
-    atomic_store((volatile _Atomic i8 *)&events[p_kb_keycode], event);
+    atomic_store(&events[p_kb_keycode], event);
 }

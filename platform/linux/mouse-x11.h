@@ -7,27 +7,14 @@
 
 #include "../mouse.h"
 #include <core/int.h>
-#include <core/shapes.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "libxcb-rtld.h"
-#undef P_INTERNAL_GUARD__
-
-struct mouse_x11_atomic_rw {
-    volatile _Atomic(u32) button_bits;
-    volatile _Atomic(f32) x, y;
-};
-
-struct mouse_x11_atomic_ro {
-    const volatile _Atomic(u32) button_bits;
-    const volatile _Atomic(f32) x, y;
-};
 
 struct mouse_x11 {
     struct window_x11 *win;
-    struct mouse_x11_atomic_ro atomic_mouse;
+    volatile _Atomic u32 button_bits;
+    volatile _Atomic f32 x, y;
 };
 
 i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags);

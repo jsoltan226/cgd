@@ -12,6 +12,7 @@
 #define WINWIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windows.h>
+#include <winnt.h>
 #include <wingdi.h>
 #include <winuser.h>
 #include <minwindef.h>
@@ -86,7 +87,7 @@ struct p_window * p_window_open(const unsigned char *title,
 
     win->initialized = true;
     s_log_debug("%s() OK; window position: [%u, %u]; window dimensions: %ux%u",
-        __func__, win->rect.x, win->rect.y, win->rect.w, win->rect.h);
+        __func__, rect_arg_expand(win->client_rect));
 
     /* Initialize the event queue */
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_INIT_ });
@@ -104,10 +105,10 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
 
     s_assert(win->bound_fb == NULL,
         "Another framebuffer is already bound to this window.");
-    s_assert(win->rect.w == fb->w && win->rect.h == fb->h,
+    s_assert(win->client_rect.w == fb->w && win->client_rect.h == fb->h,
         "Attempt to bind a framebuffer of invalid size "
         "(size of provided fb is %ux%u, should be %ux%u)",
-        fb->w, fb->h, win->rect.w, win->rect.h);
+        fb->w, fb->h, win->client_rect.w, win->client_rect.h);
 
     win->bound_fb = fb;
 
@@ -196,10 +197,10 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     if (win == NULL || out == NULL)
         return -1;
 
-    out->x = win->rect.x;
-    out->y = win->rect.y;
-    out->w = win->rect.w;
-    out->h = win->rect.h;
+    out->x = win->client_rect.x;
+    out->y = win->client_rect.y;
+    out->w = win->client_rect.w;
+    out->h = win->client_rect.h;
     out->color_type = P_WINDOW_BGRA8888;
 
     return 0;
@@ -253,16 +254,24 @@ static i32 do_window_init(struct p_window *win,
         goto_error("Failed to get screen height: %s", get_last_error_msg());
 
     /* Handle P_WINDOW_POS_CENTERED flags */
-    win->rect.x = area->x;
+    win->client_rect.x = area->x;
     if (flags & P_WINDOW_POS_CENTERED_X)
-        win->rect.x = (win->screen_w - area->w) / 2;
+        win->client_rect.x = (win->screen_w - area->w) / 2;
 
-    win->rect.y = area->y;
+    win->client_rect.y = area->y;
     if (flags & P_WINDOW_POS_CENTERED_Y)
-        win->rect.y = (win->screen_h - area->h) / 2;
+        win->client_rect.y = (win->screen_h - area->h) / 2;
 
-    win->rect.w = area->w;
-    win->rect.h = area->h;
+    win->client_rect.w = area->w;
+    win->client_rect.h = area->h;
+
+    /* Adjust the client rect to actually be what we want */
+    win->window_rect.left = win->client_rect.x;
+    win->window_rect.top = win->client_rect.y;
+    win->window_rect.right = win->client_rect.x + win->client_rect.w;
+    win->window_rect.bottom = win->client_rect.y + win->client_rect.h;
+    if (AdjustWindowRect(&win->window_rect, WS_OVERLAPPEDWINDOW, false) == 0)
+        goto_error("Failed to adjust the window rect: %s", get_last_error_msg());
 
     /* Register the window class */
 #define WINDOW_CLASS_NAME "cgd-window"
@@ -270,6 +279,8 @@ static i32 do_window_init(struct p_window *win,
         .hInstance = g_instance_handle,
         .lpszClassName = WINDOW_CLASS_NAME,
         .lpfnWndProc = window_procedure,
+        .hCursor = LoadCursor(NULL, IDC_ARROW),
+        .hIcon = LoadIcon(NULL, IDI_APPLICATION),
     };
 
     if (RegisterClass(&window_class) == 0)
@@ -277,8 +288,11 @@ static i32 do_window_init(struct p_window *win,
             get_last_error_msg());
 
     /* Create the window */
-    win->win = CreateWindowEx(0, WINDOW_CLASS_NAME, title,
-        WS_OVERLAPPEDWINDOW, rect_arg_expand(win->rect),
+    win->win = CreateWindowExA(0, WINDOW_CLASS_NAME, title, WS_OVERLAPPEDWINDOW,
+        win->window_rect.left, /* x */
+        win->window_rect.top, /* y */
+        win->window_rect.right - win->window_rect.left, /* width */
+        win->window_rect.bottom - win->window_rect.top, /* height */
         NULL, NULL, g_instance_handle, NULL
     );
     if (win->win == 0)

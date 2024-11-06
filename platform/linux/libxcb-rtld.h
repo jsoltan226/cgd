@@ -152,11 +152,11 @@ struct libxcb {
     LIBXCB_INPUT_SYM_LIST
     LIBXCB_KEYSYMS_SYM_LIST
     struct libxcb_shm {
-        const bool has_shm_extension_;
+        bool has_shm_extension_;
         LIBXCB_SHM_SYM_LIST
     } shm;
-    const volatile i32 handleno_;
-    const volatile bool failed_;
+    i32 handleno_;
+    bool failed_;
 };
 #undef X_
 

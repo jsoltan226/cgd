@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <pthread.h>
 #include <signal.h>
 
@@ -27,7 +28,7 @@ struct p_mt_cond {
 
 static void add_mutex_to_registry(struct p_mt_mutex *m);
 
-static bool registered_atexit_cleanup = false;
+static volatile atomic_flag registered_atexit_cleanup = ATOMIC_FLAG_INIT;
 static void cleanup_global_mutexes(void);
 
 i32 p_mt_thread_create(p_mt_thread_t *o,
@@ -179,14 +180,13 @@ static void add_mutex_to_registry(struct p_mt_mutex *m)
     if (global_mutex_registry == NULL)
         global_mutex_registry = vector_new(struct p_mt_mutex *);
 
-    if (!registered_atexit_cleanup) {
+    if (!atomic_flag_test_and_set(&registered_atexit_cleanup)) {
         s_log_debug("Registering global mutex cleanup function...");
         if (atexit(cleanup_global_mutexes)) {
             s_log_fatal(MODULE_NAME, __func__,
                 "Failed to atexit() the global mutex cleanup function."
             );
         }
-        registered_atexit_cleanup = true;
     }
 
     vector_push_back(global_mutex_registry, m);

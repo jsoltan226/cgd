@@ -79,7 +79,7 @@ asset_get_plugin_loaded(enum asset_img_type type)
 
     struct asset_plugin *p = lookup_by_type(type);
 
-    volatile const bool is_loaded = p->is_loaded;
+    const bool is_loaded = p->is_loaded;
     p_mt_mutex_unlock(&plugin_registry_mutex);
 
     if (p == NULL) return PLUGIN_DOES_NOT_EXIST;

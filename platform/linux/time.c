@@ -22,7 +22,7 @@ i32 p_time(p_time_t *o)
     }
 
     struct timespec ts;
-    if (clock_gettime(CLOCK_REALTIME, &ts)) {
+    if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
         s_log_error("Failed to get current time: %s", strerror(errno));
         return 1;
     }
@@ -94,7 +94,7 @@ i32 p_time(p_time_t *o)
     return 0;
 }
 
-i32 p_time_since(p_time_t *o, const p_time_t * restrict since)
+i32 p_time_since(p_time_t *o, const p_time_t *since)
 {
     if (o == NULL || since == NULL) {
         s_log_error("Invalid parameters");
