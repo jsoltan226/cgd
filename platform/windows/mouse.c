@@ -78,12 +78,14 @@ void p_mouse_get_state(struct p_mouse *mouse,
     }
 update_end:
 
-    memcpy(o->buttons, mouse->buttons,
-        sizeof(pressable_obj_t) * P_MOUSE_N_BUTTONS);
+    if (o != NULL) {
+        memcpy(o->buttons, mouse->buttons,
+                sizeof(pressable_obj_t) * P_MOUSE_N_BUTTONS);
 
-    o->x = mouse->pos.x;
-    o->y = mouse->pos.y;
-    o->is_out_of_window = mouse->is_out_of_window;
+        o->x = mouse->pos.x;
+        o->y = mouse->pos.y;
+        o->is_out_of_window = mouse->is_out_of_window;
+    }
 }
 
 const pressable_obj_t * p_mouse_get_button(struct p_mouse *mouse,

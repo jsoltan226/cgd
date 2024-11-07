@@ -265,12 +265,15 @@ static i32 do_window_init(struct p_window *win,
     win->client_rect.w = area->w;
     win->client_rect.h = area->h;
 
+    /* Normal style, but non-resizeable non-maximizeable */
+#define WINDOW_STYLE (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX)
+
     /* Adjust the client rect to actually be what we want */
     win->window_rect.left = win->client_rect.x;
     win->window_rect.top = win->client_rect.y;
     win->window_rect.right = win->client_rect.x + win->client_rect.w;
     win->window_rect.bottom = win->client_rect.y + win->client_rect.h;
-    if (AdjustWindowRect(&win->window_rect, WS_OVERLAPPEDWINDOW, false) == 0)
+    if (AdjustWindowRect(&win->window_rect, WINDOW_STYLE, false) == 0)
         goto_error("Failed to adjust the window rect: %s", get_last_error_msg());
 
     /* Register the window class */
@@ -288,7 +291,7 @@ static i32 do_window_init(struct p_window *win,
             get_last_error_msg());
 
     /* Create the window */
-    win->win = CreateWindowExA(0, WINDOW_CLASS_NAME, title, WS_OVERLAPPEDWINDOW,
+    win->win = CreateWindowExA(0, WINDOW_CLASS_NAME, title, WINDOW_STYLE,
         win->window_rect.left, /* x */
         win->window_rect.top, /* y */
         win->window_rect.right - win->window_rect.left, /* width */

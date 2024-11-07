@@ -1,13 +1,14 @@
-#define _GNU_SOURCE
 #include <core/log.h>
 #include <core/util.h>
+#include <platform/time.h>
+#include <platform/event.h>
 #include <platform/window.h>
 #include <platform/keyboard.h>
-#include <platform/event.h>
 #include <render/rctx.h>
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <string.h>
 
 #define MODULE_NAME "keyboard-test"
 
@@ -21,9 +22,21 @@ static struct p_window *win = NULL;
 static struct r_ctx *rctx = NULL;
 static struct p_keyboard *kb = NULL;
 
+static void cleanup_log(void);
+static FILE *log_fp = NULL;
+
 int cgd_main(int argc, char **argv)
 {
     s_configure_log(LOG_DEBUG, stdout, stderr);
+    if (atexit(cleanup_log))
+        goto_error("Failed to atexit() the log cleanup function: %s. Stop.",
+            strerror(errno));
+
+    log_fp = fopen("test_log.txt", "wb");
+    if (log_fp == NULL)
+        goto_error("Failed to open log file: %s. Stop.", strerror(errno));
+    s_set_log_out_filep(log_fp);
+    s_set_log_err_filep(log_fp);
 
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
     if (win == NULL)
@@ -45,8 +58,14 @@ int cgd_main(int argc, char **argv)
         !p_keyboard_get_key(kb, KB_KEYCODE_Q)->up
     ) {
         p_event_poll(&ev);
+
         p_keyboard_update(kb);
-        usleep(1000000 / FPS);
+        for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
+            if (p_keyboard_get_key(kb, i)->up)
+                s_log_debug("Released key %s", p_keyboard_keycode_strings[i]);
+        }
+
+        p_time_usleep(1000000 / FPS);
     }
 
     if (ev.type == P_EVENT_QUIT)
@@ -64,4 +83,14 @@ err:
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
+}
+
+static void cleanup_log(void)
+{
+    s_set_log_out_filep(stdout);
+    s_set_log_err_filep(stderr);
+    if (log_fp != NULL) {
+        fclose(log_fp);
+        log_fp = NULL;
+    }
 }
