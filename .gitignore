@@ -9,3 +9,10 @@
 /tests/bin/*
 /tests/test.c
 /\;
+/log.txt
+/test_log.txt
+/log_test.txt
+/tmp.c
+/test.c
+/tmp
+/test

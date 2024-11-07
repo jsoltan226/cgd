@@ -1,7 +1,6 @@
-FUCKING WINDOWS SUPPORT
 Make the renderer run in a separate thread
+Automatic dependecy management
 
-(Future) Automatic dependecy management
 (Future) Actual build configs
 (Future) make proper OpenGL and Vulkan renderers
 (Future) Split LOG_DEBUG into multiple levels
