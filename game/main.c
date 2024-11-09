@@ -11,6 +11,7 @@
 #include <platform/mouse.h>
 #include <platform/window.h>
 #include <platform/keyboard.h>
+#include <platform/platform.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,13 +48,18 @@ static void cleanup_log(void);
 
 int cgd_main(int argc, char **argv)
 {
+#if (PLATFORM == PLATFORM_WINDOWS)
     log_file = fopen("log.txt", "wb");
     if (atexit(cleanup_log)) {
         s_log_error("Failed to atexit() the log cleanup function.");
         return EXIT_FAILURE;
     }
     s_configure_log(LOG_DEBUG, log_file, log_file);
-    //s_configure_log(LOG_INFO, log_file, log_file);
+#else
+    (void) cleanup_log; /* Make compiler happy */
+    s_configure_log(LOG_DEBUG, stdout, stderr);
+#endif /* PLATFORM */
+
 
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))

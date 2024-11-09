@@ -121,22 +121,22 @@ void r_surface_blit(struct r_surface *surface,
          final_src_rect.h != final_dst_rect.h)
         << 1;
 
-    /* This is basically c++ polymorphism */
+    /* Fancy switch statement */
 #define CONVERSION 1 << 0
 #define SCALING 1 << 1
 #define NO_CONVERSION 0
 #define NO_SCALING 0
     static blit_function_t *const blit_function_table[4] = {
-        [NO_SCALING | NO_CONVERSION]    = unscaled_unconverted_blit,
-        [NO_SCALING | CONVERSION]       = unscaled_converted_blit,
-        [SCALING | NO_CONVERSION]       = scaled_unconverted_blit,
-        [SCALING | CONVERSION]          = scaled_converted_blit,
+        [NO_SCALING | NO_CONVERSION]    = &unscaled_unconverted_blit,
+        [NO_SCALING | CONVERSION]       = &unscaled_converted_blit,
+        [SCALING | NO_CONVERSION]       = &scaled_unconverted_blit,
+        [SCALING | CONVERSION]          = &scaled_converted_blit,
     };
 
     const u8 index = needs_scaling | needs_pixel_conversion;
     s_assert(index >= 0 && index < 4, "how?");
 
-    blit_function_table[index] (
+    (*(blit_function_table[index])) (
         &surface->data, &surface->rctx->pixels,
         &final_src_rect, &final_dst_rect,
         scale_x, scale_y,
