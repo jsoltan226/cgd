@@ -71,6 +71,8 @@ struct p_keyboard {
 
 struct p_keyboard * p_keyboard_init(struct p_window *win)
 {
+    u_check_params(win != NULL);
+
     struct p_keyboard *kb = calloc(1, sizeof(struct p_keyboard));
     s_assert(kb != NULL, "calloc() failed for struct p_keyboard");
 
@@ -128,7 +130,7 @@ err:
 
 void p_keyboard_update(struct p_keyboard *kb)
 {
-    if (kb == NULL) return;
+    u_check_params(kb != NULL);
 
     switch (kb->type) {
         case KB_TYPE_TTY:
@@ -145,7 +147,7 @@ void p_keyboard_update(struct p_keyboard *kb)
     }
 }
 
-const pressable_obj_t * p_keyboard_get_key(struct p_keyboard *kb,
+const pressable_obj_t * p_keyboard_get_key(const struct p_keyboard *kb,
     enum p_keyboard_keycode code)
 {
     u_check_params(kb != NULL && code >= 0 && code < P_KEYBOARD_N_KEYS);

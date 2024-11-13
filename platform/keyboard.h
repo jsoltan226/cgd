@@ -13,7 +13,7 @@ struct p_keyboard * p_keyboard_init(struct p_window *win);
 
 void p_keyboard_update(struct p_keyboard *kb);
 
-const pressable_obj_t * p_keyboard_get_key(struct p_keyboard *kb,
+const pressable_obj_t * p_keyboard_get_key(const struct p_keyboard *kb,
     enum p_keyboard_keycode code);
 
 void p_keyboard_destroy(struct p_keyboard **kb_p);

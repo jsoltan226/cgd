@@ -29,7 +29,7 @@ struct button {
 struct button * button_init(const struct sprite_config *sprite_cfg,
     const struct on_event_obj *on_click, u32 flags, struct r_ctx *rctx);
 
-void button_update(struct button *btn, struct p_mouse *mouse);
+void button_update(struct button *btn, const struct p_mouse *mouse);
 
 void button_draw(struct button *btn, struct r_ctx *rctx);
 

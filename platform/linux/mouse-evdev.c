@@ -28,7 +28,7 @@ static void read_mouse_events_from_evdev(i32 fd,
     bool updated_buttons[P_MOUSE_N_BUTTONS],
     f32 *x, f32 *y);
 
-i32 mouse_evdev_init(struct mouse_evdev *mouse, u32 flags)
+i32 mouse_evdev_init(struct mouse_evdev *mouse)
 {
     memset(mouse, 0, sizeof(struct mouse_evdev));
 

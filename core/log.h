@@ -43,7 +43,7 @@ noreturn void s_log_fatal(const char *module_name, const char *function_name,
 } while (0);
 
 void s_set_log_level(s_log_level new_log_level);
-s_log_level s_get_log_level();
+s_log_level s_get_log_level(void);
 
 i32 s_set_log_out_file(const char *file_path);
 i32 s_set_log_out_filep(FILE *fp);
@@ -53,14 +53,18 @@ i32 s_set_log_out_filep(FILE *fp);
 i32 s_set_log_err_file(const char *file_path);
 i32 s_set_log_err_filep(FILE *fp);
 
+void s_close_out_log_fp(void);
+void s_close_err_log_fp(void);
+
 /* This is used in the error handling system to determine
- * whether the error was the user's fault (e.g a non-existent file was given as input)
+ * whether the error was the user's fault
+ * (e.g a non-existent file was given as input)
  * to decide if usage should be printed after the error message
  */
 #define YES_USER_FAULT  true
 #define NO_USER_FAULT   false
 void s_set_user_fault(bool is_user_fault);
-bool s_get_user_fault();
+bool s_get_user_fault(void);
 
 /* A shortcut for configuring logging, especially in tests */
 #define s_configure_log(level, outfilep, errfilep) do { \

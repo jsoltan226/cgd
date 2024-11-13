@@ -1,5 +1,6 @@
 Make the renderer run in a separate thread
 Automatic dependecy management
+Revise the logging module
 
 (Future) Actual build configs
 (Future) make proper OpenGL and Vulkan renderers

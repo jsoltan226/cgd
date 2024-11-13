@@ -1,15 +1,17 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <gui/event-listener.h>
-#include <gui/menu.h>
-#include <gui/menu-mgr.h>
-#include <gui/buttons.h>
 #include <core/int.h>
 #include <core/shapes.h>
 #include <platform/keyboard.h>
 #include <platform/window.h>
+#include <gui/menu.h>
+#include <gui/buttons.h>
+#include <gui/menu-mgr.h>
+#include <gui/event-listener.h>
 #include <stdbool.h>
+
+#define LOG_FILEPATH "log.txt"
 
 #define WINDOW_TITLE        (const unsigned char *)"cgd"
 #define WINDOW_W 750
@@ -25,9 +27,7 @@
 #define TESTBUTTON_WIDTH    200
 #define TESTBUTTON_HEIGHT   200
 
-static bool running = true;
 static bool displayButtonHitboxOutlines = false;
-static bool paused = false;
 
 static const rect_t gameRect = { 20, 20, WINDOW_W - 40, WINDOW_H - 40 };
 

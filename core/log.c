@@ -1,12 +1,11 @@
 #include "log.h"
-
 #include "int.h"
-#include <errno.h>
-#include <stdbool.h>
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #define MODULE_NAME "log"
 
@@ -53,8 +52,8 @@ noreturn void s_log_fatal(const char *module_name, const char *function_name,
     va_end(vArgs);
     fprintf(err_log_file, "\nFatal error encountered. Calling abort().\n");
 
-    fflush(out_log_file);
-    fflush(err_log_file);
+    s_close_out_log_fp();
+    s_close_err_log_fp();
     abort();
 }
 
@@ -105,7 +104,7 @@ void s_set_log_level(s_log_level new_log_level)
     current_log_level = new_log_level;
 }
 
-s_log_level s_get_log_level()
+s_log_level s_get_log_level(void)
 {
     return current_log_level;
 }
@@ -115,8 +114,33 @@ void s_set_user_fault(bool is_user_fault)
     user_fault = is_user_fault;
 }
 
-bool s_get_user_fault()
+bool s_get_user_fault(void)
 {
     return user_fault;
 }
 
+void s_close_out_log_fp(void)
+{
+    if (out_log_file != NULL
+        && out_log_file != stdout
+        && out_log_file != stderr
+        && out_log_file != stdin
+    ) {
+        fflush(out_log_file);
+        fclose(out_log_file);
+        out_log_file = NULL;
+    }
+}
+
+void s_close_err_log_fp(void)
+{
+    if (err_log_file != NULL
+        && err_log_file != stdout
+        && err_log_file != stderr
+        && err_log_file != stdin
+    ) {
+        fflush(err_log_file);
+        fclose(err_log_file);
+        err_log_file = NULL;
+    }
+}

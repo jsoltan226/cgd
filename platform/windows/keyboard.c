@@ -75,6 +75,8 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
 
 void p_keyboard_update(struct p_keyboard *kb)
 {
+    u_check_params(kb != NULL);
+
     for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
         if (GetAsyncKeyState(keycode_map[i]) & 0x8000) {
             pressable_obj_update(&kb->pobjs[i], true);
@@ -84,7 +86,7 @@ void p_keyboard_update(struct p_keyboard *kb)
     }
 }
 
-const pressable_obj_t * p_keyboard_get_key(struct p_keyboard *kb,
+const pressable_obj_t * p_keyboard_get_key(const struct p_keyboard *kb,
     enum p_keyboard_keycode code)
 {
     u_check_params(kb != NULL && code >= 0 && code < P_KEYBOARD_N_KEYS);

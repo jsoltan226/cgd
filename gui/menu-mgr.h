@@ -20,6 +20,9 @@ struct MenuManager {
     VECTOR(struct Menu *) full_menu_list;
 
     VECTOR(struct event_listener *) global_event_listeners;
+
+    struct p_keyboard *keyboard;
+    struct p_mouse *mouse;
 };
 
 struct menu_manager_config {
@@ -28,12 +31,14 @@ struct menu_manager_config {
     struct menu_event_listener_config global_event_listener_info[MENU_CONFIG_MAX_LEN];
 };
 
-struct MenuManager * menu_mgr_init(const struct menu_manager_config* cfg,
-    struct r_ctx *rctx, struct p_keyboard *keyboard, struct p_mouse *mouse);
+struct MenuManager * menu_mgr_init(
+    const struct menu_manager_config* cfg,
+    struct r_ctx *rctx,
+    struct p_keyboard *keyboard,
+    struct p_mouse *mouse
+);
 
-void menu_mgr_update(struct MenuManager *mmgr,
-    struct p_keyboard *keyboard, struct p_mouse *mouse,
-    bool paused);
+void menu_mgr_update(struct MenuManager *mmgr, bool paused);
 
 void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx);
 

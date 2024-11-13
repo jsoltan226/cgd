@@ -15,7 +15,7 @@ struct mouse_evdev {
     VECTOR(struct pollfd) poll_fds;
 };
 
-i32 mouse_evdev_init(struct mouse_evdev *mouse, u32 flags);
+i32 mouse_evdev_init(struct mouse_evdev *mouse);
 
 void mouse_evdev_update(struct p_mouse *mouse);
 

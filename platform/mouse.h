@@ -29,14 +29,13 @@ struct p_mouse_state {
     bool is_out_of_window;
 };
 
-struct p_mouse * p_mouse_init(struct p_window *win, u32 flags);
+struct p_mouse * p_mouse_init(struct p_window *win);
 
-void p_mouse_get_state(struct p_mouse *mouse,
-    struct p_mouse_state *o, bool update);
+void p_mouse_update(struct p_mouse *mouse);
 
-#define p_mouse_update(mouse) p_mouse_get_state(mouse, NULL, true)
+void p_mouse_get_state(const struct p_mouse *mouse, struct p_mouse_state *o);
 
-const pressable_obj_t * p_mouse_get_button(struct p_mouse *mouse,
+const pressable_obj_t * p_mouse_get_button(const struct p_mouse *mouse,
     enum p_mouse_button button);
 
 void p_mouse_reset(struct p_mouse *mouse, u32 button_mask);

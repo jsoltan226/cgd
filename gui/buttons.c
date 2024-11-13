@@ -41,12 +41,12 @@ struct button *button_init(const struct sprite_config *sprite_cfg,
     return btn;
 }
 
-void button_update(struct button *btn, struct p_mouse *mouse)
+void button_update(struct button *btn, const struct p_mouse *mouse)
 {
     if (btn == NULL || mouse == NULL) return;
 
     struct p_mouse_state mouse_state;
-    p_mouse_get_state(mouse, &mouse_state, false);
+    p_mouse_get_state(mouse, &mouse_state);
 
     btn->hovering = u_collision(
         &(rect_t) { mouse_state.x, mouse_state.y, 0, 0 },

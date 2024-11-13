@@ -29,8 +29,8 @@ struct event_listener * event_listener_init(const struct event_listener_config *
     evl->type = cfg->type;
     evl->detected = false;
 
-    struct p_keyboard *keyboard = *cfg->target_obj.keyboard_p;
-    struct p_mouse *mouse = *cfg->target_obj.mouse_p;
+    const struct p_keyboard *keyboard = *cfg->target_obj.keyboard_p;
+    const struct p_mouse *mouse = *cfg->target_obj.mouse_p;
 
     evl->obj_ptr = NULL;
     switch(cfg->type){

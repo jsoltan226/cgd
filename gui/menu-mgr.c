@@ -1,4 +1,5 @@
 #include "menu-mgr.h"
+#include "core/util.h"
 #include "menu.h"
 #include "event-listener.h"
 #include <core/log.h>
@@ -13,11 +14,21 @@
 
 #define MODULE_NAME "menu-mgr"
 
-struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
-    struct r_ctx *rctx, struct p_keyboard *keyboard, struct p_mouse *mouse)
+struct MenuManager * menu_mgr_init(
+    const struct menu_manager_config *cfg,
+    struct r_ctx *rctx,
+    struct p_keyboard *keyboard,
+    struct p_mouse *mouse
+)
 {
+    u_check_params(cfg != NULL && rctx != NULL &&
+        keyboard != NULL && mouse != NULL);
+
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
     s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
+
+    mmgr->keyboard = keyboard;
+    mmgr->mouse = mouse;
 
     if (cfg->magic != MENU_CONFIG_MAGIC)
         goto_error("menu_mgr_init: The config struct is invalid");
@@ -49,12 +60,12 @@ struct MenuManager * menu_mgr_init(const struct menu_manager_config *cfg,
             case EVL_EVENT_KEYBOARD_KEYUP:
             case EVL_EVENT_KEYBOARD_KEYDOWN:
             case EVL_EVENT_KEYBOARD_KEYPRESS:
-                tmp_cfg.target_obj.keyboard_p = &keyboard;
+                tmp_cfg.target_obj.keyboard_p = (const struct p_keyboard **)&keyboard;
                 break;
             case EVL_EVENT_MOUSE_BUTTONUP:
             case EVL_EVENT_MOUSE_BUTTONDOWN:
             case EVL_EVENT_MOUSE_BUTTONPRESS:
-                tmp_cfg.target_obj.mouse_p = &mouse;
+                tmp_cfg.target_obj.mouse_p = (const struct p_mouse **)&mouse;
                 break;
             default:
                 tmp_cfg.target_obj.mouse_p = NULL;
@@ -85,21 +96,19 @@ err:
 }
 
 
-void menu_mgr_update(struct MenuManager *mmgr,
-    struct p_keyboard *keyboard, struct p_mouse *mouse,
-    bool paused)
+void menu_mgr_update(struct MenuManager *mmgr, bool paused)
 {
-    if (mmgr == NULL || keyboard == NULL || mouse == NULL) return;
+    if (mmgr == NULL) return;
 
     /* Update the event listeners first */
     for (u32 i = 0; i < vector_size(mmgr->global_event_listeners); i++)
         event_listener_update(mmgr->global_event_listeners[i]);
 
     /* If paused, only update the event listeners. */
-    if(paused) return;
+    if (paused) return;
 
     /* Update the menus */
-    menu_update(mmgr->curr_menu, mouse);
+    menu_update(mmgr->curr_menu, mmgr->mouse);
 
     /* Check the current menu's flags */
     if(mmgr->curr_menu->flags & MENU_STATUS_SWITCH &&
@@ -107,13 +116,13 @@ void menu_mgr_update(struct MenuManager *mmgr,
     {
         mmgr->curr_menu->flags ^= MENU_STATUS_SWITCH;
         menu_mgr_push_menu(mmgr, mmgr->curr_menu->switch_target);
-        p_mouse_reset(mouse, P_MOUSE_EVERYBUTTONMASK);
+        p_mouse_reset(mmgr->mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 
     if(mmgr->curr_menu->flags & MENU_STATUS_GOBACK){
         mmgr->curr_menu->flags ^= MENU_STATUS_GOBACK;
         menu_mgr_pop_menu(mmgr);
-        p_mouse_reset(mouse, P_MOUSE_EVERYBUTTONMASK);
+        p_mouse_reset(mmgr->mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 }
 

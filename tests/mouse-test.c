@@ -20,8 +20,6 @@
 #define WINDOW_RECT (rect_t) { 0, 0, 500, 500 }
 #define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 
-#define MOUSE_FLAGS 0
-
 #define FPS 60
 #define FRAME_DURATION (1000000 / FPS)
 
@@ -58,7 +56,7 @@ int cgd_main(int argc, char **argv)
         goto_error("Failed to initialize the renderer. Stop.");
 
     /* Initialize the mouse */
-    mouse = p_mouse_init(win, MOUSE_FLAGS);
+    mouse = p_mouse_init(win);
     if (mouse == NULL)
         goto_error("Failed to initialize the mouse. Stop.");
 
@@ -83,7 +81,8 @@ int cgd_main(int argc, char **argv)
             }
         }
 
-        p_mouse_get_state(mouse, &mouse_state, true);
+        p_mouse_update(mouse);
+        p_mouse_get_state(mouse, &mouse_state);
         if (mouse_state.buttons[P_MOUSE_BUTTON_RIGHT].up) {
             running = false;
             break;

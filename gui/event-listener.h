@@ -25,8 +25,8 @@ struct event_listener {
 struct event_listener_config {
     enum event_listener_type type;
     union {
-        struct p_keyboard **keyboard_p;
-        struct p_mouse **mouse_p;
+        const struct p_keyboard **keyboard_p;
+        const struct p_mouse **mouse_p;
     } target_obj;
     union {
         enum p_mouse_button button_type;

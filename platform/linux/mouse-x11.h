@@ -17,7 +17,7 @@ struct mouse_x11 {
     volatile _Atomic f32 x, y;
 };
 
-i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags);
+i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win);
 
 void mouse_X11_update(struct p_mouse *mouse);
 

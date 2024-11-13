@@ -17,7 +17,7 @@
 
 #define MODULE_NAME "mouse-x11"
 
-i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win, u32 flags)
+i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win)
 {
     memset(mouse, 0, sizeof(struct mouse_x11));
 

@@ -30,8 +30,12 @@ static i32 menu_onevent_api_pause(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-struct Menu * menu_init(const struct menu_config *cfg, struct r_ctx *rctx,
-    struct p_keyboard *keyboard, struct p_mouse *mouse)
+struct Menu * menu_init(
+    const struct menu_config *cfg,
+    struct r_ctx *rctx,
+    const struct p_keyboard *keyboard,
+    const struct p_mouse *mouse
+)
 {
     struct Menu *mn = NULL;
 
@@ -137,9 +141,9 @@ err:
     return NULL;
 }
 
-void menu_update(struct Menu *mn, struct p_mouse *mouse)
+void menu_update(struct Menu *mn, const struct p_mouse *mouse)
 {
-    if (mn == NULL || mouse == NULL) return;
+    u_check_params(mn != NULL && mouse != NULL);
 
     for(u32 i = 0; i < vector_size(mn->buttons); i++)
         button_update(mn->buttons[i], mouse);
@@ -152,7 +156,7 @@ void menu_update(struct Menu *mn, struct p_mouse *mouse)
 
 void menu_draw(struct Menu *mn, struct r_ctx *rctx)
 {
-    if (mn == NULL || rctx == NULL) return;
+    u_check_params(mn != NULL && rctx != NULL);
 
     /* Draw background below everything else */
     parallax_bg_draw(mn->bg, rctx);
