@@ -51,8 +51,6 @@ fallback_types[N_WINDOW_TYPES][N_KEYBOARD_TYPES] = {
         KB_TYPE_FAIL
     },
     [WINDOW_TYPE_DUMMY] = {
-        KB_TYPE_EVDEV,
-        KB_TYPE_TTY,
         KB_TYPE_FAIL
     },
 };

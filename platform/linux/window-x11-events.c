@@ -65,6 +65,11 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         break;
     }
 
+    /* If we get a notification that the keyboard
+     * is being deregistered, acknowledge it */
+    if (atomic_load(&win->keyboard_deregistration_notify))
+        p_mt_cond_signal(win->keyboard_deregistration_ack);
+
     u_nzfree(&ev);
 }
 
@@ -78,13 +83,17 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
         xcb_input_motion_event_t *motion;
     } ev = { (void *)ge_ev };
 
+    const bool keyboard_unusable =
+        !(win->registered_keyboard) ||
+        atomic_load(&win->keyboard_deregistration_notify);
+
     /* Used in mouse event cases */
     struct mouse_x11 *mouse = win->registered_mouse;
     u32 button_bits;
 
     switch(ge_ev->event_type) {
     case XCB_INPUT_KEY_PRESS:
-        if (ev.key_press->deviceid != win->master_keyboard_id)
+        if (keyboard_unusable)
             break;
         if (!win->registered_keyboard)
             break;
@@ -94,16 +103,14 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             ev.key_press->detail,
             0
         );
-        X11_keyboard_store_key_event(
-            win->registered_keyboard->key_events,
-            press_keysym,
-            KEYBOARD_X11_PRESS
-        );
+        X11_keyboard_store_key_event(win->registered_keyboard,
+            press_keysym, KEYBOARD_X11_PRESS);
+
         break;
     case XCB_INPUT_KEY_RELEASE:
-        if (ev.key_release->deviceid != win->master_keyboard_id)
+        if (keyboard_unusable)
             break;
-        if (!win->registered_keyboard)
+        if (ev.key_release->deviceid != win->master_keyboard_id)
             break;
 
         const xcb_keysym_t release_keysym = win->xcb.xcb_key_symbols_get_keysym(
@@ -111,11 +118,9 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             ev.key_release->detail,
             0
         );
-        X11_keyboard_store_key_event(
-            win->registered_keyboard->key_events,
-            release_keysym,
-            KEYBOARD_X11_RELEASE
-        );
+        X11_keyboard_store_key_event(win->registered_keyboard,
+            release_keysym, KEYBOARD_X11_RELEASE);
+
         break;
     case XCB_INPUT_BUTTON_PRESS:
         if (ev.button_press->deviceid != win->master_mouse_id)

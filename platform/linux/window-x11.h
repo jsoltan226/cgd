@@ -48,6 +48,9 @@ struct window_x11 {
     } listener;
 
     struct keyboard_x11 *registered_keyboard;
+    _Atomic bool keyboard_deregistration_notify;
+    p_mt_cond_t keyboard_deregistration_ack;
+
     struct mouse_x11 *registered_mouse;
 
     xcb_input_device_id_t master_mouse_id, master_keyboard_id;

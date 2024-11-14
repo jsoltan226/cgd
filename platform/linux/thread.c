@@ -157,12 +157,14 @@ void p_mt_cond_wait(p_mt_cond_t cond, p_mt_mutex_t mutex)
 {
     u_check_params(cond != NULL && mutex != NULL && mutex->initialized);
     (void) pthread_cond_wait(&cond->cond, &mutex->mutex_handle);
+    /* Ensure the mutex is unlocked */
+    pthread_mutex_unlock(&mutex->mutex_handle);
 }
 
 void p_mt_cond_signal(p_mt_cond_t cond)
 {
     u_check_params(cond != NULL);
-    (void) pthread_cond_signal(&cond->cond);
+    (void) pthread_cond_broadcast(&cond->cond);
 }
 
 void p_mt_cond_destroy(p_mt_cond_t *cond_p)

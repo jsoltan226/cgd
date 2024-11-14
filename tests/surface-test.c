@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 
 #define MODULE_NAME "surface-test"
 
@@ -89,7 +88,7 @@ int cgd_main(int argc, char **argv)
     static const filepath_t asset_filepath = "tests/surface_test/surface_1.png";
     asset = asset_load(asset_filepath, rctx);
     if (asset == NULL)
-        goto_error("Failed to load surface image (\"%s\"): %s. Stop.",
+        goto_error("Failed to load surface image (\"%s\"). Stop.",
             asset_filepath);
 
     surface2 = r_surface_create(rctx,

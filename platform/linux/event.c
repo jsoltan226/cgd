@@ -8,12 +8,14 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
 #include <signal.h>
 
 #define MODULE_NAME "event"
 
 static VECTOR(struct p_event) g_event_queue = NULL;
 static p_mt_mutex_t g_event_queue_mutex = P_MT_MUTEX_INITIALIZER;
+static atomic_flag g_signal_handler_running = ATOMIC_FLAG_INIT;
 
 static void setup_event_queue(bool warn);
 static void destroy_event_queue();
@@ -124,6 +126,9 @@ static void destroy_event_queue()
 
 static void SIGTERM_handler(i32 sig_num)
 {
+    if (atomic_flag_test_and_set(&g_signal_handler_running))
+        return;
+
     if (sig_num == SIGTERM)
         s_log_debug("Caught SIGTERM");
     else if (sig_num == SIGINT)
@@ -131,8 +136,7 @@ static void SIGTERM_handler(i32 sig_num)
     else
         s_log_warn("Caught unexpected signal %i", sig_num);
 
-    const struct p_event ev = {
-        .type = P_EVENT_QUIT
-    };
-    p_event_send(&ev);
+    p_event_send(&(const struct p_event) { .type = P_EVENT_QUIT });
+
+    atomic_flag_clear(&g_signal_handler_running);
 }

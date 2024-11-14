@@ -11,7 +11,6 @@
 #include <stdatomic.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <xcb/xcb.h>
@@ -48,6 +47,8 @@ static i32 get_master_input_devices(
 static i32 attach_shm(struct window_x11 *win, u32 w, u32 h);
 static void detach_shm(struct window_x11 *win);
 
+static void send_dummy_event_to_self(struct window_x11 *win);
+
 #define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
 
 i32 window_X11_open(struct window_x11 *win,
@@ -62,6 +63,9 @@ i32 window_X11_open(struct window_x11 *win,
     win->exists = true;
 
     win->registered_keyboard = NULL;
+    win->keyboard_deregistration_ack = p_mt_cond_create();
+    atomic_store(&win->keyboard_deregistration_notify, false);
+
     win->registered_mouse = NULL;
 
     if (libxcb_load(&win->xcb)) goto_error("Failed to load libxcb");
@@ -261,19 +265,8 @@ void window_X11_close(struct window_x11 *win)
 
             if (win->win != -1) {
                 /* Send an event to our window to interrupt the blocking
-                 * `xcb_wait_for_event` call in the listener thread
-                 */
-
-                /* XCB will always copy 32 bytes from `ev` */
-                char ev_base[32] = { 0 };
-                xcb_expose_event_t *ev = (xcb_expose_event_t *)ev_base;
-
-                ev->response_type = XCB_EXPOSE;
-                ev->window = win->win;
-
-                (void) win->xcb.xcb_send_event(win->conn, false, win->win,
-                        XCB_EVENT_MASK_EXPOSURE, ev_base);
-                (void) win->xcb.xcb_flush(win->conn);
+                 * `xcb_wait_for_event` call in the listener thread */
+                send_dummy_event_to_self(win);
 
                 (void) p_mt_thread_wait(&win->listener.thread);
             } else {
@@ -287,6 +280,8 @@ void window_X11_close(struct window_x11 *win)
         if (win->conn) win->xcb.xcb_disconnect(win->conn);
     }
     libxcb_unload(&win->xcb);
+
+    p_mt_cond_destroy(&win->keyboard_deregistration_ack);
 
     /* win->exists is also set to false */
     memset(win, 0, sizeof(struct window_x11));
@@ -388,7 +383,22 @@ i32 window_X11_register_mouse(struct window_x11 *win, struct mouse_x11 *mouse)
 void window_X11_deregister_keyboard(struct window_x11 *win)
 {
     u_check_params(win != NULL);
-    win->registered_keyboard = NULL;
+
+    if (win->registered_keyboard != NULL) {
+        /* Notify the event thread that the keyboard is
+         * being deregistered and wait for it to acknowledge that */
+        p_mt_mutex_t tmp_mutex = p_mt_mutex_create();
+        p_mt_mutex_lock(&tmp_mutex);
+
+        atomic_store(&win->keyboard_deregistration_notify, true);
+        send_dummy_event_to_self(win);
+        p_mt_cond_wait(win->keyboard_deregistration_ack, tmp_mutex);
+
+        win->registered_keyboard = NULL;
+        atomic_store(&win->keyboard_deregistration_notify, false);
+
+        p_mt_mutex_destroy(&tmp_mutex);
+    }
 }
 
 void window_X11_deregister_mouse(struct window_x11 *win)
@@ -526,4 +536,18 @@ static void detach_shm(struct window_x11 *win)
     }
     win->shm_info.shmid = -1;
     win->shm_info.shmseg = -1;
+}
+
+static void send_dummy_event_to_self(struct window_x11 *win)
+{
+    /* XCB will always copy 32 bytes from `ev` */
+    char ev_base[32] = { 0 };
+    xcb_expose_event_t *ev = (xcb_expose_event_t *)ev_base;
+
+    ev->response_type = XCB_EXPOSE;
+    ev->window = win->win;
+
+    (void) win->xcb.xcb_send_event(win->conn, false, win->win,
+            XCB_EVENT_MASK_EXPOSURE, ev_base);
+    (void) win->xcb.xcb_flush(win->conn);
 }
