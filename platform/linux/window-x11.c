@@ -241,7 +241,7 @@ i32 window_X11_open(struct window_x11 *win,
     /* Create the thread that listens for events */
     atomic_init(&win->listener.running, true);
     if (p_mt_thread_create(&win->listener.thread,
-        window_X11_event_listener_fn, win, 0))
+        window_X11_event_listener_fn, win))
     {
         goto_error("Failed to create listener thread.");
     }

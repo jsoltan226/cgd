@@ -32,24 +32,21 @@ static volatile atomic_flag registered_atexit_cleanup = ATOMIC_FLAG_INIT;
 static void cleanup_global_mutexes(void);
 
 i32 p_mt_thread_create(p_mt_thread_t *o,
-    p_mt_thread_fn_t thread_fn, void *arg,
-    u32 flags
-)
+    p_mt_thread_fn_t thread_fn, void *arg)
 {
-    (void) flags;
-
     u_check_params(o != NULL && thread_fn != NULL);
 
-    i32 ret = pthread_create((pthread_t *)o, NULL, thread_fn, arg);
+    i32 ret = pthread_create((pthread_t *)o, NULL,
+        (void *(*)(void *))thread_fn, arg);
     if (ret != 0)
         s_log_error("Failed to create thread: %s", strerror(ret));
 
     return ret;
 }
 
-void noreturn p_mt_thread_exit(void *ret)
+void noreturn p_mt_thread_exit(void)
 {
-    pthread_exit(ret);
+    pthread_exit(NULL);
 }
 
 void p_mt_thread_wait(p_mt_thread_t *thread_p)

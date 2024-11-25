@@ -47,9 +47,7 @@ static void add_mutex_to_registry(struct p_mt_mutex *m);
 static void cleanup_global_mutexes(void);
 
 i32 p_mt_thread_create(p_mt_thread_t *o,
-    p_mt_thread_fn_t thread_fn, void *arg,
-    u32 flags
-)
+    p_mt_thread_fn_t thread_fn, void *arg)
 {
     u_check_params(o != NULL && thread_fn != NULL);
 
@@ -70,9 +68,9 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
     return 0;
 }
 
-void noreturn p_mt_thread_exit(void *ret)
+void noreturn p_mt_thread_exit(void)
 {
-    _endthreadex((u64)ret);
+    _endthreadex(0);
 }
 
 void p_mt_thread_wait(p_mt_thread_t *thread_p)

@@ -33,14 +33,14 @@
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
 static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev);
 
-void * window_X11_event_listener_fn(void *arg)
+void window_X11_event_listener_fn(void *arg)
 {
     struct window_x11 *win = (struct window_x11 *)arg;
 
     while (atomic_load(&win->listener.running))
         handle_event(win, win->xcb.xcb_wait_for_event(win->conn));
 
-    p_mt_thread_exit(NULL);
+    p_mt_thread_exit();
 }
 
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)

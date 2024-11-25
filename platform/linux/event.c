@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdatomic.h>
 #include <signal.h>
 
@@ -16,13 +17,19 @@
 static VECTOR(struct p_event) g_event_queue = NULL;
 static p_mt_mutex_t g_event_queue_mutex = P_MT_MUTEX_INITIALIZER;
 static atomic_flag g_signal_handler_running = ATOMIC_FLAG_INIT;
+static _Atomic bool g_caught_SIGTERM = false;
 
 static void setup_event_queue(bool warn);
-static void destroy_event_queue();
+static void destroy_event_queue(void);
 static void SIGTERM_handler(i32 sig_num);
 
 i32 p_event_poll(struct p_event *o)
 {
+    if (atomic_load(&g_caught_SIGTERM)) {
+        p_event_send(&(const struct p_event) { .type = P_EVENT_QUIT });
+        atomic_store(&g_caught_SIGTERM, false);
+    }
+
     u_check_params(o != NULL);
     u32 n_events = 0;
 
@@ -79,12 +86,17 @@ static void setup_event_queue(bool warn)
         return;
     } else if (warn) {
         s_log_warn("Event queue does not exist, initializing...");
+    } else if (!warn) {
+        s_log_debug("Initializing the event queue...");
     }
 
     g_event_queue = vector_new(struct p_event);
 
     /** Set the signal handler for SIGTERM and SIGINT **/
     struct sigaction sa = { 0 };
+
+    /* Do not set this signal handler for other threads */
+    sa.sa_flags |= SA_NODEFER;
 
     /* Set the handler */
     sa.sa_handler = SIGTERM_handler;
@@ -104,7 +116,7 @@ static void setup_event_queue(bool warn)
     }
 }
 
-static void destroy_event_queue()
+static void destroy_event_queue(void)
 {
     if (g_event_queue == NULL) {
         s_log_warn("%s: Event queue already destroyed!", __func__);
@@ -112,16 +124,12 @@ static void destroy_event_queue()
     }
     s_log_debug("Destroying event queue...");
 
+    atomic_flag_test_and_set(&g_signal_handler_running);
+
     vector_destroy(&g_event_queue);
     g_event_queue = NULL;
 
-    /* Restore default signal handlers */
-    struct sigaction sa = { .sa_handler = SIG_DFL };
-    if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) {
-        s_log_fatal(MODULE_NAME, __func__,
-            "Failed to deregister signal handlers for SIGINT and SIGTERM: %s",
-            strerror(errno));
-    }
+    /* Do NOT restore the default signal handlers */
 }
 
 static void SIGTERM_handler(i32 sig_num)
@@ -129,14 +137,8 @@ static void SIGTERM_handler(i32 sig_num)
     if (atomic_flag_test_and_set(&g_signal_handler_running))
         return;
 
-    if (sig_num == SIGTERM)
-        s_log_debug("Caught SIGTERM");
-    else if (sig_num == SIGINT)
-        s_log_debug("Caught SIGINT");
-    else
-        s_log_warn("Caught unexpected signal %i", sig_num);
-
-    p_event_send(&(const struct p_event) { .type = P_EVENT_QUIT });
+    if (!atomic_load(&g_caught_SIGTERM))
+        atomic_store(&g_caught_SIGTERM, true);
 
     atomic_flag_clear(&g_signal_handler_running);
 }

@@ -70,9 +70,6 @@ void window_X11_close(struct window_x11 *x11);
 /* Does not perform any parameter validation! */
 void window_X11_render(struct window_x11 *x11, struct pixel_flat_data *fb);
 
-void window_X11_attach_fb(struct window_x11 *x11, u32 fb_w, u32 fb_h);
-void window_X11_detach_fb(struct window_x11 *win);
-
 i32 window_X11_register_keyboard(struct window_x11 *win,
     struct keyboard_x11 *kb);
 i32 window_X11_register_mouse(struct window_x11 *win,

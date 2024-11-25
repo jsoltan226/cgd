@@ -8,6 +8,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <platform/window.h>
+#include <platform/thread.h>
 
 struct r_ctx {
     enum r_type type;
@@ -21,6 +22,14 @@ struct r_ctx {
     rect_t pixels_rect;
 
     pixel_t current_color;
+
+    p_mt_thread_t thread;
+    struct r_ctx_thread_info {
+        p_mt_cond_t running;
+        p_mt_mutex_t mutex;
+    } thread_info;
 };
+
+extern void renderer_main(void *arg);
 
 #endif /* RCTX_INTERNAL_H_ */

@@ -32,7 +32,7 @@
 
 #define MODULE_NAME "window"
 
-static void * thread_fn(void *arg);
+static void thread_fn(void *arg);
 static i32 do_window_init(struct p_window *win,
     const char *title, const rect_t *area, const u32 flags);
 static void do_window_cleanup(struct p_window *win);
@@ -69,7 +69,7 @@ struct p_window * p_window_open(const unsigned char *title,
     p_mt_mutex_lock(&init.mutex);
 
     /* Create the thread */
-    if (p_mt_thread_create(&win->thread, thread_fn, &init, 0)) {
+    if (p_mt_thread_create(&win->thread, thread_fn, &init)) {
         p_mt_cond_destroy(&init.cond);
         p_mt_mutex_destroy(&init.mutex);
         goto_error("Failed to spawn window thread");
@@ -183,7 +183,7 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     return 0;
 }
 
-static void * thread_fn(void *arg)
+static void thread_fn(void *arg)
 {
     struct window_init *init = arg;
     struct p_window *win = init->win;
@@ -201,7 +201,7 @@ static void * thread_fn(void *arg)
 
     /* Exit if window init failed */
     if (result != 0)
-        p_mt_thread_exit(NULL);
+        p_mt_thread_exit();
 
     /* The message loop */
     MSG msg = { 0 };
@@ -215,7 +215,7 @@ static void * thread_fn(void *arg)
 
     do_window_cleanup(win);
 
-    p_mt_thread_exit(NULL);
+    p_mt_thread_exit();
 }
 
 static i32 do_window_init(struct p_window *win,

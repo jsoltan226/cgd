@@ -13,20 +13,17 @@
 /** THREADS **/
 typedef void * p_mt_thread_t;
 
-typedef void * (*p_mt_thread_fn_t)(void *arg);
+typedef void (*p_mt_thread_fn_t)(void *arg);
 
 /* Spawn a thread with the starting routine `thread_fn`,
  * invoked with the parameters `arg`,
  * writing the handle to `o`.
- * `flags` is currently unused and can be 0.
  * Returns 0 on success and non-zero on failure. */
 i32 p_mt_thread_create(p_mt_thread_t *o,
-    p_mt_thread_fn_t thread_fn, void *arg,
-    u32 flags
-);
+    p_mt_thread_fn_t thread_fn, void *arg);
 
 /* Exit from a thread */
-void noreturn p_mt_thread_exit(void *ret);
+void noreturn p_mt_thread_exit(void);
 
 /* Waits for thread pointed to by `thread_p` to terminate. */
 void p_mt_thread_wait(p_mt_thread_t *thread_p);

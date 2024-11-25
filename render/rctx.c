@@ -6,6 +6,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <platform/window.h>
+#include <platform/thread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -55,6 +56,13 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     ctx->blit_buffer = &ctx->buffers[1];
     ctx->current_color = BLACK_PIXEL;
 
+    /* Prepare and start the thread */
+    ctx->thread_info.mutex = p_mt_mutex_create();
+    ctx->thread_info.running = p_mt_cond_create();
+
+    if (p_mt_thread_create(&ctx->thread, renderer_main, &ctx->thread_info))
+        goto_error("Failed to spawn the renderer thread!");
+
     /* Render 1 empty frame on init
      * to avoid junk uninitialized data being displayed */
     r_reset(ctx);
@@ -72,6 +80,10 @@ void r_ctx_destroy(struct r_ctx **ctx_p)
     if (ctx_p == NULL || *ctx_p == NULL) return;
     struct r_ctx *ctx = *ctx_p;
 
+    p_mt_cond_signal(ctx->thread_info.running);
+    p_mt_thread_wait(&ctx->thread);
+    p_mt_cond_destroy(&ctx->thread_info.running);
+    p_mt_mutex_destroy(&ctx->thread_info.mutex);
     free(ctx->buffers[0].buf);
     free(ctx->buffers[1].buf);
     u_nzfree(ctx_p);
