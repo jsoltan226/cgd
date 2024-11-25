@@ -34,6 +34,9 @@
 
 #define MODULE_NAME "window-x11"
 
+static i32 init_fb(struct window_x11 *win, u32 fb_w, u32 fb_h);
+static void destroy_fb(struct window_x11 *win);
+
 static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
 
@@ -111,6 +114,10 @@ i32 window_X11_open(struct window_x11 *win,
         x, y, area->w, area->h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         win->screen->root_visual, value_mask, value_list);
     if (libxcb_error) goto_error("Failed to create the window");
+
+    /* Create or attach to the window's framebuffer */
+    if (init_fb(win, area->w, area->h))
+        goto_error("Failed to initialize the window's framebuffer");
 
     /* Get the UTF8 string atom */
     if (intern_atom(win, "UTF8_STRING", &win->UTF8_STRING)) goto err;
@@ -267,8 +274,7 @@ void window_X11_close(struct window_x11 *win)
                 /* Send an event to our window to interrupt the blocking
                  * `xcb_wait_for_event` call in the listener thread */
                 send_dummy_event_to_self(win);
-
-                (void) p_mt_thread_wait(&win->listener.thread);
+                p_mt_thread_wait(&win->listener.thread);
             } else {
                 /* Forcibly terminate the listener if (somehow)
                  * the window does not exist but the thread is running */
@@ -277,6 +283,7 @@ void window_X11_close(struct window_x11 *win)
         }
 
         if (win->win != -1) win->xcb.xcb_destroy_window(win->conn, win->win);
+        destroy_fb(win);
         if (win->conn) win->xcb.xcb_disconnect(win->conn);
     }
     libxcb_unload(&win->xcb);
@@ -318,45 +325,6 @@ void window_X11_render(struct window_x11 *win, struct pixel_flat_data *fb)
             win->xcb_image, DST_X, DST_Y, LEFT_PAD);
     }
     (void) win->xcb.xcb_flush(win->conn);
-}
-
-void window_X11_attach_fb(struct window_x11 *win, struct pixel_flat_data *fb)
-{
-    u_check_params(win != NULL && fb != NULL);
-
-    if (win->xcb.shm.has_shm_extension_) {
-        win->xcb_image = NULL;
-        if (attach_shm(win, fb->w, fb->h))
-            goto shm_attach_fail;
-    } else {
-shm_attach_fail:
-        win->xcb_image = win->xcb.xcb_image_create_native(win->conn,
-            fb->w, fb->h, XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth,
-            NULL, fb->w * fb->h * sizeof(pixel_t), (u8 *)fb->buf);
-
-        if (win->xcb_image == NULL)
-            s_log_fatal(MODULE_NAME, __func__, "Failed to create XCB image");
-    }
-}
-
-void window_X11_detach_fb(struct window_x11 *win)
-{
-    if (win == NULL)
-        return;
-
-    if (win->shm_attached) {
-        detach_shm(win);
-    } else {
-        if (win->xcb_image != NULL) {
-            /* Set these to NULL so that `xcb_image_destroy` doesnt
-             * also free our framebuffer */
-            win->xcb_image->base = NULL;
-            win->xcb_image->data = NULL;
-
-            win->xcb.xcb_image_destroy(win->xcb_image);
-            win->xcb_image = NULL;
-        }
-    }
 }
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
@@ -405,6 +373,49 @@ void window_X11_deregister_mouse(struct window_x11 *win)
 {
     u_check_params(win != NULL);
     win->registered_mouse = NULL;
+}
+
+static i32 init_fb(struct window_x11 *win, u32 fb_w, u32 fb_h)
+{
+    u_check_params(win != NULL);
+
+    if (win->xcb.shm.has_shm_extension_) {
+        win->xcb_image = NULL;
+        if (attach_shm(win, fb_w, fb_h))
+            goto shm_attach_fail;
+    } else {
+shm_attach_fail:
+        win->xcb_image = win->xcb.xcb_image_create_native(win->conn,
+            fb_w, fb_h, XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth,
+            NULL, fb_w * fb_h * sizeof(pixel_t), NULL);
+
+        if (win->xcb_image == NULL) {
+            s_log_error("Failed to create XCB image");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static void destroy_fb(struct window_x11 *win)
+{
+    if (win == NULL)
+        return;
+
+    if (win->shm_attached) {
+        detach_shm(win);
+    } else {
+        if (win->xcb_image != NULL) {
+            /* Set these to NULL so that `xcb_image_destroy` doesnt
+             * also free our framebuffer */
+            win->xcb_image->base = NULL;
+            win->xcb_image->data = NULL;
+
+            win->xcb.xcb_image_destroy(win->xcb_image);
+            win->xcb_image = NULL;
+        }
+    }
 }
 
 static i32 intern_atom(struct window_x11 *win,

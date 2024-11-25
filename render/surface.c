@@ -137,7 +137,7 @@ void r_surface_blit(struct r_surface *surface,
     s_assert(index >= 0 && index < 4, "how?");
 
     (*(blit_function_table[index])) (
-        &surface->data, &surface->rctx->pixels,
+        &surface->data, surface->rctx->render_buffer,
         &final_src_rect, &final_dst_rect,
         scale_x, scale_y,
         surface->rctx->win_meta.color_type

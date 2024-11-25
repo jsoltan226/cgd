@@ -75,7 +75,7 @@ void noreturn p_mt_thread_exit(void *ret)
     _endthreadex((u64)ret);
 }
 
-void * p_mt_thread_wait(p_mt_thread_t *thread_p)
+void p_mt_thread_wait(p_mt_thread_t *thread_p)
 {
     u_check_params(thread_p != NULL && *thread_p != NULL);
 
@@ -84,15 +84,11 @@ void * p_mt_thread_wait(p_mt_thread_t *thread_p)
         DWORD thread_id = GetThreadId(*thread_p);
         s_log_error("Failed to join thread %lu: %s",
             thread_id, get_last_error_msg());
-        return NULL;
+        return;
     }
 
-    DWORD exit_code = 0;
-    (void) GetExitCodeThread(*thread_p, &exit_code);
     CloseHandle(*thread_p);
-
     *thread_p = NULL;
-    return (void *)(u64)exit_code;
 }
 
 void p_mt_thread_terminate(p_mt_thread_t *thread_p)

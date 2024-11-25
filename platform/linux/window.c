@@ -36,7 +36,6 @@ struct p_window * p_window_open(const unsigned char *title,
     win->y = area->y;
     win->w = area->w;
     win->h = area->h;
-    win->bound_fb = NULL;
 
     if (flags & P_WINDOW_TYPE_DUMMY)
         win->type = WINDOW_TYPE_DUMMY;
@@ -75,36 +74,12 @@ err:
     return NULL;
 }
 
-void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
-{
-    u_check_params(win != NULL && fb != NULL);
-    s_assert(fb->w == win->w && fb->h == win->h,
-        "%s: Invalid framebuffer size", __func__);
-    s_assert(win->bound_fb == NULL,
-        "A framebuffer is already bound to this window.");
-
-    win->bound_fb = fb;
-    if (win->type == WINDOW_TYPE_X11)
-        window_X11_attach_fb(&win->x11, fb);
-}
-
-void p_window_unbind_fb(struct p_window *win)
-{
-    u_check_params(win != NULL);
-    
-    if (win->type == WINDOW_TYPE_X11)
-        window_X11_detach_fb(&win->x11);
-
-    win->bound_fb = NULL;
-}
-
 void p_window_close(struct p_window **win_p)
 {
     if (win_p == NULL || *win_p == NULL) return;
 
     struct p_window *win = *win_p;
 
-    p_window_unbind_fb(win);
     switch (win->type) {
         case WINDOW_TYPE_X11:
             window_X11_close(&win->x11);
@@ -121,16 +96,16 @@ void p_window_close(struct p_window **win_p)
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 }
 
-void p_window_render(struct p_window *win)
+void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
 {
-    u_check_params(win != NULL);
+    u_check_params(win != NULL && fb != NULL);
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            window_X11_render(&win->x11, win->bound_fb);
+            window_X11_render(&win->x11, fb);
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
-            window_fbdev_render_to_display(&win->fbdev, win->bound_fb);
+            window_fbdev_render_to_display(&win->fbdev, fb);
             break;
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */

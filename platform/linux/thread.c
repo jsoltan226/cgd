@@ -52,7 +52,7 @@ void noreturn p_mt_thread_exit(void *ret)
     pthread_exit(ret);
 }
 
-void * p_mt_thread_wait(p_mt_thread_t *thread_p)
+void p_mt_thread_wait(p_mt_thread_t *thread_p)
 {
     u_check_params(thread_p != NULL);
 
@@ -61,10 +61,8 @@ void * p_mt_thread_wait(p_mt_thread_t *thread_p)
     i32 join_ret = pthread_join(*(pthread_t *)thread_p, &thread_ret);
     if (join_ret != 0) {
         s_log_error("Failed to join thread: %s", strerror(join_ret));
-        return NULL;
+        return;
     }
-
-    return thread_ret;
 }
 
 void p_mt_thread_terminate(p_mt_thread_t *thread_p)

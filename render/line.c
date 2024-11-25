@@ -17,10 +17,10 @@ void r_draw_line(struct r_ctx *rctx, vec2d_t start, vec2d_t end)
 
     /* Cut off any part of the line that
      * would extend beyond the framebuffer */
-    start.x = u_clamp(start.x, 0.f, (f32)(rctx->pixels.w - 1));
-    start.y = u_clamp(start.y, 0.f, (f32)(rctx->pixels.w - 1));
-    end.x = u_clamp(end.x, 0.f, (f32)(rctx->pixels.h - 1));
-    end.y = u_clamp(end.y, 0.f, (f32)(rctx->pixels.h - 1));
+    start.x = u_clamp(start.x, 0.f, (f32)(rctx->render_buffer->w - 1));
+    start.y = u_clamp(start.y, 0.f, (f32)(rctx->render_buffer->w - 1));
+    end.x = u_clamp(end.x, 0.f, (f32)(rctx->render_buffer->h - 1));
+    end.y = u_clamp(end.y, 0.f, (f32)(rctx->render_buffer->h - 1));
 
     i32 dx = end.x - start.x;
     i32 dy = end.y - start.y;
@@ -46,8 +46,8 @@ void r_draw_line(struct r_ctx *rctx, vec2d_t start, vec2d_t end)
         /* Shallow slope (|dx| > |dy|) - Increment x more frequently */
         for (; x != end.x; x += step_x) {
             r_putpixel_fast_matching_pixelfmt_(
-                rctx->pixels.buf,
-                x, y, rctx->pixels.w,
+                rctx->render_buffer->buf,
+                x, y, rctx->render_buffer->w,
                 rctx->current_color
             );
 
@@ -62,8 +62,8 @@ void r_draw_line(struct r_ctx *rctx, vec2d_t start, vec2d_t end)
         err = dy / 2;  /* Reset err to be based on dy for this case */
         for (; y != end.y; y += step_y) {
             r_putpixel_fast_matching_pixelfmt_(
-                rctx->pixels.buf,
-                x, y, rctx->pixels.w,
+                rctx->render_buffer->buf,
+                x, y, rctx->render_buffer->w,
                 rctx->current_color);
 
             err -= dx;

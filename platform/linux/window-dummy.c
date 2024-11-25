@@ -15,11 +15,3 @@ void window_dummy_destroy(struct window_dummy *win)
 {
     memset(win, 0, sizeof(struct window_dummy));
 }
-
-void window_dummy_bind_fb(struct window_dummy *win, struct pixel_flat_data *fb)
-{
-}
-
-void window_dummy_unbind_fb(struct window_dummy *win)
-{
-}

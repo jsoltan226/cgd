@@ -47,8 +47,6 @@ struct p_window {
         struct window_fbdev fbdev;
         struct window_dummy dummy;
     };
-    
-    struct pixel_flat_data *bound_fb;
 
     enum p_window_color_type color_type;
 

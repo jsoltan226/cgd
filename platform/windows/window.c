@@ -1,6 +1,7 @@
 #include "../window.h"
 #include "../event.h"
 #include "../thread.h"
+#include "core/pixel.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/shapes.h>
@@ -99,21 +100,15 @@ err:
     return NULL;
 }
 
-void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
+void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
 {
     u_check_params(win != NULL && fb != NULL);
 
-    s_assert(win->bound_fb == NULL,
-        "Another framebuffer is already bound to this window.");
     s_assert(win->client_rect.w == fb->w && win->client_rect.h == fb->h,
-        "Attempt to bind a framebuffer of invalid size "
+        "Attempt to render a framebuffer of invalid size "
         "(size of provided fb is %ux%u, should be %ux%u)",
         fb->w, fb->h, win->client_rect.w, win->client_rect.h);
 
-    win->bound_fb = fb;
-
-    /* Set the bitmap info structure so that we don't
-     * have to do it everytime `p_window_render` is called */
     const BITMAPINFO bmi = {
         .bmiHeader = {
             .biSize = sizeof(BITMAPINFO),
@@ -124,32 +119,17 @@ void p_window_bind_fb(struct p_window *win, struct pixel_flat_data *fb)
             .biCompression = BI_RGB
         },
     };
-    memcpy(&win->bound_fb_bmi, &bmi, sizeof(BITMAPINFO));
-}
-
-void p_window_unbind_fb(struct p_window *win)
-{
-    u_check_params(win != NULL);
-    win->bound_fb = NULL;
-    memset(&win->bound_fb_bmi, 0, sizeof(BITMAPINFO));
-}
-
-void p_window_render(struct p_window *win)
-{
-    u_check_params(win != NULL);
-    if (win->bound_fb == NULL) return;
-
 #define DST_X 0
 #define DST_Y 0
 #define SRC_X 0
 #define SRC_Y 0
-#define WIDTH win->bound_fb->w
-#define HEIGHT win->bound_fb->h
+#define WIDTH fb->w
+#define HEIGHT fb->h
 #define START_SCANLINE 0
 #define N_LINES HEIGHT
     (void) SetDIBitsToDevice(win->dc, DST_X, DST_Y, WIDTH, HEIGHT,
         SRC_X, SRC_Y, START_SCANLINE, N_LINES,
-        win->bound_fb->buf, &win->bound_fb_bmi, DIB_RGB_COLORS);
+        fb->buf, &bmi, DIB_RGB_COLORS);
 }
 
 void p_window_close(struct p_window **win_p)
@@ -158,9 +138,6 @@ void p_window_close(struct p_window **win_p)
     struct p_window *win = *win_p;
 
     s_log_debug("Destroying window...");
-
-    /* Just for good measure */
-    p_window_unbind_fb(win);
 
     const DWORD thread_id = GetThreadId(win->thread);
 
