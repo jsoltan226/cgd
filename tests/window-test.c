@@ -11,6 +11,7 @@
 #include <string.h>
 
 #define MODULE_NAME "window-test"
+#include "log-util.h"
 
 #define WINDOW_W    500
 #define WINDOW_H    500
@@ -21,19 +22,13 @@
 #define RECT_X ((WINDOW_W - RECT_W) / 2)
 #define RECT_Y ((WINDOW_H - RECT_H) / 2)
 
-struct p_window *win = NULL;
-struct r_ctx *rctx = NULL;
-static FILE *log_fp = NULL;
+static struct p_window *win = NULL;
+static struct r_ctx *rctx = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
-
-    log_fp = fopen("test_log.txt", "wb");
-    if (log_fp == NULL)
-        goto_error("Failed to open log file. Stop.");
-    s_set_log_out_filep(log_fp);
-    s_set_log_err_filep(log_fp);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     win = p_window_open(
         (const unsigned char *)MODULE_NAME,
@@ -68,21 +63,10 @@ int cgd_main(int argc, char **argv)
 quit:
     r_ctx_destroy(&rctx);
     p_window_close(&win);
-
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    fclose(log_fp);
-    log_fp = NULL;
     return EXIT_SUCCESS;
 
 err:
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (win != NULL) p_window_close(&win);
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    if (log_fp != NULL) {
-        fclose(log_fp);
-        log_fp = NULL;
-    }
     return EXIT_FAILURE;
 }

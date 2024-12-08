@@ -6,6 +6,7 @@
 #include <string.h>
 
 #define MODULE_NAME "hashmaptest"
+#include "log-util.h"
 
 static void dump_hashmap(struct hashmap *map, s_log_level log_level);
 
@@ -27,9 +28,8 @@ static const char * const key_value_pairs[MAP_SIZE][2] = {
 
 int cgd_main(int argc, char **argv)
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stdout);
-    s_set_log_level(LOG_DEBUG);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     s_log_debug("Creating hashmap...");
 
@@ -95,7 +95,7 @@ void dump_hashmap(struct hashmap *map, s_log_level log_level)
             char tmp_buf[BUF_SIZE] = { 0 };
             snprintf(tmp_buf, BUF_SIZE - 1, " { \"%s\", \"%s\" }%s",
                 curr_record->key, (const char *)curr_record->value,
-                curr_node->next != NULL ? " ->" : "\n"
+                curr_node->next != NULL ? " ->" : ""
             );
             strncat(buf, tmp_buf, BUF_SIZE - strlen(buf) - 1);
 

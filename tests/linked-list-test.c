@@ -6,6 +6,7 @@
 #include <string.h>
 
 #define MODULE_NAME "linked-list-test"
+#include "log-util.h"
 
 #define LIST_LENGTH 25
 
@@ -15,7 +16,8 @@ static char item_str_table[ITEM_STR_LEN * LIST_LENGTH] = { 0 };
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     s_log_debug("Creating linked list...");
     ll = linked_list_create("item0");

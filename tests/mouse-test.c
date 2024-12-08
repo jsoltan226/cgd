@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #define MODULE_NAME "mouse-test"
+#include "log-util.h"
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 500, 500 }
@@ -42,8 +43,8 @@ static VECTOR(struct rect_desc) rects = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    FILE *log_fp = fopen("test_log.txt", "wb");
-    s_configure_log(LOG_DEBUG, log_fp, log_fp);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     /* Initialize the window */
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
@@ -71,8 +72,8 @@ int cgd_main(int argc, char **argv)
     rects = vector_new(struct rect_desc);
 
     while (running) {
-        p_time_t start_time;
-        p_time(&start_time);
+        timestamp_t start_time;
+        p_time_get_ticks(&start_time);
 
         while (p_event_poll(&ev)) {
             if (ev.type == P_EVENT_QUIT) {
@@ -98,7 +99,7 @@ int cgd_main(int argc, char **argv)
             mouse_held = true;
 
             /* Set the rect color to a random value */
-            srand(start_time.us + start_time.s);
+            srand(start_time.ns + start_time.s);
             rect_color.r = rand() & 0xFF;
             srand(rand());
             rect_color.g = rand() & 0xFF;
@@ -170,18 +171,10 @@ main_loop_breakout:
     r_ctx_destroy(&rctx);
     p_mouse_destroy(&mouse);
     p_window_close(&win);
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    fclose(log_fp);
-    log_fp = NULL;
 
     return EXIT_SUCCESS;
 
 err:
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    fclose(log_fp);
-    log_fp = NULL;
     if (rects != NULL) vector_destroy(&rects);
     if (rctx != NULL) r_ctx_destroy(&rctx);
     if (mouse != NULL) p_mouse_destroy(&mouse);

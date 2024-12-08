@@ -7,6 +7,7 @@
 #include <sys/time.h>
 
 #define MODULE_NAME "vectortest"
+#include "log-util.h"
 
 struct large_struct {
     u64 arr[16];
@@ -27,7 +28,8 @@ static u32 random_u32();
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     struct timeval start = { 0 }, stop = { 0 };
     gettimeofday(&start, NULL);

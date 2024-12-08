@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "../exe-info.h"
+#include "../misc.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>

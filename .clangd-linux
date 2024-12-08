@@ -3,6 +3,8 @@ CompileFlags:
     - "-I."
     - "-I.."
     - "-I../.."
+    - "-isystem"
+    - "/usr/include"
     - "-std=c11"
     - "-xc"
     - "-Wall"

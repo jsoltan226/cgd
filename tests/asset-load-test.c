@@ -13,6 +13,7 @@
 #include <string.h>
 
 #define MODULE_NAME "asset-load-test"
+#include "log-util.h"
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 0, 0 }
@@ -28,7 +29,8 @@ static struct asset *dummy = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     s_log_debug("Opening a window");
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
@@ -49,7 +51,7 @@ int cgd_main(int argc, char **argv)
     if (dummy == NULL)
         goto_error("Test FAILED for \"%s\"", path_buf);
 
-    p_time_t start_time;
+    timestamp_t start_time;
     p_time(&start_time);
 
     u32 i = 0, ntested = 0;

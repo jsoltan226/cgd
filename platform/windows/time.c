@@ -1,4 +1,5 @@
 #include "../time.h"
+#include "core/util.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <stdlib.h>
@@ -11,18 +12,36 @@
 #include <synchapi.h>
 #include <minwindef.h>
 #include <profileapi.h>
+#include <sysinfoapi.h>
 
 #define MODULE_NAME "time"
 
 static volatile atomic_flag frequency_initialized = ATOMIC_FLAG_INIT;
 static _Atomic LARGE_INTEGER frequency;
 
-i32 p_time(p_time_t *o)
+void p_time(timestamp_t *o)
 {
-    if (o == NULL) {
-        s_log_error("Invalid parameters");
-        return -1;
-    }
+    u_check_params(o != NULL);
+
+    FILETIME file_time;
+    ULARGE_INTEGER total_nanoseconds;
+    GetSystemTimePreciseAsFileTime(&file_time);
+
+    total_nanoseconds.LowPart = file_time.dwLowDateTime;
+    total_nanoseconds.HighPart = file_time.dwHighDateTime;
+
+    /* Convert Windows time (seconds since Jan 1, 1601)
+     * to UNIX time (seconds since Jan 1, 1970) */
+    total_nanoseconds.QuadPart -= 116444736000000000LL;
+
+    /* `FILETIME` stores time in 100-ns resolution */
+    o->s = total_nanoseconds.QuadPart / 10000000LL;
+    o->ns = (total_nanoseconds.QuadPart % 10000000LL) * 100;
+}
+
+void p_time_get_ticks(timestamp_t *o)
+{
+    u_check_params(o != NULL);
 
     /* We can ignore the race condition here, because
      * `QueryPerformanceFrequency` always returns the same value,
@@ -39,115 +58,65 @@ i32 p_time(p_time_t *o)
     /* This function also always succeeds on Windows XP or later */
     (void) QueryPerformanceCounter(&counter);
 
-    /* Convert to nanoseconds based on the frequency */
+    /* Convert to nanoseconds based on the clock resolution (frequency) */
     u64 ns = (counter.QuadPart * 1000000000LL) /
         atomic_load(&frequency).QuadPart;
 
-    /* Fill the time struct */
-    /* See `platform/linux/time.c` for more detailed explanations */
-    o->s = ns / 1000000000;
-    ns %= 1000000000;
-    o->ms = ns / 1000000;
-    ns %= 1000000;
-    o->us = ns / 1000;
-    o->ns = ns % 1000;
-
-    return 0;
+    /* Fill the timestamp struct */
+    o->s = ns / 1000000000LL;
+    o->ns = ns % 1000000000LL;
 }
 
-i32 p_time_since(p_time_t *o, const p_time_t *since)
-{
-    if (o == NULL || since == NULL) {
-        s_log_error("Invalid parameters");
-        return -1;
-    }
-
-    if (p_time(o)) return 1;
-
-    i64 carry = 0, total = 0;
-
-    if (since->ns > o->ns) {
-        o->ns -= 1000 - since->ns;
-        carry = -since->ns / 1000;
-    } else {
-        o->ns -= since->ns;
-    }
-
-    total = since->us + carry;
-    carry = 0;
-    if (total > o->us) {
-        o->us -= 1000 - since->us;
-        carry = -since->us / 1000;
-    } else {
-        o->us -= total;
-    }
-
-    total = since->ms + carry;
-    carry = 0;
-    if (total > o->ms) {
-        o->ms -= 1000 - since->ms;
-        carry = -since->ms / 1000;
-    } else {
-        o->ms -= total;
-    }
-
-    total = since->s + carry;
-    o->s -= total;
-
-    return 0;
-}
-
-i64 p_time_delta_us(const p_time_t *t0)
+i64 p_time_delta_us(const timestamp_t *t0)
 {
     if (t0 == NULL) return 0;
 
-    p_time_t t1 = { 0 };
-    (void) p_time_since(&t1, t0);
+    timestamp_t o = { 0 }, t1 = { 0 };
+    p_time_get_ticks(&t1);
+    timestamp_delta(o, *t0, t1);
     
-    return t1.s * 1000000 + t1.ms * 1000 + t1.us;
+    return (o.s * 1000000) + (o.ns / 1000);
 }
 
-i64 p_time_delta_ms(const p_time_t *t0)
+i64 p_time_delta_ms(const timestamp_t *t0)
 {
     if (t0 == NULL) return 0;
 
-    p_time_t t1 = { 0 };
-    (void) p_time_since(&t1, t0);
+    timestamp_t o = { 0 }, t1 = { 0 };
+    p_time_get_ticks(&t1);
+    timestamp_delta(o, *t0, t1);
     
-    return t1.s * 1000 + t1.ms;
+    return (o.s * 1000) + (o.ns / 1000000);
 }
 
-i64 p_time_delta_s(const p_time_t *t0)
+i64 p_time_delta_s(const timestamp_t *t0)
 {
     if (t0 == NULL) return 0;
 
-    p_time_t t1 = { 0 };
-    (void) p_time_since(&t1, t0);
+    timestamp_t o = { 0 }, t1 = { 0 };
+    p_time_get_ticks(&t1);
+    timestamp_delta(o, *t0, t1);
 
-    return t1.s;
+    return o.s + o.ns / 1000000000;
 }
 
-void p_time_nanosleep(const p_time_t *time)
+void p_time_nanosleep(const timestamp_t *time)
 {
-    const u64 total_ms = (time->ns / 1000000)
-        + (time->us / 1000)
-        + (time->ms)
-        + (time->s * 1000);
-
-    Sleep(total_ms);
+    if (time == NULL) return;
+    Sleep((time->s * 1000) + (time->ns / 1000000));
 }
 
 void p_time_usleep(u32 u_seconds)
 {
-    p_time_nanosleep(&(const p_time_t) { .us = u_seconds });
+    Sleep(u_seconds / 1000);
 }
 
 void p_time_msleep(u32 m_seconds)
 {
-    p_time_nanosleep(&(const p_time_t) { .ms = m_seconds });
+    Sleep(m_seconds);
 }
 
 void p_time_sleep(u32 seconds)
 {
-    p_time_nanosleep(&(const p_time_t) { .s = seconds });
+    Sleep(seconds * 1000);
 }

@@ -8,8 +8,9 @@
 #include <core/pixel.h>
 #include <render/rctx.h>
 #include <render/surface.h>
+#include <platform/misc.h>
 #include <platform/window.h>
-#include <platform/exe-info.h>
+#include <platform/thread.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +29,7 @@ static _Atomic i32 g_n_active_handles = 0;
     atomic_store(&g_n_active_handles, current_val + diff);      \
 } while (0)
 
-const char * asset_get_assets_dir();
+const char * asset_get_assets_dir(void);
 static i32 get_bin_dir(char *buf, u32 buf_size);
 
 struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
@@ -45,8 +46,7 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
     strncpy((char *)a->rel_file_path, rel_file_path, u_FILEPATH_MAX - 1);
     fp = asset_fopen(rel_file_path, "rb");
     if (fp == NULL)
-        goto_error("Failed to open asset \"%s\": %s",
-            a->rel_file_path, strerror(errno));
+        goto err;
 
     a->type = asset_get_img_type(fp);
     if (a->type == IMG_TYPE_UNKNOWN)
@@ -90,14 +90,26 @@ FILE * asset_fopen(const char *rel_file_path, const char *mode)
 {
     if (rel_file_path == NULL || mode == NULL) return NULL;
 
-    FILE *fp = NULL;
     char full_path_buf[u_BUF_SIZE] = { 0 };
 
-    strncpy(full_path_buf, asset_get_assets_dir(), u_BUF_SIZE - 1);
-    strncat(full_path_buf, rel_file_path, u_BUF_SIZE - strlen(full_path_buf) - 1);
+    const char *assets_dir = asset_get_assets_dir();
+    if (assets_dir == NULL) {
+        s_log_error("Failed to open asset \"%s\": "
+            "Could not get the path to the assets directory.",
+            rel_file_path);
+        return NULL;
+    }
 
-    fp = fopen(full_path_buf, mode);
-    return fp; /* NULL will be returned if fp is NULL */
+    strncpy(full_path_buf, assets_dir, u_BUF_SIZE - 1);
+    strncat(full_path_buf, rel_file_path,
+        u_BUF_SIZE - strlen(full_path_buf) - 1);
+
+    FILE *ret = fopen(full_path_buf, mode);
+    if (ret == NULL) {
+        s_log_error("Failed to open file \"%s\": %s", strerror(errno));
+    }
+
+    return ret;
 }
 
 void asset_destroy(struct asset **asset)
@@ -128,19 +140,28 @@ void asset_destroy(struct asset **asset)
 
 }
 
+static p_mt_mutex_t bin_dir_buf_mutex = P_MT_MUTEX_INITIALIZER;
 static char bin_dir_buf[u_BUF_SIZE] = { 0 };
+
+static p_mt_mutex_t asset_dir_buf_mutex = P_MT_MUTEX_INITIALIZER;
 static char asset_dir_buf[u_BUF_SIZE] = { 0 };
 
-const char * asset_get_assets_dir()
+const char * asset_get_assets_dir(void)
 {
     if (bin_dir_buf[0] == '\0') {
+        p_mt_mutex_lock(&bin_dir_buf_mutex);
+
         if (get_bin_dir(bin_dir_buf, u_BUF_SIZE)) {
-            s_log_error("[%s] Failed to get the bin dir", __func__);
+            s_log_error("%s: Failed to get the bin dir", __func__);
             return NULL;
         }
+
+        p_mt_mutex_unlock(&bin_dir_buf_mutex);
     }
 
     if (asset_dir_buf[0] == '\0') {
+        p_mt_mutex_lock(&asset_dir_buf_mutex);
+
         strncpy(asset_dir_buf, bin_dir_buf, u_BUF_SIZE);
         asset_dir_buf[u_BUF_SIZE - 1] = '\0';
         strncat(
@@ -151,6 +172,8 @@ const char * asset_get_assets_dir()
 
         asset_dir_buf[u_BUF_SIZE - 1] = '\0';
         s_log_debug("%s: The asset dir is \"%s\"", __func__, asset_dir_buf);
+
+        p_mt_mutex_unlock(&asset_dir_buf_mutex);
     }
 
     return asset_dir_buf;
@@ -189,10 +212,8 @@ i32 asset_write(struct asset *a, const char *rel_file_path, enum asset_img_type 
     s_log_debug("Writing asset \"%s\" to path \"%s\"", a->rel_file_path, rel_file_path);
 
     FILE *fp = asset_fopen(rel_file_path, "wb");
-    if (fp == NULL) {
-        s_log_error("Failed to open out file \"%s\": %s", rel_file_path, strerror(errno));
+    if (fp == NULL)
         return -2;
-    }
 
     switch(a->type) {
         case IMG_TYPE_PNG:

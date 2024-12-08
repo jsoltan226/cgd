@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 #define MODULE_NAME "surface-test"
+#include "log-util.h"
 
 #define WINDOW_TITLE (const unsigned char *)MODULE_NAME
 #define WINDOW_RECT (const rect_t) { 0, 0, 500, 500 }
@@ -71,7 +72,8 @@ static struct r_surface *surface2 = NULL;
 
 int cgd_main(int argc, char **argv)
 {
-    s_configure_log(LOG_DEBUG, stdout, stderr);
+    if (test_log_setup())
+        return EXIT_FAILURE;
 
     win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
     if (win == NULL)

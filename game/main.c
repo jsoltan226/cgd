@@ -29,8 +29,8 @@ int cgd_main(int argc, char **argv)
     s_log_info("Init OK! Entering main loop...");
     /* MAIN LOOP */
     while (true) {
-        p_time_t start_time;
-        p_time(&start_time);
+        timestamp_t start_time;
+        p_time_get_ticks(&start_time);
 
         process_events(&main_ctx);
         if (!main_ctx.running) break;

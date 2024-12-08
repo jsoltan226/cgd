@@ -105,7 +105,7 @@ $(EXE): $(OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 
-$(TEST_LIB): $(TEST_BINDIR) $(TEST_LIB_OBJS)
+$(TEST_LIB): $(TEST_LIB_OBJS)
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(TEST_LIB)" "<= $(TEST_LIB_OBJS)"
 	@$(CCLD) $(SO_LDFLAGS) -o $(TEST_LIB) $(TEST_LIB_OBJS) $(LIBS)
 
@@ -148,19 +148,17 @@ asset-load-test-hook:
 run-tests: tests
 
 tests: CFLAGS = -ggdb -O0 -Wall
-tests: $(OBJDIR) $(BINDIR) $(TEST_BINDIR) build-tests test-hooks
+tests: build-tests test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
 	for i in $(TEST_EXES); do \
 		$(PRINTF) "EXEC	%-30s " "$$i"; \
-		$(ECHO) "TEST $$i" >> $(TEST_LOGFILE); \
-		if $$i >> $(TEST_LOGFILE) 2>&1; then \
+		if CGD_TEST_LOG_FILE="$(TEST_LOGFILE)" $$i >/dev/null 2>&1; then \
 			$(PRINTF) "$(GREEN)OK$(COL_RESET)\n"; \
 			n_passed="$$((n_passed + 1))"; \
 		else \
 			$(PRINTF) "$(RED)FAIL$(COL_RESET)\n"; \
 		fi; \
-		$(ECHO) "END TEST $$i" >> "$(TEST_LOGFILE)"; \
 	done; \
 	n_total=$$(echo $(TEST_EXES) | wc -w); \
 	if test "$$n_passed" -lt "$$n_total"; then \
