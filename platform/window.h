@@ -20,10 +20,7 @@ enum p_window_flags {
 
 struct p_window_meta {
     i32 x, y, w, h;
-    enum p_window_color_type {
-        P_WINDOW_RGBA8888,
-        P_WINDOW_BGRA8888,
-    } color_type;
+    pixelfmt_t color_format;
 };
 
 struct p_window * p_window_open(const unsigned char *title,

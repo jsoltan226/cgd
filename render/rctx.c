@@ -53,7 +53,7 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     u_rect_from_pixel_data(&ctx->buffers[0], &ctx->pixels_rect);
 
     ctx->render_buffer = &ctx->buffers[0];
-    ctx->blit_buffer = &ctx->buffers[1];
+    ctx->present_buffer = &ctx->buffers[1];
     ctx->current_color = BLACK_PIXEL;
 
     /* Prepare and start the thread */
@@ -93,7 +93,8 @@ void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 {
     u_check_params(ctx != NULL);
 
-    if (ctx->win_meta.color_type == P_WINDOW_BGRA8888)
+    if (ctx->win_meta.color_format == BGRA32 ||
+        ctx->win_meta.color_format == BGRX32)
         u_rgba_swap_b_r(color);
 
     ctx->current_color = color;
@@ -103,7 +104,7 @@ void r_flush(struct r_ctx *ctx)
 {
     u_check_params(ctx != NULL);
     swap_buffers(ctx);
-    p_window_render(ctx->win, ctx->blit_buffer);
+    p_window_render(ctx->win, ctx->present_buffer);
 }
 
 void r_reset(struct r_ctx *ctx)
@@ -117,10 +118,10 @@ void r_reset(struct r_ctx *ctx)
 static void swap_buffers(struct r_ctx *rctx)
 {
     if (rctx->render_buffer == &rctx->buffers[0]) {
-        rctx->blit_buffer = &rctx->buffers[0];
+        rctx->present_buffer = &rctx->buffers[0];
         rctx->render_buffer = &rctx->buffers[1];
     } else {
-        rctx->blit_buffer = &rctx->buffers[1];
+        rctx->present_buffer = &rctx->buffers[1];
         rctx->render_buffer = &rctx->buffers[0];
     }
 }

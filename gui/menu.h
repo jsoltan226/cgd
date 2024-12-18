@@ -84,7 +84,7 @@ struct menu_event_listener_config {
 
 struct Menu {
     VECTOR(struct event_listener *) event_listeners;
-    VECTOR(sprite_t *) sprites;
+    VECTOR(struct sprite *) sprites;
     VECTOR(struct button *) buttons;
 
     struct parallax_bg *bg;
@@ -108,7 +108,6 @@ struct menu_config {
 
 struct Menu * menu_init(
     const struct menu_config *cfg,
-    struct r_ctx *rctx,
     const struct p_keyboard *keyboard,
     const struct p_mouse *mouse
 );

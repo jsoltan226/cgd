@@ -33,7 +33,6 @@ struct menu_manager_config {
 
 struct MenuManager * menu_mgr_init(
     const struct menu_manager_config* cfg,
-    struct r_ctx *rctx,
     struct p_keyboard *keyboard,
     struct p_mouse *mouse
 );

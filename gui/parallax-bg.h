@@ -1,9 +1,9 @@
 #ifndef PARALLAX_BG_H_
 #define PARALLAX_BG_H_
 
-#include <render/rctx.h>
 #include <core/int.h>
 #include <core/vector.h>
+#include <render/rctx.h>
 #include <asset-loader/asset.h>
 
 struct parallax_bg_layer {
@@ -29,10 +29,7 @@ struct parallax_bg_config {
     struct parallax_bg_layer_config layer_cfgs[PARALLAX_BG_MAX_LAYERS];
 };
 
-struct parallax_bg * parallax_bg_init(
-    const struct parallax_bg_config *cfg,
-    struct r_ctx *rctx
-);
+struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg);
 void parallax_bg_update(struct parallax_bg *bg);
 void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx);
 void parallax_bg_destroy(struct parallax_bg **bg_p);

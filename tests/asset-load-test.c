@@ -5,7 +5,6 @@
 #include <asset-loader/io-PNG.h>
 #include <asset-loader/plugin.h>
 #include <asset-loader/asset.h>
-#include <render/rctx.h>
 #include <platform/time.h>
 #include <platform/window.h>
 #include <stdio.h>
@@ -15,16 +14,11 @@
 #define MODULE_NAME "asset-load-test"
 #include "log-util.h"
 
-#define WINDOW_TITLE (const unsigned char *)MODULE_NAME
-#define WINDOW_RECT (rect_t) { 0, 0, 0, 0 }
-#define WINDOW_FLAGS (P_WINDOW_TYPE_DUMMY)
-
 #define IMG_REL_PATH_BUF_SIZE 256
 #define IMG_REL_PATH_PREFIX "tests/asset_load_test/"
 static const char * const * test_img_names;
 
 static struct p_window *win = NULL;
-static struct r_ctx *rctx = NULL;
 static struct asset *dummy = NULL;
 
 int cgd_main(int argc, char **argv)
@@ -32,22 +26,13 @@ int cgd_main(int argc, char **argv)
     if (test_log_setup())
         return EXIT_FAILURE;
 
-    s_log_debug("Opening a window");
-    win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
-    if (win == NULL)
-        goto_error("Failed to open a window");
-
-    s_log_debug("Initializing the renderer");
-    rctx = r_ctx_init(win, R_TYPE_SOFTWARE, 0);
-    if (rctx == NULL)
-        goto_error("Failed initialize the renderer");
-
-    /* Execute once outside of profiling to load functions into cache */
     char path_buf[IMG_REL_PATH_BUF_SIZE] = { 0 };
     strcpy(path_buf, IMG_REL_PATH_PREFIX);
     strcat(path_buf, test_img_names[0]);
 
-    dummy = asset_load(path_buf, rctx);
+    /* Execute once outside of profiling to load
+     * plugins/libraries/functions etc into cache */
+    dummy = asset_load(path_buf);
     if (dummy == NULL)
         goto_error("Test FAILED for \"%s\"", path_buf);
 
@@ -60,7 +45,7 @@ int cgd_main(int argc, char **argv)
         strcpy(path_buf, IMG_REL_PATH_PREFIX);
         strcat(path_buf, test_img_names[i]);
 
-        struct asset *a = asset_load(path_buf, rctx);
+        struct asset *a = asset_load(path_buf);
 
         if (a == NULL) {
             s_log_error("Test FAILED for \"%s\"", path_buf);
@@ -79,14 +64,12 @@ int cgd_main(int argc, char **argv)
         (f64)(ntested*1000000.f) / (f64)p_time_delta_us(&start_time)
     );
     asset_destroy(&dummy);
-    r_ctx_destroy(&rctx);
     p_window_close(&win);
     return EXIT_SUCCESS;
 
 err:
     s_log_error("Test result is FAIL, cleaning up...", NULL);
     if (dummy != NULL) asset_destroy(&dummy);
-    if (rctx != NULL) r_ctx_destroy(&rctx);
     if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
 }

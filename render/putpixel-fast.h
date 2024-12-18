@@ -12,13 +12,13 @@ static inline void r_putpixel_fast_(
     pixel_t *const buf,
     const i32 x, const i32 y, const u32 w,
     register color_RGBA32_t color,
-    const enum p_window_color_type dst_pixelfmt)
+    const pixelfmt_t dst_pixelfmt)
 {
     /* Get the pixel location in the buffer */
     pixel_t *const pixel_ptr = buf + ((y * w) + x);
 
     /* Convert BGRA if needed */
-    if (dst_pixelfmt == P_WINDOW_BGRA8888) {
+    if (dst_pixelfmt == BGRA32) {
         register u8 tmp = color.r;
         color.r = color.b;
         color.b = tmp;
@@ -50,9 +50,9 @@ static inline void r_putpixel_fast_noalpha_(
     pixel_t *const buf,
     const i32 x, const i32 y, const u32 w,
     register color_RGBA32_t color,
-    const enum p_window_color_type dst_pixelfmt)
+    const pixelfmt_t dst_pixelfmt)
 {
-    if (dst_pixelfmt == P_WINDOW_BGRA8888) {
+    if (dst_pixelfmt == BGRA32) {
         register u8 tmp = color.r;
         color.r = color.b;
         color.b = tmp;

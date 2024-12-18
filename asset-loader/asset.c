@@ -6,10 +6,8 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
-#include <render/rctx.h>
 #include <render/surface.h>
 #include <platform/misc.h>
-#include <platform/window.h>
 #include <platform/thread.h>
 #include <errno.h>
 #include <stdio.h>
@@ -32,9 +30,9 @@ static _Atomic i32 g_n_active_handles = 0;
 const char * asset_get_assets_dir(void);
 static i32 get_bin_dir(char *buf, u32 buf_size);
 
-struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
+struct asset * asset_load(filepath_t rel_file_path)
 {
-    u_check_params(rel_file_path != NULL && rctx != NULL);
+    u_check_params(rel_file_path != NULL);
 
     s_log_debug("Loading asset \"%s\"...", rel_file_path);
 
@@ -72,7 +70,7 @@ struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx)
             break;
     }
 
-    a->surface = r_surface_init(rctx, &a->pixel_data, P_WINDOW_RGBA8888);
+    a->surface = r_surface_init(&a->pixel_data, RGBA32);
     if (a->surface == NULL)
         goto_error("Failed to create a surface from the pixel_data!");
 

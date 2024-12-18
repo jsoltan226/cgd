@@ -88,13 +88,12 @@ int cgd_main(int argc, char **argv)
         goto_error("Failed to initialize the renderer. Stop.");
 
     static const filepath_t asset_filepath = "tests/surface_test/surface_1.png";
-    asset = asset_load(asset_filepath, rctx);
+    asset = asset_load(asset_filepath);
     if (asset == NULL)
         goto_error("Failed to load surface image (\"%s\"). Stop.",
             asset_filepath);
 
-    surface2 = r_surface_create(rctx,
-        SURFACE2_W, SURFACE2_H, P_WINDOW_RGBA8888);
+    surface2 = r_surface_create(SURFACE2_W, SURFACE2_H, RGBA32);
     if (surface2 == NULL)
         goto_error("Failed to create surface2. Stop.");
 
@@ -148,7 +147,7 @@ int cgd_main(int argc, char **argv)
         /* Should display the image in 1:1 scale with the actual src,
          * right in the middle of the window */ 
         /* Tests `unscaled_unconverted_blit` */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_1);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_1);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_1));
 
         /* Should display the image right in the middle of the window,
@@ -159,26 +158,26 @@ int cgd_main(int argc, char **argv)
         dst_rect.h *= scale;
         dst_rect.x -= (dst_rect.w - SURFACE_DSTRECT_2.w) / 2;
         dst_rect.y -= (dst_rect.h - SURFACE_DSTRECT_2.h) / 2;
-        r_surface_blit(asset->surface, NULL, &dst_rect);
+        r_surface_render(rctx, asset->surface, NULL, &dst_rect);
         r_draw_rect(rctx, rect_arg_expand(dst_rect));
 
         /* Should display a highly vertically-streched image */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_3);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_3);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_3));
 
         /* Should only display the upper-right corner of the image;
          * the rest should be cut off by the window border */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_4);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_4);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_4));
  
         /* Should display nothing; the dst width is 0 */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_5);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_5);
         /* Should display nothing; the dst height is negative */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_6);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_6);
 
         /* Should display a carved-out portion of the image.
          * Tests src_rect clipping. */
-        r_surface_blit(asset->surface, NULL, &SURFACE_DSTRECT_7);
+        r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_7);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_7));
 
         r_ctx_set_color(rctx, WHITE_PIXEL);
@@ -186,13 +185,13 @@ int cgd_main(int argc, char **argv)
          * in the upper-left corner of the window. */
         /* Tests `unscaled_converted_blit`. */
         r_draw_rect(rctx, rect_arg_expand(SURFACE2_DSTRECT_1));
-        r_surface_blit(surface2, NULL, &SURFACE2_DSTRECT_1);
+        r_surface_render(rctx, surface2, NULL, &SURFACE2_DSTRECT_1);
 
         /* Should display a horizontally-streched red circle
          * in the upper right corner of the window. */
         /* Tests `scaled_converted_blit`. */
         r_draw_rect(rctx, rect_arg_expand(SURFACE2_DSTRECT_2));
-        r_surface_blit(surface2, NULL, &SURFACE2_DSTRECT_2);
+        r_surface_render(rctx, surface2, NULL, &SURFACE2_DSTRECT_2);
 
         r_flush(rctx);
         p_time_usleep(1000000 / FPS);

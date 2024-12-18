@@ -25,3 +25,29 @@
         Yay!
     * Fixed `TEST_LIB` being rebuilt each time the contents of `TEST_BINDIR` were changed
     * Renamed `platform/exe-info` to `platform/misc`
+
+## NEWS for 18.12.2024
+* Made `r_surface` more independent of `r_ctx`, changed some outdated naming
+    * `struct r_surface` no longer contains `rctx`
+    * `r_surface_blit` will now blit from one surface to another,
+        it's previous functionality got replaced by `r_surface_render`
+    * Since `r_surface_init` no longer requires the `rctx` argument,
+        therefore the following subsystems also don't need `rctx`
+        to be passed to their respective init/create functions:
+        * `asset-loader/asset`
+        * `gui/sprite`
+        * `gui/parallax-bg`
+        * `gui/button`
+        * `gui/menu`
+        * `gui/menu-mgr`
+        Also, `asset-load-test` (finally) no longer uses any window or rendering context at all
+
+    * Renamed `struct main_ctx` to `struct platform_ctx`,
+        and `do_early_init`/`do_main_cleanup` to `do_platform_init`/`do_platform_cleanup`
+    * Moved the rendering context (`r`) and `paused` from the `platform_ctx` to `gui_ctx`
+    * `r_putpixel_rgba` now uses `r_putpixel_fast_matching_pixelfmt_`
+    * Replaced the `enum p_window_color_type` with `enum pixelfmt` (`pixelfmt_t`) in `core/pixel.h`
+        and shorted the names from e.g. `P_WINDOW_COLOR_RGBA8888` to `RGBA32`.
+        Also added new color formats (`RGB24`, `BGR24`, `RGBX32`, `BGRX32`)
+        and alternative names for them (e.g. `RGB24` -> `RGB888` and `BGRA32` -> `BGRA8888`)
+    * Added some documentation in `render/surface.h`

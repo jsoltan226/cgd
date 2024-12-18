@@ -1,4 +1,3 @@
-#include "platform/window.h"
 #include "rctx.h"
 #include <core/log.h>
 #include <core/int.h>
@@ -27,18 +26,16 @@ typedef void (blit_function_t)(
     const rect_t *dst_rect,
     const f32 scale_x,
     const f32 scale_y,
-    const enum p_window_color_type dst_pixelfmt
+    const pixelfmt_t dst_pixelfmt
 );
 static blit_function_t unscaled_unconverted_blit;
 static blit_function_t unscaled_converted_blit;
 static blit_function_t scaled_unconverted_blit;
 static blit_function_t scaled_converted_blit;
 
-struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
-    enum p_window_color_type color_format)
+struct r_surface * r_surface_create(u32 w, u32 h,
+    pixelfmt_t color_format)
 {
-    u_check_params(rctx != NULL);
-
     struct pixel_flat_data pixel_data;
     pixel_data.w = w;
     pixel_data.h = h;
@@ -47,23 +44,21 @@ struct r_surface * r_surface_create(struct r_ctx *rctx, u32 w, u32 h,
         goto_error("Failed to allocate new surface (width: %u, height: %u).",
             w, h);
 
-    struct r_surface *ret = r_surface_init(rctx, &pixel_data, color_format);
-    return ret;
+    return r_surface_init(&pixel_data, color_format);
 
 err:
     if (pixel_data.buf != NULL) u_nfree(&pixel_data.buf);
     return NULL;
 }
 
-struct r_surface * r_surface_init(struct r_ctx *rctx,
-    struct pixel_flat_data *pixels, enum p_window_color_type color_format)
+struct r_surface * r_surface_init(struct pixel_flat_data *pixels,
+    pixelfmt_t color_format)
 {
-    u_check_params(rctx != NULL && pixels != NULL);
+    u_check_params(pixels != NULL);
 
     struct r_surface *s = calloc(1, sizeof(struct r_surface));
     s_assert(s != NULL, "calloc() failed for new surface");
 
-    s->rctx = rctx;
     s->color_format = color_format;
     s->data.w = pixels->w;
     s->data.h = pixels->h;
@@ -73,19 +68,19 @@ struct r_surface * r_surface_init(struct r_ctx *rctx,
     return s;
 }
 
-void r_surface_blit(struct r_surface *surface,
+void r_surface_blit(struct r_surface *dst, const struct r_surface *src,
     const rect_t *src_rect, const rect_t *dst_rect)
 {
-    u_check_params(surface != NULL);
+    u_check_params(src != NULL && dst != NULL);
 
     /* Handle src_rect and dst_rect being NULL */
     rect_t final_src_rect, final_dst_rect;
     memcpy(&final_src_rect,
-        src_rect != NULL ? src_rect : &surface->data_rect,
+        src_rect != NULL ? src_rect : &src->data_rect,
         sizeof(rect_t)
     );
     memcpy(&final_dst_rect,
-        dst_rect != NULL ? dst_rect : &surface->rctx->pixels_rect,
+        dst_rect != NULL ? dst_rect : &dst->data_rect,
         sizeof(rect_t)
     );
 
@@ -95,7 +90,7 @@ void r_surface_blit(struct r_surface *surface,
     
     /* Clip the rects to make sure we don't read or write out of bounds */
     rect_t tmp = final_dst_rect;
-    rect_clip(&final_dst_rect, &surface->rctx->pixels_rect);
+    rect_clip(&final_dst_rect, &dst->data_rect);
 
     /* "Project" the changes made to dst_rect onto src_rect */
     final_src_rect.x -= (tmp.x - final_dst_rect.x) * scale_x;
@@ -104,7 +99,7 @@ void r_surface_blit(struct r_surface *surface,
     final_src_rect.h -= (tmp.h - final_dst_rect.h) * scale_y;
 
     /* Again, ensure that we don't read out of bounds */
-    rect_clip(&final_src_rect, &surface->data_rect);
+    rect_clip(&final_src_rect, &src->data_rect);
 
     /* Return early if there is nothing to do */
     if (final_src_rect.w == 0 || final_src_rect.h == 0 ||
@@ -113,7 +108,7 @@ void r_surface_blit(struct r_surface *surface,
 
     /* Use faster blitting functions if we can */
     const u8 needs_pixel_conversion =
-        (surface->color_format != surface->rctx->win_meta.color_type)
+        (src->color_format != dst->color_format)
         << 0;
 
     const u8 needs_scaling =
@@ -137,11 +132,25 @@ void r_surface_blit(struct r_surface *surface,
     s_assert(index >= 0 && index < 4, "how?");
 
     (*(blit_function_table[index])) (
-        &surface->data, surface->rctx->render_buffer,
+        &src->data, &dst->data,
         &final_src_rect, &final_dst_rect,
         scale_x, scale_y,
-        surface->rctx->win_meta.color_type
+        dst->color_format
     );
+}
+
+void r_surface_render(struct r_ctx *rctx, const struct r_surface *src,
+    const rect_t *src_rect, const rect_t *dst_rect)
+{
+    u_check_params(rctx != NULL && src != NULL);
+
+    struct r_surface tmp_rctx_surface;
+    memcpy(&tmp_rctx_surface.data, rctx->render_buffer,
+        sizeof(struct pixel_flat_data));
+    memcpy(&tmp_rctx_surface.data_rect, &rctx->pixels_rect, sizeof(rect_t));
+    tmp_rctx_surface.color_format = rctx->win_meta.color_format;
+
+    r_surface_blit(&tmp_rctx_surface, src, src_rect, dst_rect);
 }
 
 void r_surface_destroy(struct r_surface **surface_p)
@@ -162,7 +171,7 @@ static void unscaled_unconverted_blit(
     const rect_t *dst_rect,
     const f32 scale_x,
     const f32 scale_y,
-    const enum p_window_color_type dst_pixelfmt
+    const pixelfmt_t dst_pixelfmt
 )
 {
     (void) scale_x;
@@ -188,7 +197,7 @@ static void unscaled_converted_blit(
     const rect_t *dst_rect,
     const f32 scale_x,
     const f32 scale_y,
-    const enum p_window_color_type dst_pixelfmt
+    const pixelfmt_t dst_pixelfmt
 )
 {
     (void) scale_x;
@@ -218,7 +227,7 @@ static void scaled_unconverted_blit(
     const rect_t *dst_rect,
     const f32 scale_x,
     const f32 scale_y,
-    const enum p_window_color_type dst_pixelfmt
+    const pixelfmt_t dst_pixelfmt
 )
 {
     (void) dst_pixelfmt;
@@ -250,7 +259,7 @@ static void scaled_converted_blit(
     const rect_t *dst_rect,
     const f32 scale_x,
     const f32 scale_y,
-    const enum p_window_color_type dst_pixelfmt
+    const pixelfmt_t dst_pixelfmt
 )
 {
     f32 sx = src_rect->x;

@@ -48,7 +48,7 @@ struct p_window {
         struct window_dummy dummy;
     };
 
-    enum p_window_color_type color_type;
+    pixelfmt_t color_format;
 
     vec2d_t ev_offset;
 };

@@ -9,35 +9,35 @@
 #include <render/rect.h>
 #include <gui/menu-mgr.h>
 
-void process_events(struct main_ctx *ctx)
+void process_events(struct platform_ctx *p, struct gui_ctx *gui)
 {
     struct p_event ev;
     while(p_event_poll(&ev)) {
         if (ev.type == P_EVENT_QUIT) {
-            ctx->running = false;
+            p->running = false;
         } else if (ev.type == P_EVENT_PAUSE) {
-            ctx->paused = !ctx->paused;
+            gui->paused = !gui->paused;
         }
     }
 
-    p_keyboard_update(ctx->keyboard);
-    p_mouse_update(ctx->mouse);
+    p_keyboard_update(p->keyboard);
+    p_mouse_update(p->mouse);
 }
 
-void update_gui(const struct main_ctx *ctx, struct gui_ctx *gui)
+void update_gui(struct gui_ctx *gui)
 {
-    menu_mgr_update(gui->mmgr, ctx->paused);
+    menu_mgr_update(gui->mmgr, gui->paused);
 }
 
-void render_gui(struct main_ctx *ctx, const struct gui_ctx *gui)
+void render_gui(struct gui_ctx *gui)
 {
-    r_reset(ctx->r);
+    r_reset(gui->r);
 
-    menu_mgr_draw(gui->mmgr, ctx->r);
+    menu_mgr_draw(gui->mmgr, gui->r);
 
     /* Draw the game rect */
-    r_ctx_set_color(ctx->r, (color_RGBA32_t) { 200, 200, 200, 255 });
-    r_draw_rect(ctx->r, rect_arg_expand(gameRect));
+    r_ctx_set_color(gui->r, (color_RGBA32_t) { 200, 200, 200, 255 });
+    r_draw_rect(gui->r, rect_arg_expand(gameRect));
 
-    r_flush(ctx->r);
+    r_flush(gui->r);
 }

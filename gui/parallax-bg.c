@@ -10,11 +10,9 @@
 
 #define MODULE_NAME "parallax-bg"
 
-struct parallax_bg * parallax_bg_init(
-    const struct parallax_bg_config *cfg,
-    struct r_ctx *rctx)
+struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg)
 {
-    u_check_params(cfg != NULL && rctx != NULL);
+    u_check_params(cfg != NULL);
 
     struct parallax_bg *bg = calloc(1, sizeof(struct parallax_bg));
     s_assert(bg != NULL, "calloc() failed for struct parallax_bg");
@@ -33,7 +31,7 @@ struct parallax_bg * parallax_bg_init(
     while (cfg->layer_cfgs[i].magic == MENU_CONFIG_MAGIC && i < PARALLAX_BG_MAX_LAYERS) {
 
         /* Load the texture and enable alpha blending */
-        struct asset *asset = asset_load(cfg->layer_cfgs[i].filepath, rctx);
+        struct asset *asset = asset_load(cfg->layer_cfgs[i].filepath);
         if (asset == NULL) {
             s_log_error("Failed to load asset \"%s\"!",
                 cfg->layer_cfgs[i].filepath
@@ -82,7 +80,7 @@ void parallax_bg_draw(struct parallax_bg *bg, struct r_ctx *rctx)
             bg->layers[i].w / 2,
             bg->layers[i].h
         };
-        r_surface_blit(bg->layers[i].asset->surface, &src_rect, NULL);
+        r_surface_render(rctx, bg->layers[i].asset->surface, &src_rect, NULL);
     }
 }
 

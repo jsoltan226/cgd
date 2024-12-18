@@ -32,17 +32,14 @@ static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN]);
 
 struct Menu * menu_init(
     const struct menu_config *cfg,
-    struct r_ctx *rctx,
     const struct p_keyboard *keyboard,
     const struct p_mouse *mouse
 )
 {
-    struct Menu *mn = NULL;
-
-    u_check_params(cfg != NULL && rctx != NULL &&
-        keyboard != NULL && mouse != NULL);
+    u_check_params(cfg != NULL && keyboard != NULL && mouse != NULL);
 
     s_log_debug("Initializing menu with ID %lu", cfg->ID);
+    struct Menu *mn = NULL;
 
     if (cfg->ID == MENU_ID_NULL)
         goto_error("Config struct is invalid");
@@ -52,7 +49,7 @@ struct Menu * menu_init(
     mn = calloc(1, sizeof(struct Menu));
     s_assert(mn != NULL, "calloc() failed for struct menu");
 
-    mn->sprites = vector_new(sprite_t *);
+    mn->sprites = vector_new(struct sprite *);
     mn->buttons = vector_new(struct button *);
     mn->event_listeners = vector_new(struct event_listener *);
     if (mn->sprites == NULL || mn->buttons == NULL || mn->event_listeners == NULL)
@@ -63,15 +60,13 @@ struct Menu * menu_init(
     while (cfg->button_info[i].magic == MENU_CONFIG_MAGIC && i < MENU_CONFIG_MAX_LEN) {
         struct on_event_obj tmp_onevent_obj = { 0 };
         menu_init_onevent_obj(&tmp_onevent_obj, &cfg->button_info[i].on_click_cfg, mn);
-        struct button *new_button = button_init(
-            &cfg->button_info[i].sprite_cfg,
-            &tmp_onevent_obj,
-            cfg->button_info[i].flags,
-            rctx);
-        if (new_button == NULL)
+
+        struct button *new_btn = button_init(&cfg->button_info[i].sprite_cfg,
+            &tmp_onevent_obj, cfg->button_info[i].flags);
+        if (new_btn == NULL)
             goto_error("Button init failed!");
 
-        vector_push_back(mn->buttons, new_button);
+        vector_push_back(mn->buttons, new_btn);
         i++;
     }
     s_log_debug("(%lu) Initialized %u button(s)", cfg->ID, i);
@@ -115,7 +110,7 @@ struct Menu * menu_init(
     /* Initialize the sprites */
     i = 0;
     while (cfg->sprite_info[i].magic == MENU_CONFIG_MAGIC && i < MENU_CONFIG_MAX_LEN) {
-        sprite_t *s = sprite_init(&cfg->sprite_info[i].sprite_cfg, rctx);
+        struct sprite *s = sprite_init(&cfg->sprite_info[i].sprite_cfg);
         if (s == NULL)
             goto_error("Sprite init failed!");
 
@@ -126,7 +121,7 @@ struct Menu * menu_init(
 
     /* Initialize the background */
     if (cfg->bg_config.magic == MENU_CONFIG_MAGIC)
-        mn->bg = parallax_bg_init(&cfg->bg_config.bg_cfg, rctx);
+        mn->bg = parallax_bg_init(&cfg->bg_config.bg_cfg);
     s_log_debug("(%lu) Initialized the background", cfg->ID);
 
     mn->switch_target = MENU_ID_NULL;

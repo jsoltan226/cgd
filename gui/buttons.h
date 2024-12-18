@@ -15,7 +15,7 @@ enum button_flags {
 #define BTN_DEFAULT_FLAGS (BTN_DISPLAY_HOVER_TINT)
 
 struct button {
-    sprite_t *sprite;
+    struct sprite *sprite;
 
     pressable_obj_t button;
     bool held; /* Whether the button was clicked and the mouse is still being held */
@@ -27,7 +27,7 @@ struct button {
 };
 
 struct button * button_init(const struct sprite_config *sprite_cfg,
-    const struct on_event_obj *on_click, u32 flags, struct r_ctx *rctx);
+    const struct on_event_obj *on_click, u32 flags);
 
 void button_update(struct button *btn, const struct p_mouse *mouse);
 

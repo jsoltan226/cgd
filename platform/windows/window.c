@@ -178,7 +178,7 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->y = win->client_rect.y;
     out->w = win->client_rect.w;
     out->h = win->client_rect.h;
-    out->color_type = P_WINDOW_BGRA8888;
+    out->color_format = BGRX32;
 
     return 0;
 }

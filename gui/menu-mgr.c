@@ -16,13 +16,11 @@
 
 struct MenuManager * menu_mgr_init(
     const struct menu_manager_config *cfg,
-    struct r_ctx *rctx,
     struct p_keyboard *keyboard,
     struct p_mouse *mouse
 )
 {
-    u_check_params(cfg != NULL && rctx != NULL &&
-        keyboard != NULL && mouse != NULL);
+    u_check_params(cfg != NULL && keyboard != NULL && mouse != NULL);
 
     struct MenuManager *mmgr = calloc(1, sizeof(struct MenuManager));
     s_assert(mmgr != NULL, "calloc() failed for struct MenuManager");
@@ -40,7 +38,7 @@ struct MenuManager * menu_mgr_init(
     /* Initialize the menus */
     u32 i = 0;
     while (cfg->menu_info[i].magic == MENU_CONFIG_MAGIC && i < MENUMGR_MAX_MENU_COUNT) {
-        struct Menu *new_menu = menu_init(&cfg->menu_info[i], rctx, keyboard, mouse);
+        struct Menu *new_menu = menu_init(&cfg->menu_info[i], keyboard, mouse);
         if (new_menu == NULL)
             goto_error("menu_init for menu no. %u failed", cfg->menu_info[i].ID);
 

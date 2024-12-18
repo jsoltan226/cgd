@@ -5,7 +5,6 @@
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <render/surface.h>
-#include <platform/window.h>
 #include <core/log.h>
 #include <core/int.h>
 #include <core/math.h>
@@ -143,7 +142,7 @@ struct font * font_init(const char *filepath, struct r_ctx *rctx,
 
         tmp_surfaces[i] = r_surface_create(rctx,
             glyph_slot->bitmap.width, glyph_slot->bitmap.rows,
-            P_WINDOW_BGRA8888
+            BGRA32
         );
         struct r_surface *curr_surface = tmp_surfaces[i];
         if(curr_surface == NULL)
@@ -174,7 +173,7 @@ struct font * font_init(const char *filepath, struct r_ctx *rctx,
     );
     final_surface = r_surface_create(rctx,
         totalW, totalH,
-        P_WINDOW_BGRA8888
+        BGRA32
     );
     if (final_surface == NULL)
         goto_error("Failed to create final surface"

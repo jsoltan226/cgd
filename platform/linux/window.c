@@ -49,20 +49,20 @@ struct p_window * p_window_open(const unsigned char *title,
         case WINDOW_TYPE_X11:
             if (window_X11_open(&win->x11, title, area, flags))
                 goto_error("Failed to open X11 window");
-            win->color_type = P_WINDOW_BGRA8888;
+            win->color_format = BGRA32;
             win->ev_offset.x = 0;
             win->ev_offset.y = 0;
             break;
         case WINDOW_TYPE_FRAMEBUFFER:
             if (window_fbdev_open(&win->fbdev, area, flags))
                 goto_error("Failed to open framebuffer window");
-            win->color_type = P_WINDOW_BGRA8888;
+            win->color_format = BGRX32;
             win->ev_offset.x = win->x;
             win->ev_offset.y = win->y;
             break;
         case WINDOW_TYPE_DUMMY:
             window_dummy_init(&win->dummy);
-            win->color_type = P_WINDOW_RGBA8888;
+            win->color_format = RGBA32;
             break;
     }
     
@@ -125,7 +125,7 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->w = win->w;
     out->h = win->h;
 
-    out->color_type = win->color_type;
+    out->color_format = win->color_format;
 
     return 0;
 }

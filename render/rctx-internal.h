@@ -17,7 +17,7 @@ struct r_ctx {
     struct p_window_meta win_meta;
 
     struct pixel_flat_data buffers[2];
-    struct pixel_flat_data *render_buffer, *blit_buffer;
+    struct pixel_flat_data *render_buffer, *present_buffer;
 
     rect_t pixels_rect;
 

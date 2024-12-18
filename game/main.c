@@ -10,19 +10,19 @@
 
 int cgd_main(int argc, char **argv)
 {
-    struct main_ctx main_ctx = { 0 };
+    struct platform_ctx platform_ctx = { 0 };
     struct gui_ctx gui_ctx = { 0 };
 
-    if (do_early_init(argc, (const char *const *)argv, &main_ctx)) {
-        s_log_error("Early init failed. Stop.");
-        do_main_cleanup(&main_ctx);
+    if (do_platform_init(argc, (const char *const *)argv, &platform_ctx)) {
+        s_log_error("Platform init failed. Stop.");
+        do_platform_cleanup(&platform_ctx);
         return EXIT_FAILURE;
     }
 
-    if (do_gui_init(&gui_ctx, &main_ctx)) {
+    if (do_gui_init(&gui_ctx, &platform_ctx)) {
         s_log_error("GUI init failed. Stop.");
         do_gui_cleanup(&gui_ctx);
-        do_main_cleanup(&main_ctx);
+        do_platform_cleanup(&platform_ctx);
         return EXIT_FAILURE;
     }
 
@@ -32,11 +32,11 @@ int cgd_main(int argc, char **argv)
         timestamp_t start_time;
         p_time_get_ticks(&start_time);
 
-        process_events(&main_ctx);
-        if (!main_ctx.running) break;
+        process_events(&platform_ctx, &gui_ctx);
+        if (!platform_ctx.running) break;
 
-        update_gui(&main_ctx, &gui_ctx);
-        render_gui(&main_ctx, &gui_ctx);
+        update_gui(&gui_ctx);
+        render_gui(&gui_ctx);
 
         i64 delta_time = p_time_delta_us(&start_time);
         if(delta_time <= FRAME_DURATION_us)
@@ -45,7 +45,7 @@ int cgd_main(int argc, char **argv)
 
     s_log_debug("Exited from the main loop, starting cleanup...");
     do_gui_cleanup(&gui_ctx);
-    do_main_cleanup(&main_ctx);
+    do_platform_cleanup(&platform_ctx);
 
     s_log_info("Cleanup done, exiting with code 0 (SUCCESS).");
     return EXIT_SUCCESS;

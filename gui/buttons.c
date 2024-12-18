@@ -19,14 +19,14 @@
 
 struct button *button_init(const struct sprite_config *sprite_cfg,
     const struct on_event_obj *on_click,
-    u32 flags, struct r_ctx *rctx)
+    u32 flags)
 {
-    u_check_params(sprite_cfg != NULL && on_click != NULL && rctx != NULL);
+    u_check_params(sprite_cfg != NULL && on_click != NULL);
 
     struct button *btn = calloc(1, sizeof(struct button));
     s_assert(btn != NULL, "calloc() failed for struct button!");
 
-    btn->sprite = sprite_init(sprite_cfg, rctx);
+    btn->sprite = sprite_init(sprite_cfg);
     if (btn->sprite == NULL) {
         s_log_error("Failed to initialize the sprite!");
         free(btn);

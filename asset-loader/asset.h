@@ -4,7 +4,6 @@
 #include "img-type.h"
 #include <core/int.h>
 #include <core/pixel.h>
-#include <render/rctx.h>
 #include <render/surface.h>
 
 struct asset {
@@ -16,7 +15,7 @@ struct asset {
 };
 
 /* Both return NULL on failure */
-struct asset * asset_load(filepath_t rel_file_path, struct r_ctx *rctx);
+struct asset * asset_load(filepath_t rel_file_path);
 FILE * asset_fopen(const char *rel_file_path, const char *mode);
 
 /* If `rel_file_path` or `img_type` are NULL,
