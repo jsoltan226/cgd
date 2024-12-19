@@ -116,28 +116,28 @@ i32 libxcb_load(struct libxcb *o)
             g_libxcb_shm_ok = false;
 
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                p_librtld_get_sym_handle(g_libxcb_lib, #name);
+                p_librtld_load_sym(g_libxcb_lib, #name);
             LIBXCB_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                p_librtld_get_sym_handle(g_libxcb_image_lib, #name);
+                p_librtld_load_sym(g_libxcb_image_lib, #name);
             LIBXCB_IMAGE_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                p_librtld_get_sym_handle(g_libxcb_icccm_lib, #name);
+                p_librtld_load_sym(g_libxcb_icccm_lib, #name);
             LIBXCB_ICCCM_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                p_librtld_get_sym_handle(g_libxcb_input_lib, #name);
+                p_librtld_load_sym(g_libxcb_input_lib, #name);
             LIBXCB_INPUT_SYM_LIST
 #undef X_
 #define X_(ret_type, name, ...) g_libxcb_syms.name = \
-                p_librtld_get_sym_handle(g_libxcb_keysyms_lib, #name);
+                p_librtld_load_sym(g_libxcb_keysyms_lib, #name);
             LIBXCB_KEYSYMS_SYM_LIST
 #undef X_
         if (g_libxcb_shm_ok) {
 #define X_(ret_type, name, ...) g_libxcb_syms.shm.name = \
-                p_librtld_get_sym_handle(g_libxcb_shm_lib, #name);
+                p_librtld_load_sym(g_libxcb_shm_lib, #name);
             LIBXCB_SHM_SYM_LIST
 #undef X_
             /* Cast away const */

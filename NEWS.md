@@ -56,3 +56,15 @@
 
 * Removed the cplusplus ifdef in `core/vector.h`
     * The guard preveting `core/vector` from being used in c++ code (`#ifdef __cplusplus`) was causing github linguist to interpret the file as a c++ header lol
+
+* Modernized the `platform/librtld` API
+    * Added `p_librtld_load_lib_explicit`, which just loads the library without retrieving the symbols
+        and gives more control over the file name, making you supply the file prefix and suffix,
+        as well as the version string
+    * Replaced `p_librtld_get_sym_handle` with `p_librtld_load_sym`,
+        which, if the given sym is not found already loaded in the lib's symlist,
+        will look for it in the shared object itself.
+    * Renamed `p_sym_t` to `struct sym` in both platforms' code
+    * Rerranged and refactored the code in the `librtld` sources
+    * Added documentation in `platform/librtld.h`
+    * Adapted the whole codebase to the changes

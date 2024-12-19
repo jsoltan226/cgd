@@ -356,7 +356,7 @@ i32 load_libPNG()
     }
 
 #define X_(ret_type, name, ...) \
-    PNG.name = p_librtld_get_sym_handle(libPNG, #name);
+    PNG.name = p_librtld_load_sym(libPNG, #name);
 
     LIBPNG_SYM_LIST
 
