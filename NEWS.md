@@ -51,3 +51,8 @@
         Also added new color formats (`RGB24`, `BGR24`, `RGBX32`, `BGRX32`)
         and alternative names for them (e.g. `RGB24` -> `RGB888` and `BGRA32` -> `BGRA8888`)
     * Added some documentation in `render/surface.h`
+
+## NEWS for 19.12.2024
+
+* Removed the cplusplus ifdef in `core/vector.h`
+    * The guard preveting `core/vector` from being used in c++ code (`#ifdef __cplusplus`) was causing github linguist to interpret the file as a c++ header lol

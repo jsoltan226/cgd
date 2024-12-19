@@ -1,10 +1,6 @@
 #ifndef VECTOR_H_
 #define VECTOR_H_
 
-#ifdef __cplusplus
-#error What are you doing using this header? Use std::vector instead!
-#endif
-
 #include "int.h"
 #include "log.h"
 #include <stdbool.h>
