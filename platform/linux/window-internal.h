@@ -5,12 +5,11 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#include "../window.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
 #define P_INTERNAL_GUARD__
-#include "window-fbdev.h"
+#include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -22,7 +21,7 @@
 #define N_WINDOW_TYPES 3
 #define WINDOW_TYPE_LIST        \
     X_(WINDOW_TYPE_X11)         \
-    X_(WINDOW_TYPE_FRAMEBUFFER) \
+    X_(WINDOW_TYPE_DRI)         \
     X_(WINDOW_TYPE_DUMMY)       \
 
 #define X_(name) name,
@@ -44,7 +43,7 @@ struct p_window {
 
     union {
         struct window_x11 x11;
-        struct window_fbdev fbdev;
+        struct window_dri dri;
         struct window_dummy dummy;
     };
 

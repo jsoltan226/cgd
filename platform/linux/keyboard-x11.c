@@ -1,6 +1,4 @@
 #include "../keyboard.h"
-#include "../thread.h"
-#include "core/log.h"
 #include <core/int.h>
 #include <core/util.h>
 #include <core/vector.h>
@@ -34,12 +32,6 @@ i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
 
     kb->win = win;
 
-    kb->unprocessed_ev.mutex = p_mt_mutex_create();
-    for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
-        kb->unprocessed_ev.queue[i] = vector_new(i8);
-    }
-    atomic_store(&kb->unprocessed_ev.empty, false);
-
     if (window_X11_register_keyboard(win, kb))
         goto_error("Failed to register the keyboard");
     
@@ -58,27 +50,6 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
         process_ev(atomic_load(&kb->key_events[i]), &pobjs[i]);
         atomic_store(&kb->key_events[i], KEYBOARD_X11_NOTHING);
     }
-
-    bool queue_empty = true;
-    if (!atomic_load(&kb->unprocessed_ev.empty)) {
-        p_mt_mutex_lock(&kb->unprocessed_ev.mutex);
-        
-        for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
-            if (vector_size(kb->unprocessed_ev.queue[i]) <= 0)
-                continue; /* Skip this key if it's queue is empty */
-            else if (vector_size(kb->unprocessed_ev.queue[i]) > 1)
-                queue_empty = false;
-
-            process_ev(kb->unprocessed_ev.queue[i][0], &pobjs[i]);
-            vector_erase(kb->unprocessed_ev.queue[i], 0);
-        }
-
-        p_mt_mutex_unlock(&kb->unprocessed_ev.mutex);
-    }
-
-    /* If any one of the keys' queue is not yet empty,
-     * this variable will be set to false */
-    atomic_store(&kb->unprocessed_ev.empty, queue_empty);
 }
 
 void X11_keyboard_destroy(struct keyboard_x11 *kb)
@@ -86,11 +57,6 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb)
     if (kb == NULL) return;
 
     window_X11_deregister_keyboard(kb->win);
-
-    p_mt_mutex_destroy(&kb->unprocessed_ev.mutex);
-    for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
-        vector_destroy(&kb->unprocessed_ev.queue[i]);
-    }
 
     memset(kb, 0, sizeof(struct keyboard_x11));
 }
@@ -113,14 +79,5 @@ void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
     }
     if (p_kb_keycode == -1) return;
 
-    /* If there is an unprocessed event for this key,
-     * push the current one to the queue */
-    if (atomic_load(&kb->key_events[p_kb_keycode]) != KEYBOARD_X11_NOTHING) {
-        p_mt_mutex_lock(&kb->unprocessed_ev.mutex);
-        vector_push_back(kb->unprocessed_ev.queue[p_kb_keycode], event);
-        atomic_store(&kb->unprocessed_ev.empty, false);
-        p_mt_mutex_unlock(&kb->unprocessed_ev.mutex);
-    } else {
-        atomic_store(&kb->key_events[p_kb_keycode], event);
-    }
+    atomic_store(&kb->key_events[p_kb_keycode], event);
 }

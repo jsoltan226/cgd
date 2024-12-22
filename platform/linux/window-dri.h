@@ -1,5 +1,5 @@
-#ifndef P_WINDOW_FBDEV_H_
-#define P_WINDOW_FBDEV_H_
+#ifndef P_WINDOW_DRI_H_
+#define P_WINDOW_DRI_H_
 
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
@@ -12,7 +12,7 @@
 #include <termios.h>
 #include <linux/fb.h>
 
-struct window_fbdev {
+struct window_dri {
     i32 fd;
     struct fb_fix_screeninfo fixed_info;
     struct fb_var_screeninfo var_info;
@@ -32,11 +32,11 @@ struct window_fbdev {
     struct termios orig_term_config;
 };
 
-i32 window_fbdev_open(struct window_fbdev *win,
+i32 window_dri_open(struct window_dri *win,
     const rect_t *area, const u32 flags);
-void window_fbdev_close(struct window_fbdev *win);
+void window_dri_close(struct window_dri *win);
 
-void window_fbdev_render_to_display(struct window_fbdev *win,
+void window_dri_render_to_display(struct window_dri *win,
     const struct pixel_flat_data *fb);
 
-#endif /* P_WINDOW_FBDEV_H_ */
+#endif /* P_WINDOW_DRI_H_ */

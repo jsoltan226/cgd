@@ -246,7 +246,7 @@ i32 window_X11_open(struct window_x11 *win,
         goto_error("Failed to create listener thread.");
     }
 
-    s_log_debug("%s() OK; Screen is %ux%u, use shm: %b", __func__,
+    s_log_debug("%s() OK; Screen is %ux%u, use shm: %i", __func__,
         win->screen->width_in_pixels, win->screen->height_in_pixels,
         win->xcb.shm.has_shm_extension_);
     return 0;

@@ -16,18 +16,18 @@
 #include <linux/mman.h>
 
 #define P_INTERNAL_GUARD__
-#include "window-fbdev.h"
+#include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "keyboard-tty.h"
 #undef P_INTERNAL_GUARD__
 
-#define MODULE_NAME "window-fbdev"
+#define MODULE_NAME "window-dri"
 
 #define FBDEV_PATH "/dev/fb0"
 #define FBDEV_FALLBACK_PATH "/dev/graphics/fb0"
 
-i32 window_fbdev_open(struct window_fbdev *win,
+i32 window_dri_open(struct window_dri *win,
     const rect_t *area, const u32 flags)
 {
     win->closed = false;
@@ -97,11 +97,11 @@ skip_tty_raw_mode:
     return 0;
 
 err:
-    window_fbdev_close(win);
+    window_dri_close(win);
     return 1;
 }
 
-void window_fbdev_render_to_display(struct window_fbdev *win,
+void window_dri_render_to_display(struct window_dri *win,
     const struct pixel_flat_data *fb)
 {
     if (fb == NULL || fb->buf == NULL || win->mem == NULL) return;
@@ -134,7 +134,7 @@ void window_fbdev_render_to_display(struct window_fbdev *win,
     }
 }
 
-void window_fbdev_close(struct window_fbdev *win)
+void window_dri_close(struct window_dri *win)
 {
     if (win == NULL || win->closed) return;
 

@@ -41,7 +41,7 @@ static const char *keyboard_type_strings[N_KEYBOARD_TYPES] = {
 
 static const enum keyboard_type
 fallback_types[N_WINDOW_TYPES][N_KEYBOARD_TYPES] = {
-    [WINDOW_TYPE_FRAMEBUFFER] = {
+    [WINDOW_TYPE_DRI] = {
         KB_TYPE_EVDEV,
         KB_TYPE_TTY,
         KB_TYPE_FAIL
@@ -75,7 +75,7 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
     s_assert(kb != NULL, "calloc() failed for struct p_keyboard");
 
     enum window_type win_type;
-#define DEFAULT_WINDOW_FALLBACK_TYPE WINDOW_TYPE_FRAMEBUFFER
+#define DEFAULT_WINDOW_FALLBACK_TYPE WINDOW_TYPE_DRI
     if (win == NULL) {
         s_log_warn("Cannot get window metadata. Assuming window type is %s",
             window_type_strings[DEFAULT_WINDOW_FALLBACK_TYPE]);

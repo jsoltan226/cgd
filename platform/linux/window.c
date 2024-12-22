@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define P_INTERNAL_GUARD__
-#include "window-fbdev.h"
+#include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -49,20 +49,20 @@ struct p_window * p_window_open(const unsigned char *title,
         case WINDOW_TYPE_X11:
             if (window_X11_open(&win->x11, title, area, flags))
                 goto_error("Failed to open X11 window");
-            win->color_format = BGRA32;
+            win->color_format = BGRX32;
             win->ev_offset.x = 0;
             win->ev_offset.y = 0;
             break;
-        case WINDOW_TYPE_FRAMEBUFFER:
-            if (window_fbdev_open(&win->fbdev, area, flags))
-                goto_error("Failed to open framebuffer window");
+        case WINDOW_TYPE_DRI:
+            if (window_dri_open(&win->dri, area, flags))
+                goto_error("Failed to open DRI window");
             win->color_format = BGRX32;
             win->ev_offset.x = win->x;
             win->ev_offset.y = win->y;
             break;
         case WINDOW_TYPE_DUMMY:
             window_dummy_init(&win->dummy);
-            win->color_format = RGBA32;
+            win->color_format = RGBX32;
             break;
     }
     
@@ -84,8 +84,8 @@ void p_window_close(struct p_window **win_p)
         case WINDOW_TYPE_X11:
             window_X11_close(&win->x11);
             break;
-        case WINDOW_TYPE_FRAMEBUFFER:
-            window_fbdev_close(&win->fbdev);
+        case WINDOW_TYPE_DRI:
+            window_dri_close(&win->dri);
             break;
         case WINDOW_TYPE_DUMMY:
             window_dummy_destroy(&win->dummy);
@@ -104,8 +104,8 @@ void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
         case WINDOW_TYPE_X11:
             window_X11_render(&win->x11, fb);
             break;
-        case WINDOW_TYPE_FRAMEBUFFER:
-            window_fbdev_render_to_display(&win->fbdev, fb);
+        case WINDOW_TYPE_DRI:
+            window_dri_render_to_display(&win->dri, fb);
             break;
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */
@@ -138,5 +138,5 @@ static enum window_type detect_environment()
         return WINDOW_TYPE_X11;
 
     /* If nothing is detected, framebuffer dev is the only choice */
-    return WINDOW_TYPE_FRAMEBUFFER;
+    return WINDOW_TYPE_DRI;
 }

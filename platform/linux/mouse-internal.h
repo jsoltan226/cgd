@@ -41,7 +41,7 @@ static const enum mouse_type
         MOUSE_TYPE_X11,
         MOUSE_TYPE_FAIL
     },
-    [WINDOW_TYPE_FRAMEBUFFER] = {
+    [WINDOW_TYPE_DRI] = {
         MOUSE_TYPE_EVDEV,
         MOUSE_TYPE_FAIL
     },

@@ -10,7 +10,6 @@
 #include <core/int.h>
 #include <core/vector.h>
 #include <core/pressable-obj.h>
-#include <stdatomic.h>
 #include <xcb/xproto.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
@@ -25,12 +24,6 @@ enum keyboard_x11_key_event {
 struct keyboard_x11 {
     struct window_x11 *win;
     _Atomic volatile i8 key_events[P_KEYBOARD_N_KEYS];
-
-    struct {
-        VECTOR(i8) queue[P_KEYBOARD_N_KEYS];
-        p_mt_mutex_t mutex;
-        _Atomic bool empty;
-    } unprocessed_ev;
 };
 
 i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win);

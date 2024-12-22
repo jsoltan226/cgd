@@ -6,8 +6,6 @@
 #include <core/int.h>
 #include <core/math.h>
 #include <core/util.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdatomic.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
