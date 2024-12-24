@@ -45,6 +45,10 @@ static const enum mouse_type
         MOUSE_TYPE_EVDEV,
         MOUSE_TYPE_FAIL
     },
+    [WINDOW_TYPE_FBDEV] = {
+        MOUSE_TYPE_EVDEV,
+        MOUSE_TYPE_FAIL
+    },
     [WINDOW_TYPE_DUMMY] = {
         MOUSE_TYPE_FAIL
     }

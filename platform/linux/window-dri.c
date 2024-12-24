@@ -1,169 +1,292 @@
-#include "../window.h"
-#include <core/log.h>
-#include <core/math.h>
-#include <core/util.h>
-#include <core/pixel.h>
-#include <core/shapes.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <termios.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <linux/fb.h>
-#include <linux/mman.h>
-
+#define _GNU_SOURCE
 #define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "keyboard-tty.h"
-#undef P_INTERNAL_GUARD__
+#include <core/int.h>
+#include <core/log.h>
+#include <core/util.h>
+#include <core/pixel.h>
+#include <core/shapes.h>
+#include <core/vector.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <gbm.h>
 
 #define MODULE_NAME "window-dri"
 
-#define FBDEV_PATH "/dev/fb0"
-#define FBDEV_FALLBACK_PATH "/dev/graphics/fb0"
+#define DRI_DEV_DIR "/dev/dri"
+#define DRI_DEV_NAME_PREFIX "card"
 
-i32 window_dri_open(struct window_dri *win,
-    const rect_t *area, const u32 flags)
+static VECTOR(i32) open_available_devices(void);
+static i32 select_and_init_device(VECTOR(i32) fds, struct drm_device *dev);
+static drmModeConnectorPtr select_connector(i32 fd, u32 n_conns, u32 *conn_ids);
+static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
+    drmModeConnectorPtr conn);
+static i32 dri_dev_scandir_filter(const struct dirent *d);
+static void destroy_drm_device(struct drm_device *dev);
+
+i32 window_dri_open(struct window_dri *win, const rect_t *area, const u32 flags)
 {
-    win->closed = false;
-    win->tty_fd = -1;
+    VECTOR(i32) fds = NULL;
+    memset(win, 0, sizeof(struct window_dri));
 
-    win->fd = open(FBDEV_PATH, O_RDWR);
-    if (win->fd == -1) {
-        s_log_warn("Failed to open framebuffer device '%s': %s",
-            FBDEV_PATH, strerror(errno));
+    fds = open_available_devices();
+    if (fds == NULL)
+        goto_error("No available DRM devices were found.");
 
-        win->fd = open(FBDEV_FALLBACK_PATH, O_RDWR);
-        if (win->fd == -1)
-            goto_error("Failed to open fallback framebuffer device '%s': %s",
-                FBDEV_FALLBACK_PATH, strerror(errno));
-    }
+    if (select_and_init_device(fds, &win->dev))
+        goto_error("No suitable DRM devices could be selected.");
 
-    /* Make sure the display is on */
-    if (ioctl(win->fd, FBIOBLANK, FB_BLANK_UNBLANK))
-        goto_error("ioctl() failed: %s, make sure the display is on!", strerror(errno));
 
-    /* Read fixed screen info */
-    if (ioctl(win->fd, FBIOGET_FSCREENINFO, &win->fixed_info))
-        goto_error("Failed to get fixed screen info: %s", strerror(errno));
+    /* If we can't have graphics acceleration,
+     * we might as well fall back to window-fbdev lol */
+    win->gbm_dev = gbm_create_device(win->dev.fd);
+    if (win->gbm_dev == NULL)
+        goto_error("Failed to create gbm device.");
 
-    /* Read variable screen info */
-    if (ioctl(win->fd, FBIOGET_VSCREENINFO, &win->var_info))
-        goto_error("Failed to get variable screen info: %s", strerror(errno));
-
-    if (win->var_info.bits_per_pixel != 32)
-        goto_error("Unsupported display bits per pixel '%i'", win->var_info.bits_per_pixel);
-
-    win->mem_size = win->fixed_info.smem_len;
-    win->mem = mmap(0, win->mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->fd, 0);
-    if (win->mem == MAP_FAILED)
-        goto_error("Failed to mmap() framebuffer device to program memory: %s",
-            strerror(errno));
-
-    win->xres = win->var_info.xres;
-    win->yres = win->var_info.yres;
-    win->padding = (win->fixed_info.line_length / sizeof(u32)) - win->var_info.xres;
-
-    win->display_rect.x = 0;
-    win->display_rect.y = 0;
-    win->display_rect.w = win->xres;
-    win->display_rect.h = win->yres;
-
-    memcpy(&win->win_rect, area, sizeof(rect_t));
-    /* Handle P_WINDOW_POS_CENTERED flags */
-    if (flags & P_WINDOW_POS_CENTERED_X)
-        win->win_rect.x = abs((i32)win->xres - area->w) / 2;
-
-    if (flags & P_WINDOW_POS_CENTERED_Y)
-        win->win_rect.y = abs((i32)win->yres - area->h) / 2;
-
-    /* Set the terminal to raw mode to avoid echoing user input
-     * on the console */
-    win->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK);
-    if (win->tty_fd == -1) goto skip_tty_raw_mode;
-
-    (void) tty_keyboard_set_term_raw_mode(win->tty_fd,
-        &win->orig_term_config, NULL);
-skip_tty_raw_mode:
-
-    s_log_debug("%s() OK; Screen is %ux%u, with %upx of padding", __func__,
-        win->xres, win->yres, win->padding);
+    vector_destroy(&fds);
 
     return 0;
 
 err:
-    window_dri_close(win);
+    if (fds != NULL) vector_destroy(&fds);
     return 1;
-}
-
-void window_dri_render_to_display(struct window_dri *win,
-    const struct pixel_flat_data *fb)
-{
-    if (fb == NULL || fb->buf == NULL || win->mem == NULL) return;
-
-    rect_t dst = win->win_rect;
-    rect_clip(&dst, &win->display_rect);
-    /* "Project" the changes made to dst onto src */
-    rect_t src = {
-        .x = -(win->win_rect.x - dst.x),
-        .y = -(win->win_rect.y - dst.y),
-        .w = fb->w - (win->win_rect.w - dst.w),
-        .h = fb->h - (win->win_rect.h - dst.h),
-    };
-
-    for (u32 y = 0; y < src.h; y++) {
-        const u32 dst_offset = (
-            (dst.y + y) * (win->xres + win->padding)
-            + dst.x
-        ) * sizeof(pixel_t);
-        const u32 src_offset = (
-            ((src.y + y) * src.w)
-            + src.x 
-        );
-
-        memcpy(
-            win->mem + dst_offset, 
-            fb->buf + src_offset,
-            src.w * sizeof(pixel_t)
-        );
-    }
 }
 
 void window_dri_close(struct window_dri *win)
 {
-    if (win == NULL || win->closed) return;
-
-    s_log_debug("Closing framebuffer window...");
-    if (win->fd != -1) {
-        close(win->fd);
-        win->fd = -1;
+    if (win->gbm_dev != NULL) {
+        gbm_device_destroy(win->gbm_dev);
     }
-    if (win->mem != NULL) {
-        munmap(win->mem, win->mem_size);
-        win->mem = NULL;
-        win->mem_size = 0;
+    if (win->dev.initialized_) {
+        destroy_drm_device(&win->dev);
+    }
+    memset(win, 0, sizeof(struct window_dri));
+}
+
+void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb)
+{
+    // TODO
+}
+
+static VECTOR(i32) open_available_devices(void)
+{
+    struct dirent **namelist = NULL;
+    i32 n_dirents = scandir(DRI_DEV_DIR, &namelist,
+        &dri_dev_scandir_filter, &alphasort);
+    if (n_dirents == -1) {
+        s_log_error("Failed to scan directory \"%s\": %s",
+            DRI_DEV_DIR, strerror(errno));
+        return NULL;
+    } else if (n_dirents == 0) {
+        return NULL;
     }
 
-    if (win->tty_fd != -1) {
-        /* Restore the terminal configuration */
-        (void) tcsetattr(win->tty_fd, TCSANOW, &win->orig_term_config);
+    VECTOR(i32) devices = vector_new(i32);
 
-        /* Discard any characters written on stdin
-         * (Clear the command line) */
-        (void) tcflush(win->tty_fd, TCIOFLUSH);
+    for (u32 i = 0; i < n_dirents; i++) {
+        i32 fd = -1;
 
-        /* Close the tty file descriptor */
-        close(win->tty_fd);
-        win->tty_fd = -1;
+        const u32 pathbuf_size = u_strlen(DRI_DEV_DIR "/") +
+            strlen(namelist[i]->d_name) + 1;
+        char pathbuf[pathbuf_size];
+        (void) snprintf(pathbuf, pathbuf_size,
+            "%s/%s", DRI_DEV_DIR, namelist[i]->d_name);
+        pathbuf[pathbuf_size - 1] = '\0';
+
+        fd = open(pathbuf, O_RDWR);
+        if (fd == -1)
+            continue;
+
+        struct stat s;
+        if (fstat(fd, &s)) {
+            s_log_error("Can't stat \"%s\" (even after opening): %s",
+                pathbuf, strerror(errno));
+            close(fd);
+            continue;
+        }
+
+        if (!S_ISCHR(s.st_mode)) {
+            /* Not a character device */
+            close(fd);
+            continue;
+        }
+
+        vector_push_back(devices, fd);
     }
 
-    /* fb is supposed to be allocated on the stack, so no free() */
-    win->closed = true;
+    if (vector_size(devices) == 0) {
+        vector_destroy(&devices);
+        return NULL;
+    }
 
-    /* All members (that need resetting) are already reset properly */
+    return devices;
+}
+
+static i32 select_and_init_device(VECTOR(i32) fds, struct drm_device *dev)
+{
+    u32 top_score = 0;
+    struct drm_device curr_best_dev = { 0 }, tmp_dev = { 0 };
+    memset(dev, 0, sizeof(struct drm_device));
+
+    for (u32 i = 0; i < vector_size(fds); i++) {
+        memset(&tmp_dev, 0, sizeof(struct drm_device));
+        tmp_dev.initialized_ = true;
+        tmp_dev.fd = fds[i];
+
+        /* Get the resources */
+        drmModeResPtr res = drmModeGetResources(tmp_dev.fd);
+        if (res == NULL) {
+            destroy_drm_device(&tmp_dev);
+            continue;
+        }
+
+        /* Select the connector */
+        tmp_dev.conn = select_connector(tmp_dev.fd,
+            res->count_connectors, res->connectors);
+        if (tmp_dev.conn == NULL) {
+            destroy_drm_device(&tmp_dev);
+            continue;
+        }
+
+        /* Determine whether we should even proceed
+         * (the current option must be the best one) */
+        tmp_dev.width = tmp_dev.conn->modes[0].hdisplay;
+        tmp_dev.height = tmp_dev.conn->modes[0].vdisplay;
+        tmp_dev.refresh_rate = tmp_dev.conn->modes[0].vrefresh;
+
+        u32 score = tmp_dev.width * tmp_dev.height * tmp_dev.refresh_rate;
+        if (score <= top_score) {
+            destroy_drm_device(&tmp_dev);
+            continue;
+        }
+
+        /* Fina a suitable CRTC */
+        tmp_dev.crtc = find_crtc(tmp_dev.fd, res, tmp_dev.conn);
+        if (tmp_dev.crtc == NULL) {
+            destroy_drm_device(&tmp_dev);
+            continue;
+        }
+
+        memcpy(&curr_best_dev, &tmp_dev, sizeof(struct drm_device));
+    }
+
+    if (curr_best_dev.initialized_) {
+        memcpy(dev, &curr_best_dev, sizeof(struct drm_device));
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+static drmModeConnectorPtr select_connector(i32 fd, u32 n_conns, u32 *conn_ids)
+{
+    drmModeConnectorPtr ret = NULL;
+    u32 top_score = 0;
+
+    for (u32 i = 0; i < n_conns; i++) {
+        drmModeConnectorPtr conn = drmModeGetConnector(fd, conn_ids[i]);
+        if (conn == NULL)
+            continue;
+
+        if (conn->connection != DRM_MODE_CONNECTED)
+            continue;
+
+        /* Score = Resolution * Refresh Rate */
+        u32 score = conn->modes[0].hdisplay * conn->modes[0].vdisplay
+            * conn->modes[0].vrefresh;
+        if (score > top_score) {
+            if (ret != NULL)
+                drmModeFreeConnector(ret);
+            ret = conn;
+        } else {
+            drmModeFreeConnector(conn);
+        }
+    }
+
+    return ret;
+}
+
+static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
+    drmModeConnectorPtr conn)
+{
+    drmModeEncoderPtr enc = NULL;
+    drmModeCrtcPtr ret = NULL;
+
+    /* First, see if the connector's default encoder+CRTC are OK */
+    if (conn->encoder_id) {
+        enc = drmModeGetEncoder(fd, conn->encoder_id);
+        if (enc != NULL && enc->crtc_id) {
+            ret = drmModeGetCrtc(fd, enc->crtc_id);
+            if (ret != NULL) {
+                drmModeFreeEncoder(enc);
+                return ret;
+            }
+        }
+    }
+    if (enc != NULL) {
+        drmModeFreeEncoder(enc);
+        enc = NULL;
+    }
+
+    /* If no Encoder/CRTC was attached to the connector,
+     * find a suitable one in it's encoder list */
+    for (u32 i = 0; i < conn->count_encoders; i++) {
+        enc = drmModeGetEncoder(fd, conn->encoders[i]);
+        if (enc == NULL)
+            continue;
+
+        for (u32 crtc_id = 0; crtc_id < res->count_crtcs; crtc_id++) {
+            if (enc->possible_crtcs & (1 << crtc_id)) {
+                /* We found a compatible CRTC! Yay! */
+                ret = drmModeGetCrtc(fd, crtc_id);
+                if (ret != NULL) {
+                    drmModeFreeEncoder(enc);
+                    return ret;
+                }
+            }
+        }
+
+        drmModeFreeEncoder(enc);
+    }
+
+    return NULL;
+}
+
+static i32 dri_dev_scandir_filter(const struct dirent *d)
+{
+    return !strncmp(d->d_name, DRI_DEV_NAME_PREFIX,
+        u_strlen(DRI_DEV_NAME_PREFIX));
+}
+
+static void destroy_drm_device(struct drm_device *dev)
+{
+    if (dev == NULL) return;
+
+    if (dev->crtc != NULL) {
+        drmModeFreeCrtc(dev->crtc);
+        dev->crtc = NULL;
+    }
+    if (dev->conn != NULL) {
+        drmModeFreeConnector(dev->conn);
+        dev->conn = NULL;
+    }
+    if (dev->res != NULL) {
+        drmModeFreeResources(dev->res);
+        dev->res = NULL;
+    }
+    if (dev->fd != -1) {
+        close(dev->fd);
+        dev->fd = -1;
+    }
+
+    dev->width = dev->height = dev->refresh_rate = 0;
 }

@@ -41,13 +41,18 @@ static const char *keyboard_type_strings[N_KEYBOARD_TYPES] = {
 
 static const enum keyboard_type
 fallback_types[N_WINDOW_TYPES][N_KEYBOARD_TYPES] = {
+    [WINDOW_TYPE_X11] = {
+        KB_TYPE_X11,
+        KB_TYPE_FAIL
+    },
     [WINDOW_TYPE_DRI] = {
         KB_TYPE_EVDEV,
         KB_TYPE_TTY,
         KB_TYPE_FAIL
     },
-    [WINDOW_TYPE_X11] = {
-        KB_TYPE_X11,
+    [WINDOW_TYPE_FBDEV] = {
+        KB_TYPE_EVDEV,
+        KB_TYPE_TTY,
         KB_TYPE_FAIL
     },
     [WINDOW_TYPE_DUMMY] = {

@@ -8,16 +8,19 @@
 #include <stdlib.h>
 #include <string.h>
 #define P_INTERNAL_GUARD__
-#include "window-dri.h"
+#include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-dummy.h"
+#include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-internal.h"
+#include "window-fbdev.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
@@ -54,8 +57,18 @@ struct p_window * p_window_open(const unsigned char *title,
             win->ev_offset.y = 0;
             break;
         case WINDOW_TYPE_DRI:
-            if (window_dri_open(&win->dri, area, flags))
-                goto_error("Failed to open DRI window");
+            if (window_dri_open(&win->dri, area, flags)) {
+                s_log_warn("Failed to open DRI window. Falling back to fbdev.");
+                goto fbdev_init;
+            }
+            win->color_format = BGRX32;
+            win->ev_offset.x = win->x;
+            win->ev_offset.y = win->y;
+            break;
+        case WINDOW_TYPE_FBDEV:
+        fbdev_init:
+            if (window_fbdev_open(&win->fbdev, area, flags))
+                goto_error("Failed to open fbdev window");
             win->color_format = BGRX32;
             win->ev_offset.x = win->x;
             win->ev_offset.y = win->y;
@@ -63,6 +76,8 @@ struct p_window * p_window_open(const unsigned char *title,
         case WINDOW_TYPE_DUMMY:
             window_dummy_init(&win->dummy);
             win->color_format = RGBX32;
+            win->ev_offset.x = 0;
+            win->ev_offset.y = 0;
             break;
     }
     
@@ -87,6 +102,9 @@ void p_window_close(struct p_window **win_p)
         case WINDOW_TYPE_DRI:
             window_dri_close(&win->dri);
             break;
+        case WINDOW_TYPE_FBDEV:
+            window_fbdev_close(&win->fbdev);
+            break;
         case WINDOW_TYPE_DUMMY:
             window_dummy_destroy(&win->dummy);
             break;
@@ -105,8 +123,10 @@ void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
             window_X11_render(&win->x11, fb);
             break;
         case WINDOW_TYPE_DRI:
-            window_dri_render_to_display(&win->dri, fb);
+            window_dri_render(&win->dri, fb);
             break;
+        case WINDOW_TYPE_FBDEV:
+            window_fbdev_render_to_display(&win->fbdev, fb);
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */
             break;
@@ -137,6 +157,6 @@ static enum window_type detect_environment()
     if (getenv("DISPLAY"))
         return WINDOW_TYPE_X11;
 
-    /* If nothing is detected, framebuffer dev is the only choice */
+    /* If nothing is detected, DRI/fbdev are the only choices */
     return WINDOW_TYPE_DRI;
 }

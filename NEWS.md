@@ -13,3 +13,10 @@
         (for now that's just a name change, but I'm working on replacing
         the fbdev interface with the more modern DRI/KMS)
     * Started work on Vulkan and OpenGL renderers (out of tree)
+
+## NEWS for 24.12.2024
+* Added `window_dri_open` and `window_dri_close` in `platform/linux/window`
+    * Added the open and close functions for `window-dri`
+    * `window_dri_open` will select the best graphics card and pick it's best mode
+    * `window-fbdev` was kept as a fallback option for when `window-dri` fails
+    * Temporarily added `-ldrm` and `-lgbm` libs in the `Makefile` (just for the linux target)

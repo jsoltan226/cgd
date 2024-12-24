@@ -10,7 +10,12 @@ endif
 CC ?= cc
 CCLD ?= $(CC)
 
-COMMON_CFLAGS = -Wall -I. -pipe -fPIC -pthread
+INCLUDES ?=
+ifeq ($(PLATFORM), linux)
+INCLUDES += -I$(PREFIX)/include/libdrm
+endif
+
+COMMON_CFLAGS = -Wall -I. -pipe -fPIC -pthread $(INCLUDES)
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie
@@ -19,7 +24,7 @@ LDFLAGS += -municode -mwindows
 endif
 SO_LDFLAGS = -shared
 
-LIBS ?= -lm
+LIBS ?= -lm -ldrm -lgbm
 ifeq ($(TERMUX), 1)
 LIBS += $(PREFIX)/lib/libandroid-shmem.a -llog
 endif

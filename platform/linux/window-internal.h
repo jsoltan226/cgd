@@ -9,19 +9,23 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #define P_INTERNAL_GUARD__
+#include "window-x11.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "window-x11.h"
+#include "window-fbdev.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
 
-#define N_WINDOW_TYPES 3
+#define N_WINDOW_TYPES 4
 #define WINDOW_TYPE_LIST        \
     X_(WINDOW_TYPE_X11)         \
     X_(WINDOW_TYPE_DRI)         \
+    X_(WINDOW_TYPE_FBDEV)       \
     X_(WINDOW_TYPE_DUMMY)       \
 
 #define X_(name) name,
@@ -44,6 +48,7 @@ struct p_window {
     union {
         struct window_x11 x11;
         struct window_dri dri;
+        struct window_fbdev fbdev;
         struct window_dummy dummy;
     };
 
