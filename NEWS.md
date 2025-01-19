@@ -20,3 +20,20 @@
     * `window_dri_open` will select the best graphics card and pick it's best mode
     * `window-fbdev` was kept as a fallback option for when `window-dri` fails
     * Temporarily added `-ldrm` and `-lgbm` libs in the `Makefile` (just for the linux target)
+
+## NEWS for 19.01.2024
+* Fixed a critical bug (OOB write) in `vector_push_back` in `core/vector.c`
+    * `vector_increase_size__` (called in `vector_push_back`) calculated the new size
+        with the formula
+        `
+        if (n_items >= capacity)
+            capacity *= 2
+        `
+        If the capacity was zero, however, the `vector_push_back` function would not actually increase the size (0*2 = 0),
+        but would still try to write to the end as though there was an extra slot.
+        This is an OOB write, in a function used pretty much everywhere,
+        with the parameters sometimes controlled by the user, so basically an easy ACE condition.
+        The bug was triggered mainly by `p_event_send`/`p_event_poll`,
+        (The queue would often be emptied and the refilled again)
+        which is also where I spotted it.
+

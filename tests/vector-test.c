@@ -13,7 +13,6 @@ struct large_struct {
     u64 arr[16];
     const char *str;
 };
-
 #define N_LARGE_STRUCTS 32
 static const struct large_struct large_items[N_LARGE_STRUCTS];
 
@@ -153,13 +152,28 @@ static i32 test()
         goto_error("vector_shrink_to_fit test failed; expected value 0, got %u",
             vector_capacity(vector_cloned));
 
-    u32 vsmall_new_size = 1 + random_u32() % (N_SMALL_ITEMS - vsmall_n_popped_back - 1);
+    u32 vsmall_new_size = random_u32() % (N_SMALL_ITEMS - vsmall_n_popped_back - 1);
     s_log_debug("Testing vector_resize -> new_size %u and vector_at...",
         vsmall_new_size);
     vector_resize(vector_small, vsmall_new_size);
-    if (vector_back(vector_small) != vector_at(vector_small, vsmall_new_size - 1))
-        goto_error("vector_resize test failed; expected value %lu, got %lu",
-            vector_at(vector_small, vsmall_new_size), vector_back(vector_small));
+    if (vsmall_new_size > 0) {
+        if (vector_back(vector_small) != vector_at(vector_small, vsmall_new_size - 1))
+            goto_error("vector_resize test failed; expected value %lu, got %lu",
+                vector_at(vector_small, vsmall_new_size), vector_back(vector_small));
+    } else {
+        s_log_debug("Testing vector_push_back when size is 0");
+        vsmall_pushed_val = random_u32();
+        vector_push_back(vector_small, vsmall_pushed_val);
+        if (vector_size(vector_small) != 1) {
+            goto_error("Invalid vector size %u (expected 1)",
+                vector_size(vector_small));
+        } else if (vector_at(vector_small, 0) != vsmall_pushed_val) {
+            goto_error("vector_push_back failed: pushed value mismatch "
+                "(expected %u, got %u)",
+                vsmall_pushed_val, vector_at(vector_small, 0)
+            );
+        }
+    }
 
 err:
     if (vector_small != NULL) vector_destroy(&vector_small);

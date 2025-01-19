@@ -40,11 +40,17 @@ void * vector_increase_size__(void *v)
     vector_meta_t *meta = get_metadata_ptr(v);
 
     if (meta->n_items >= meta->capacity) {
-        v = vector_realloc__(v, meta->capacity * 2);
+        u32 new_cap = meta->capacity;
+        if (new_cap > 0)
+            new_cap *= 2;
+        else
+            new_cap++;
+
+        v = vector_realloc__(v, new_cap);
 
         /* `meta` might have been moved by `realloc()` */
         meta = get_metadata_ptr(v);
-        meta->capacity *= 2;
+        meta->capacity = new_cap;
     }
 
     meta->n_items++;
@@ -56,7 +62,7 @@ void * vector_pop_back__(void *v)
     if (v == NULL) return NULL;
 
     vector_meta_t *meta = get_metadata_ptr(v);
-    /* Do nothing if vector is empty */
+    /* Do nothing if the vector is empty */
     if (meta->n_items == 0) return v;
 
     meta->n_items--;
@@ -65,7 +71,6 @@ void * vector_pop_back__(void *v)
     if (meta->n_items <= (meta->capacity / 2)) {
         v = vector_realloc__(v, meta->capacity / 2);
         meta = get_metadata_ptr(v);
-        meta->capacity /= 2;
     }
 
     return v;
@@ -156,7 +161,10 @@ void * vector_realloc__(void *v, u32 new_cap)
     new_v = realloc(meta_p,
         (new_cap * meta_p->item_size) + sizeof(vector_meta_t));
 
+
     s_assert(new_v != NULL, "realloc() failed!");
+    meta_p = new_v;
+    meta_p->capacity = new_cap;
 
     new_v += sizeof(vector_meta_t);
     return new_v;
@@ -164,14 +172,21 @@ void * vector_realloc__(void *v, u32 new_cap)
 
 void * vector_resize__(void *v, u32 new_size)
 {
-    u_check_params(v != NULL && new_size > 0);
+    u_check_params(v != NULL && new_size >= 0);
+
+    vector_meta_t *meta = get_metadata_ptr(v);
+
+    /* Clean up the items that are to be cut off */
+    if (new_size < meta->capacity)
+        memset(element_at(v, new_size), 0, 
+            (meta->capacity - new_size) * meta->item_size
+        );
 
     v = vector_realloc__(v, new_size);
     if (v == NULL)
         return NULL;
 
-    vector_meta_t *meta = get_metadata_ptr(v);
-    meta->capacity = new_size;
+    meta = get_metadata_ptr(v);
     meta->n_items = u_min(new_size, meta->n_items);
 
     return v;
