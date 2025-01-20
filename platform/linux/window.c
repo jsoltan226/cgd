@@ -32,6 +32,12 @@ struct p_window * p_window_open(const unsigned char *title,
 {
     u_check_params(area != NULL);
 
+    if (flags & P_WINDOW_TYPE_DUMMY && flags & P_WINDOW_REQUIRE_ACCELERATED) {
+        s_log_error("Contradicting flags: %s and %s",
+            "P_WINDOW_TYPE_DUMMY", "P_WINDOW_REQUIRED_ACCELERATED");
+        return NULL;
+    }
+
     struct p_window *win = calloc(1, sizeof(struct p_window));
     s_assert(win != NULL, "calloc() failed for struct window!");
 
@@ -59,6 +65,7 @@ struct p_window * p_window_open(const unsigned char *title,
         case WINDOW_TYPE_DRI:
             if (window_dri_open(&win->dri, area, flags)) {
                 s_log_warn("Failed to open DRI window. Falling back to fbdev.");
+                win->type = WINDOW_TYPE_FBDEV;
                 goto fbdev_init;
             }
             win->color_format = BGRX32;
@@ -74,7 +81,8 @@ struct p_window * p_window_open(const unsigned char *title,
             win->ev_offset.y = win->y;
             break;
         case WINDOW_TYPE_DUMMY:
-            window_dummy_init(&win->dummy);
+            if (window_dummy_init(&win->dummy, flags))
+                goto_error("Failed to init dummy window");
             win->color_format = RGBX32;
             win->ev_offset.x = 0;
             win->ev_offset.y = 0;
@@ -116,7 +124,14 @@ void p_window_close(struct p_window **win_p)
 
 void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
 {
-    u_check_params(win != NULL && fb != NULL);
+    u_check_params(win != NULL);
+
+    if (fb != NULL) {
+        s_assert(win->w == fb->w && win->h == fb->h,
+            "Provided buffer has invalid dimensions "
+            "(window: %ux%u, buf: %ux%u)",
+            win->w, win->h, fb->w, fb->h);
+    }
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
@@ -148,6 +163,49 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->color_format = win->color_format;
 
     return 0;
+}
+
+/* From `window-internal.h` */
+void window_set_acceleration(struct p_window *win,
+    enum window_acceleration val)
+{
+    u_check_params(win != NULL);
+
+    switch (val) {
+    case WINDOW_ACCELERATION_NONE:
+        break;
+    case WINDOW_ACCELERATION_EGL_OPENGL:
+        if (win->gpu_acceleration == WINDOW_ACCELERATION_EGL_OPENGL) {
+            s_log_warn("Attempt to enable EGL/OpenGL acceleration twice. "
+                "Not doing anything.");
+            break;
+        } else if (win->gpu_acceleration != WINDOW_ACCELERATION_NONE) {
+            s_log_fatal(MODULE_NAME, __func__,
+                "Attempt to enable gpu acceleration while another "
+                "acceleration mode is still active. Stop.");
+        }
+        break;
+    case WINDOW_ACCELERATION_VULKAN:
+        s_log_fatal(MODULE_NAME, __func__,
+            "Vulkan acceleration not implemented yet");
+    default:
+        s_log_fatal(MODULE_NAME, __func__,
+            "Invalid parameters (`val`: %)", val);
+    }
+
+    switch (win->type) {
+    case WINDOW_TYPE_X11:
+        window_X11_set_acceleration(&win->x11, val);
+        break;
+    case WINDOW_TYPE_DRI:
+        window_dri_set_acceleration(&win->dri, val);
+        break;
+    case WINDOW_TYPE_FBDEV:
+    case WINDOW_TYPE_DUMMY:
+        s_assert(val == WINDOW_ACCELERATION_NONE,
+            "Dummy and fbdev windows don't support GPU acceleration!");
+        break;
+    }
 }
 
 static enum window_type detect_environment()

@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "../time.h"
 #include "../event.h"
 #include "../thread.h"
 #include <core/int.h>
@@ -72,6 +73,14 @@ void p_event_send(const struct p_event *ev)
         default:
             if (g_event_queue == NULL)
                 setup_event_queue(true);
+
+            struct p_event tmp_ev;
+            memcpy(&tmp_ev, ev, sizeof(struct p_event));
+            p_time(&tmp_ev.time);
+            /*
+            s_log_debug("new event type %u, data %u, time %u.%u",
+                tmp_ev.type, tmp_ev.info, tmp_ev.time.s, tmp_ev.time.ns);
+            */
             vector_push_back(g_event_queue, *ev);
             break;
     }

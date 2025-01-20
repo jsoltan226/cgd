@@ -9,11 +9,14 @@
 struct p_window;
 
 enum p_window_flags {
-    P_WINDOW_TYPE_NORMAL        = 1 << 0,
-    P_WINDOW_TYPE_DUMMY         = 1 << 3,
+    P_WINDOW_TYPE_NORMAL            = 1 << 0,
+    P_WINDOW_TYPE_DUMMY             = 1 << 3,
 
-    P_WINDOW_POS_CENTERED_X     = 1 << 10,
-    P_WINDOW_POS_CENTERED_Y     = 1 << 11,
+    P_WINDOW_POS_CENTERED_X         = 1 << 10,
+    P_WINDOW_POS_CENTERED_Y         = 1 << 11,
+
+    P_WINDOW_PREFER_ACCELERATED     = 1 << 20,
+    P_WINDOW_REQUIRE_ACCELERATED    = 1 << 21,
 };
 #define P_WINDOW_POS_CENTERED_XY \
     (P_WINDOW_POS_CENTERED_X | P_WINDOW_POS_CENTERED_Y)

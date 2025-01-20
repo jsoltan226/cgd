@@ -10,7 +10,7 @@
 struct window_dummy {
 };
 
-void window_dummy_init(struct window_dummy *win);
+i32 window_dummy_init(struct window_dummy *win, const u32 flags);
 void window_dummy_destroy(struct window_dummy *win);
 
 #endif /* WINDOW_DUMMY_H_ */

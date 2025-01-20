@@ -31,7 +31,7 @@ struct p_lib {
     VECTOR(struct sym) syms;
 };
 
-struct p_lib * p_librtld_load(const char *libname, const char **symnames)
+struct p_lib * p_librtld_load(const char *libname, const char *const *symnames)
 {
     u_check_params(libname != NULL && symnames != NULL);
 

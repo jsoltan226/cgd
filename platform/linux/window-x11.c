@@ -31,6 +31,9 @@
 #define P_INTERNAL_GUARD__
 #include "window-x11-events.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-internal.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window-x11"
 
@@ -296,8 +299,13 @@ void window_X11_close(struct window_x11 *win)
 
 void window_X11_render(struct window_x11 *win, struct pixel_flat_data *fb)
 {
-    u_check_params(win != NULL && fb != NULL &&
-        fb->buf != NULL && fb->w > 0 && fb->h > 0);
+    u_check_params(win != NULL);
+
+    if (win->gpu_acceleration != WINDOW_ACCELERATION_NONE)
+        return;
+
+    s_assert(fb != NULL && fb->buf != NULL && fb->w > 0 && fb->h > 0,
+        "No framebuffer provided for software rendering");
 
     if (win->shm_attached) {
         memcpy(win->shm_info.shmaddr,
@@ -373,6 +381,14 @@ void window_X11_deregister_mouse(struct window_x11 *win)
 {
     u_check_params(win != NULL);
     win->registered_mouse = NULL;
+}
+
+void window_X11_set_acceleration(struct window_x11 *win, i32 val_i32)
+{
+    enum window_acceleration val = val_i32;
+
+    u_check_params(win != NULL && val >= 0 && val < WINDOW_ACCELERATION_MAX_);
+    win->gpu_acceleration = val;
 }
 
 static i32 init_fb(struct window_x11 *win, u32 fb_w, u32 fb_h)

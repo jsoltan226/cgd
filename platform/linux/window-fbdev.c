@@ -30,6 +30,10 @@
 i32 window_fbdev_open(struct window_fbdev *win,
     const rect_t *area, const u32 flags)
 {
+    if (flags & P_WINDOW_REQUIRE_ACCELERATED)
+        goto_error("GPU acceleration requried, "
+            "but fbdev windows don't support it.");
+
     win->closed = false;
     win->tty_fd = -1;
 
@@ -97,7 +101,7 @@ skip_tty_raw_mode:
     return 0;
 
 err:
-    window_fbdev_close(win);
+    /* window_fbdev_close() will be called in p_window_close() */
     return 1;
 }
 
@@ -108,6 +112,7 @@ void window_fbdev_render_to_display(struct window_fbdev *win,
 
     rect_t dst = win->win_rect;
     rect_clip(&dst, &win->display_rect);
+
     /* "Project" the changes made to dst onto src */
     rect_t src = {
         .x = -(win->win_rect.x - dst.x),

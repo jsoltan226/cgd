@@ -1,0 +1,44 @@
+#ifndef P_OPENGL_LOAD_H_
+#define P_OPENGL_LOAD_H_
+
+#include "window.h"
+#include <core/int.h>
+#include <GL/gl.h>
+
+#define P_OPENGL_FUNCTIONS_LIST                                             \
+    X_(void, glViewport, GLint x, GLint y, GLsizei width, GLsizei height)   \
+    X_(void, glClearColor,                                                  \
+        GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha         \
+    )                                                                       \
+    X_(void, glClear, GLbitfield mask)                                      \
+
+struct p_opengl_ctx;
+
+#define X_(return_type, name, ...) return_type (*name)(__VA_ARGS__);
+struct p_opengl_functions {
+    P_OPENGL_FUNCTIONS_LIST
+};
+#undef X_
+
+/* Make these defines only visible to the OpenGL Loader sources */
+#ifndef P_OPENGL_LOADER_INTERNAL_GUARD__
+#undef P_OPENGL_FUNCTIONS_LIST
+#endif /* P_OPENGL_LOADER_INTERNAL_GUARD__ */
+
+/* Create an OpenGL context and bind it to `win`.
+ * In case of failure, NULL is returned. */
+struct p_opengl_ctx * p_opengl_create_context(struct p_window *win);
+
+/* Retrieve the OpenGL function pointers from `ctx` into `o`.
+ * Returns 0 on success and non-zero on failure. */
+i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
+    struct p_opengl_functions *o);
+
+/* Display the contents of the buffer to the window to which `ctx` is bound */
+void p_opengl_swap_buffers(struct p_opengl_ctx *ctx);
+
+/* Destroy (and unbind) the context that `ctx_p` points to,
+ * and set the value of `*ctx_p` to NULL. */
+void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p);
+
+#endif /* OPENGL_LOAD_H_ */

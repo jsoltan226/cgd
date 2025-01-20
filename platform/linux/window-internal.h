@@ -20,21 +20,29 @@
 #define P_INTERNAL_GUARD__
 #include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-acceleration.h"
+#undef P_INTERNAL_GUARD__
 
 #define N_WINDOW_TYPES 4
-#define WINDOW_TYPE_LIST        \
-    X_(WINDOW_TYPE_X11)         \
-    X_(WINDOW_TYPE_DRI)         \
-    X_(WINDOW_TYPE_FBDEV)       \
-    X_(WINDOW_TYPE_DUMMY)       \
+#define WINDOW_TYPE_LIST    \
+    X_(X11,     0)          \
+    X_(DRI,     1)          \
+    X_(FBDEV,   2)          \
+    X_(DUMMY,   3)          \
 
-#define X_(name) name,
+#define X_(name, id) WINDOW_TYPE_##name = id,
 enum window_type {
     WINDOW_TYPE_LIST
 };
 #undef X_
+#define X_(name, id) WINDOW_BIT_##name = 1 << id,
+enum window_bit {
+    WINDOW_TYPE_LIST
+};
+#undef X_
 
-#define X_(name) #name,
+#define X_(name, id) "WINDOW_TYPE_" #name,
 static const char * const window_type_strings[N_WINDOW_TYPES] = {
     WINDOW_TYPE_LIST
 };
@@ -53,9 +61,19 @@ struct p_window {
     };
 
     pixelfmt_t color_format;
-
     vec2d_t ev_offset;
+    enum window_acceleration gpu_acceleration;
 };
+
+static inline enum window_acceleration
+window_get_acceleration(struct p_window *win)
+{
+    return win->gpu_acceleration;
+}
+
+/* Implemented in `platform/linux/window.c` */ 
+void window_set_acceleration(struct p_window *win,
+    enum window_acceleration val);
 
 #undef WINDOW_TYPE_LIST
 #endif /* WINDOW_INTERNAL_H_ */

@@ -41,7 +41,7 @@ struct p_lib;
  *  <prefix><filename><ext>.<version_string>
  * On windows, it's like this:
  *  <prefix><filename>-<version_string><ext>
- * 
+ *
  * Notice the '-' in windows and '.' in linux - they won't get inserted there
  * at all if `version_string` is NULL.
  *
@@ -65,14 +65,14 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
  * Returns NULL on failure - either if the library itself can't be loaded,
  * or if AT LEAST ONE of the symbols in `symnames` fails to be retrieved.
  */
-struct p_lib * p_librtld_load(const char *libname, const char **symnames);
+struct p_lib * p_librtld_load(const char *libname, const char *const *symnames);
 
 /* (Try to) load a symbol named `symname` from the shared library `lib`.
  *
  * The function first tries to look up the symbol in the library's sym list.
  * If nothing matching the `symname` is found there, it proceeds to trying
  * to load it from the shared library file itself.
- * 
+ *
  * Then, if no symbol can be retrieved (most likely it doesn't exist),
  * NULL is returned. Otherwise, the function pointer is stored in `lib`'s
  * symbol list, and then returned.
