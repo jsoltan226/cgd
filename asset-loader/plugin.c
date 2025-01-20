@@ -62,7 +62,7 @@ i32 asset_load_all_plugins()
     for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
         if (plugin_registry[i].is_loaded)
             continue;
-        
+
         n_failed += 0x1 & load_plugin(&plugin_registry[i]);
     }
 
@@ -117,7 +117,7 @@ static i32 load_plugin(struct asset_plugin *p)
         s_log_error("Failed to load plugin \"%s\".", p->name);
         return 1;
     }
-    
+
     p->is_loaded = true;
 
     return 0;
@@ -138,7 +138,7 @@ static struct asset_plugin * lookup_by_type(enum asset_img_type type)
      * No need for mutex locking. */
     for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
         current = &plugin_registry[i];
-        if (type == current->handles_type && 
+        if (type == current->handles_type &&
             (match == NULL || current->priority >= match->priority)
         ) {
             match = current;

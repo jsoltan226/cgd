@@ -125,7 +125,7 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
 
         pthread_mutex_destroy(&m->mutex_handle);
     }
-    
+
     /* Also sets `m->initialized` to false */
     memset(m, 0, sizeof(struct p_mt_mutex));
     u_nfree(mutex_p);

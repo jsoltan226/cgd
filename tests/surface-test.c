@@ -4,7 +4,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <core/pressable-obj.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/event.h>
 #include <platform/window.h>
 #include <platform/keyboard.h>
@@ -145,7 +145,7 @@ int cgd_main(int argc, char **argv)
         if (down_key->down) scale -= 0.1;
 
         /* Should display the image in 1:1 scale with the actual src,
-         * right in the middle of the window */ 
+         * right in the middle of the window */
         /* Tests `unscaled_unconverted_blit` */
         r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_1);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_1));
@@ -169,7 +169,7 @@ int cgd_main(int argc, char **argv)
          * the rest should be cut off by the window border */
         r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_4);
         r_draw_rect(rctx, rect_arg_expand(SURFACE_DSTRECT_4));
- 
+
         /* Should display nothing; the dst width is 0 */
         r_surface_render(rctx, asset->surface, NULL, &SURFACE_DSTRECT_5);
         /* Should display nothing; the dst height is negative */

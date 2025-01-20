@@ -75,7 +75,7 @@ struct Menu * menu_init(
     i = 0;
     while (cfg->event_listener_info[i].magic == MENU_CONFIG_MAGIC && i < MENU_CONFIG_MAX_LEN) {
         struct event_listener_config tmp_cfg = { 0 };
-        memcpy(&tmp_cfg, &cfg->event_listener_info[i].event_listener_cfg, 
+        memcpy(&tmp_cfg, &cfg->event_listener_info[i].event_listener_cfg,
             sizeof(struct event_listener_config));
 
         switch(cfg->event_listener_info[i].event_listener_cfg.type) {

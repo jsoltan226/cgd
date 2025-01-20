@@ -30,7 +30,7 @@ struct p_lib * p_librtld_load(const char *libname, const char *const *symnames)
     struct p_lib *lib = p_librtld_load_lib_explicit(libname, NULL, NULL, NULL);
     if (lib == NULL)
         goto err;
-    
+
     u32 i = 0;
     while (symnames[i] != NULL) {
         if (p_librtld_load_sym(lib, symnames[i]) == NULL)
@@ -64,7 +64,7 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
 
     if (suffix == NULL) suffix = DEFAULT_SUFFIX;
     total_so_name_size += strlen(suffix);
-    
+
     if (version_string != NULL)
         total_so_name_size += strlen(version_string) + u_strlen(".");
 

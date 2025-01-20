@@ -1,6 +1,6 @@
 #include <core/int.h>
 #include <core/log.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <stdlib.h>
 
 #define MODULE_NAME "time-test"

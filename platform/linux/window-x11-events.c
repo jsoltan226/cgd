@@ -134,7 +134,7 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             button_bits |= P_MOUSE_MIDDLEBUTTONMASK;
         if (ev.button_press->detail == 3)
             button_bits |= P_MOUSE_RIGHTBUTTONMASK;
-  
+
         atomic_store(&mouse->button_bits, button_bits);
 
         break;
@@ -152,7 +152,7 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
             button_bits &= ~P_MOUSE_MIDDLEBUTTONMASK;
         if (ev.button_release->detail == 3)
             button_bits &= ~P_MOUSE_RIGHTBUTTONMASK;
-  
+
         atomic_store(&mouse->button_bits, button_bits);
 
         break;

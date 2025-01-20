@@ -2,7 +2,7 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/event.h>
 #include <platform/opengl.h>
 #include <platform/window.h>
@@ -13,9 +13,10 @@
 #include <sys/cdefs.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#define MODULE_NAME "vktest-main"
 
-#define WINDOW_TITLE ((const unsigned char *)"vktest")
+#define MODULE_NAME "render-test"
+
+#define WINDOW_TITLE ((const unsigned char *)"render-test")
 #define WINDOW_AREA (&(const rect_t) { 0, 0, 500, 500 })
 #define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 

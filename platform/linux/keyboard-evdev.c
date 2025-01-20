@@ -40,7 +40,7 @@ i32 evdev_keyboard_init(struct keyboard_evdev *kb)
 
     kb->poll_fds = vector_new(struct pollfd);
     vector_reserve(kb->poll_fds, vector_size(kb->kbdevs));
-    
+
     for (u32 i = 0; i < vector_size(kb->kbdevs); i++) {
         vector_push_back(kb->poll_fds, (struct pollfd) {
             .fd = kb->kbdevs[i].fd,
@@ -98,7 +98,7 @@ void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
      *
      * During that moment, the pressable_obj is not updated in the above loop,
      * and so the key is reported to be "down" for many ticks,
-     * which should not happen. 
+     * which should not happen.
      *
      * Therefore, we need to update the keys
      * that are held (but not getting any events) ourselves.
@@ -122,7 +122,7 @@ static void read_keyevents_from_evdev(i32 fd,
         if (n_bytes_read <= 0) { /* Either no data was read or some other error */
             return;
         } else if (n_bytes_read != sizeof(struct input_event)) {
-            s_log_fatal(MODULE_NAME, __func__, 
+            s_log_fatal(MODULE_NAME, __func__,
                     "Read %i bytes from event device, expected size is %i. "
                     "The linux input driver is probably broken...",
                     n_bytes_read, sizeof(struct input_event));
@@ -144,7 +144,7 @@ static void read_keyevents_from_evdev(i32 fd,
         }
 
         if (p_kb_keycode == -1) return; /* Unsupported key press */
-        
+
         /* ev.value = 0: key released
          * ev.value = 1: key pressed
          * ev.value = 2: key held

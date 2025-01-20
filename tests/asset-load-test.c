@@ -5,7 +5,7 @@
 #include <asset-loader/io-PNG.h>
 #include <asset-loader/plugin.h>
 #include <asset-loader/asset.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/window.h>
 #include <stdio.h>
 #include <stdlib.h>

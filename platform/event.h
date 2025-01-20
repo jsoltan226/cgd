@@ -1,7 +1,7 @@
 #ifndef P_EVENT_H_
 #define P_EVENT_H_
 
-#include "time.h"
+#include "ptime.h"
 #include <core/int.h>
 #include <stdbool.h>
 

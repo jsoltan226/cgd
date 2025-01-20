@@ -1,6 +1,6 @@
 #include <core/log.h>
 #include <core/util.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/event.h>
 #include <platform/window.h>
 #include <platform/keyboard.h>
@@ -61,7 +61,7 @@ int cgd_main(int argc, char **argv)
         s_log_debug("Received QUIT event. Exiting...");
     else
         s_log_debug("Key 'Q' Pressed. Exiting...");
-    
+
     p_keyboard_destroy(&kb);
     r_ctx_destroy(&rctx);
     p_window_close(&win);

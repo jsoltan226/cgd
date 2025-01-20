@@ -69,7 +69,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     /** CALL MAIN **/
     int ret = cgd_main(argc, argv);
-    
+
     /** CLEANUP **/
     for (u32 i = 0; i < argc; i++)
         free(argv[i]);

@@ -105,7 +105,7 @@ void r_surface_blit(struct r_surface *dst, const struct r_surface *src,
     /* The scale must be calculated before clipping the rects */
     const f32 scale_x = (f32)final_src_rect.w / (f32)final_dst_rect.w;
     const f32 scale_y = (f32)final_src_rect.h / (f32)final_dst_rect.h;
-    
+
     /* Clip the rects to make sure we don't read or write out of bounds */
     rect_t tmp = final_dst_rect;
     rect_clip(&final_dst_rect, &dst->data_rect);

@@ -1,14 +1,13 @@
 #define _GNU_SOURCE
-#define _POSIX_C_SOURCE 199309L
-#include "../event.h"
-#include "../window.h"
-#include "../librtld.h"
 #define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-acceleration.h"
 #undef P_INTERNAL_GUARD__
+#include "../event.h"
+#include "../window.h"
+#include "../librtld.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
@@ -592,7 +591,7 @@ static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
 {
     memset(egl_rctx, 0, sizeof(struct egl_render_ctx));
     egl_rctx->initialized_ = true;
-    
+
     atomic_store(&egl_rctx->buffers_swapped, false);
 
     egl_rctx->surface = gbm->gbm_surface_create(gbm_dev,
@@ -760,7 +759,7 @@ static void window_dri_render_egl(struct window_dri *win)
     }
 
     /* Get the new front buffer... */
-    struct gbm_bo *bo = 
+    struct gbm_bo *bo =
         win->gbm.gbm_surface_lock_front_buffer(win->render.egl.surface);
     s_assert(bo != NULL, "Failed to lock GBM front buffer");
     win->render.egl.next_bo = bo;

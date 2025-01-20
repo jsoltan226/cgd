@@ -59,7 +59,7 @@ struct p_mouse * p_mouse_init(struct p_window *win)
 mouse_setup_success:
     s_log_info("%s() OK, mouse type is \"%s\"",
         __func__, mouse_type_strings[m->type]);
-    
+
     return m;
 
 err:

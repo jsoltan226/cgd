@@ -1,4 +1,4 @@
-#include "../time.h"
+#include "../ptime.h"
 #include "core/util.h"
 #include <core/int.h>
 #include <core/log.h>
@@ -74,7 +74,7 @@ i64 p_time_delta_us(const timestamp_t *t0)
     timestamp_t o = { 0 }, t1 = { 0 };
     p_time_get_ticks(&t1);
     timestamp_delta(o, *t0, t1);
-    
+
     return (o.s * 1000000) + (o.ns / 1000);
 }
 
@@ -85,7 +85,7 @@ i64 p_time_delta_ms(const timestamp_t *t0)
     timestamp_t o = { 0 }, t1 = { 0 };
     p_time_get_ticks(&t1);
     timestamp_delta(o, *t0, t1);
-    
+
     return (o.s * 1000) + (o.ns / 1000000);
 }
 

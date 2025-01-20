@@ -34,7 +34,7 @@ i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
 
     if (window_X11_register_keyboard(win, kb))
         goto_error("Failed to register the keyboard");
-    
+
     return 0;
 
 err:

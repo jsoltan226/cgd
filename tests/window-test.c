@@ -1,7 +1,7 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/shapes.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/event.h>
 #include <platform/window.h>
 #include <render/rctx.h>

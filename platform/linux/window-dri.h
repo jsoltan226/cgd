@@ -50,7 +50,7 @@
     X_(struct gbm_device *, gbm_create_device, int fd)                      \
     X_(struct gbm_surface *, gbm_surface_create,                            \
         struct gbm_device *gbm, uint32_t width, uint32_t height,            \
-		uint32_t format, uint32_t flags                                     \
+        uint32_t format, uint32_t flags                                     \
     )                                                                       \
     X_(void, gbm_surface_destroy, struct gbm_surface *surface)              \
     X_(struct gbm_bo *, gbm_bo_create,                                      \

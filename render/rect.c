@@ -19,7 +19,7 @@ void r_draw_rect(struct r_ctx *ctx,
     const i32 u_w, const i32 u_h)
 {
     if (ctx == NULL || u_w < 0 || u_h < 0) return;
-    
+
     const u32 start_x = u_clamp(0, u_x,        ctx->render_buffer->w - 1);
     const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->render_buffer->w - 1);
     const u32 start_y = u_clamp(0, u_y,        ctx->render_buffer->h - 1);
@@ -63,9 +63,9 @@ void r_fill_rect(struct r_ctx *ctx,
     const i32 u_x, const i32 u_y,
     const i32 u_w, const i32 u_h)
 {
-    
+
     if (ctx == NULL || u_w < 0 || u_h < 0) return;
-    
+
     const u32 start_x = u_clamp(0, u_x,        ctx->render_buffer->w - 1);
     const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->render_buffer->w - 1);
     const u32 start_y = u_clamp(0, u_y,        ctx->render_buffer->h - 1);

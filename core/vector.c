@@ -178,7 +178,7 @@ void * vector_resize__(void *v, u32 new_size)
 
     /* Clean up the items that are to be cut off */
     if (new_size < meta->capacity)
-        memset(element_at(v, new_size), 0, 
+        memset(element_at(v, new_size), 0,
             (meta->capacity - new_size) * meta->item_size
         );
 
@@ -213,7 +213,7 @@ void * vector_clone(void *v)
 void vector_free__(void *v)
 {
     if (v == NULL) return;
-    
+
     vector_meta_t *meta_ptr = get_metadata_ptr(v);
 
     /* Reset the entire vector, including the metadata */

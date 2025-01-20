@@ -99,7 +99,7 @@ struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
 
     if (init_egl(&ctx->egl, win))
         goto_error("Failed to initialize EGL.");
-    
+
     if (load_opengl_functions(&ctx->functions, ctx->egl.fns.eglGetProcAddress))
         goto_error("Failed to load OpenGL functions.");
 
@@ -122,7 +122,7 @@ i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
 void p_opengl_swap_buffers(struct p_opengl_ctx *ctx)
 {
     u_check_params(ctx != NULL && ctx->bound_win != NULL);
-    
+
     EGLBoolean r = ctx->egl.fns.eglSwapBuffers(ctx->egl.dpy, ctx->egl.surface);
     s_assert(r != EGL_FALSE, "Failed to swap buffers: %s",
         egl_get_last_error(&ctx->egl));
@@ -214,7 +214,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
         cfg, (void *)native_window, NULL);
     if (egl->surface == EGL_NO_SURFACE)
         goto_error("Failed to create EGL surface: %s", egl_get_last_error(egl));
- 
+
     EGLint ctx_attr_list[] = {
         EGL_CONTEXT_MAJOR_VERSION, 3,
         EGL_CONTEXT_MINOR_VERSION, 3,
@@ -278,7 +278,7 @@ static i32 check_egl_support(const struct egl_ctx *egl, enum window_bit *o)
             "by this EGL implementation.");
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -315,7 +315,7 @@ static const char * egl_get_last_error(const struct egl_ctx *egl)
 
         EGL_ERROR_LIST_
 #undef X_
-        
+
         default:
             memset(unknown_err_buf, 0, UNKNOWN_ERR_BUF_SIZE);
             snprintf(unknown_err_buf, UNKNOWN_ERR_BUF_SIZE - 1,
@@ -397,7 +397,7 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
     P_OPENGL_FUNCTIONS_LIST
 
 #undef X_
-    
+
     s_log_debug("Successfully loaded %u OpenGL function(s).", n_loaded);
 
     return 0;

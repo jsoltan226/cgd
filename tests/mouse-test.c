@@ -4,7 +4,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <core/vector.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <platform/mouse.h>
 #include <platform/event.h>
 #include <platform/window.h>

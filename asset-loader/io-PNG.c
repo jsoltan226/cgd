@@ -348,7 +348,7 @@ i32 load_libPNG()
         NULL
     };
 #undef X_
-    
+
     libPNG = p_librtld_load(LIBPNG_NAME, sym_names);
     if (libPNG == NULL) {
         p_mt_mutex_unlock(&libPNG_mutex);
@@ -378,9 +378,9 @@ void close_libPNG()
 
 i32 is_PNG(FILE *fp)
 {
-    static const u8 PNG_MAGIC[PNG_MAGIC_SIZE] = 
+    static const u8 PNG_MAGIC[PNG_MAGIC_SIZE] =
         { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
-    
+
     u8 hdr_buf[PNG_MAGIC_SIZE] = { 0 };
 
     if (fread(hdr_buf, 1, PNG_MAGIC_SIZE, fp) != PNG_MAGIC_SIZE)

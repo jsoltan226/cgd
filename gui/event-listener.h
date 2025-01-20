@@ -32,7 +32,7 @@ struct event_listener_config {
         enum p_mouse_button button_type;
         enum p_keyboard_keycode keycode;
     } target_info;
-    
+
     struct on_event_obj on_event;
 };
 

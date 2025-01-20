@@ -2,7 +2,7 @@
 #include "config.h"
 #include "main-loop.h"
 #include <core/log.h>
-#include <platform/time.h>
+#include <platform/ptime.h>
 #include <stdlib.h>
 #include <stdbool.h>
 

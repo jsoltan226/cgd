@@ -84,7 +84,7 @@ i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
 {
     u_check_params(orig_termios_o != NULL && fd != -1);
     struct termios tmp = { 0 };
-    
+
     /* Get the terminal configuration */
     tcgetattr(fd, orig_termios_o);
 
@@ -99,7 +99,7 @@ i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
     tmp.c_lflag &= ~(ICANON | ECHO);
     tmp.c_iflag &= ~(IXON | ICRNL);
     tcsetattr(fd, TCSANOW, &tmp);
-    
+
     /* Make sure that the changes were all successfully applied */
     struct termios chk = { 0 };
     tcgetattr(fd, &chk);
@@ -137,7 +137,7 @@ static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE
         buf[MAX_ESC_SEQUENCE_LEN - 1] = 0;
         return ret;
     }
-    
+
     char *chr_p = buf;
 
     char tmp_buf[MAX_ESC_SEQUENCE_LEN] = { 0 };
@@ -172,8 +172,8 @@ static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE
 
 static enum p_keyboard_keycode parse_standard_char(char c)
 {
-    if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');   
-    if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');   
+    if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');
+    if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');
     if (c >= 'a' && c <= 'z') return KB_KEYCODE_A + (c - 'a');
     if (c >= 'A' && c <= 'Z') return KB_KEYCODE_A + (c - 'A'); // shift mask not implemented yet
 

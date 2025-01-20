@@ -71,7 +71,7 @@ window_get_acceleration(struct p_window *win)
     return win->gpu_acceleration;
 }
 
-/* Implemented in `platform/linux/window.c` */ 
+/* Implemented in `platform/linux/window.c` */
 void window_set_acceleration(struct p_window *win,
     enum window_acceleration val);
 

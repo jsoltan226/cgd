@@ -467,7 +467,7 @@ static i32 check_xinput2_extension(struct window_x11 *win)
     else if (reply->major_version < 2) return 1;
 
     u_nzfree(&reply);
-    
+
     return 0;
 }
 
@@ -491,7 +491,7 @@ static i32 get_master_input_devices(
     bool found_keyboard = false, found_mouse = false;
     while (iterator.rem > 0 && !(found_keyboard && found_mouse)) {
         xcb_input_xi_device_info_t *device_info = iterator.data;
-        
+
         if (device_info->type == XCB_INPUT_DEVICE_TYPE_MASTER_KEYBOARD) {
             *master_keyboard_id = device_info->deviceid;
             found_keyboard = true;
@@ -554,7 +554,7 @@ err:
 static void detach_shm(struct window_x11 *win)
 {
     if (!win->shm_attached) return;
-    
+
     (void) win->xcb.shm.xcb_shm_detach(win->conn, win->shm_info.shmseg);
 
     if (win->shm_info.shmaddr != (void *)-1) {

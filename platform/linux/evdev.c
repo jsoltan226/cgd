@@ -63,7 +63,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
         } else if (r > 0) { /* Opening succeeded but type checks failed */
             continue;
         }
-        
+
         s_log_debug("Found %s: %s (%s)",
             evdev_type_strings[type], tmp.path, tmp.name
         );
@@ -126,7 +126,7 @@ i32 evdev_load(const char *rel_path, struct evdev *out, enum evdev_type type)
     out->fd = open(out->path, O_RDONLY | O_NONBLOCK);
     if (out->fd == -1) {
         /* Don't spam the user with 'Permission denied' errors
-         * 
+         *
          * Not having permission to read /dev/input/eventXX is the usual case,
          * but the user might think something is wrong when they get
          * a full screen of error messages
@@ -209,7 +209,7 @@ static bool keyboard_check(i32 fd, const char *evdev_path)
         KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
         KEY_SPACE, KEY_ESC, KEY_ENTER, KEY_BACKSPACE, KEY_TAB
     };
-    
+
     return ev_bit_check(key_bits, u_arr_size(key_bits),
             key_checks, u_arr_size(key_checks));
 }

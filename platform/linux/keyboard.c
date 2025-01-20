@@ -62,7 +62,7 @@ fallback_types[N_WINDOW_TYPES][N_KEYBOARD_TYPES] = {
 
 struct p_keyboard {
     enum keyboard_type type;
-    
+
     union {
         struct keyboard_evdev evdev;
         struct keyboard_tty tty;

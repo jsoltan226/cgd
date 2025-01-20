@@ -132,7 +132,7 @@ static void read_mouse_events_from_evdev(i32 fd,
         if (n_bytes_read <= 0) { /* Either no data was read or some other error */
             return;
         } else if (n_bytes_read != sizeof(struct input_event)) {
-            s_log_fatal(MODULE_NAME, __func__, 
+            s_log_fatal(MODULE_NAME, __func__,
                     "Read %i bytes from event device, expected size is %i. "
                     "The linux input driver is probably broken...",
                     n_bytes_read, sizeof(struct input_event));
