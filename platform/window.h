@@ -35,4 +35,8 @@ void p_window_close(struct p_window **win_p);
 
 i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out);
 
+/* Only works for windows that use software rendering.
+ * Returns the current back buffer on success and `NULL` on failure. */
+struct pixel_flat_data * p_window_swap_buffers(struct p_window *win);
+
 #endif /* P_WINDOW_H_ */

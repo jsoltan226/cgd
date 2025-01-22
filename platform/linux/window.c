@@ -11,6 +11,9 @@
 #include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
+#include "wm.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
@@ -21,6 +24,9 @@
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-dummy.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-acceleration.h"
 #undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
@@ -68,6 +74,13 @@ struct p_window * p_window_open(const unsigned char *title,
                 win->type = WINDOW_TYPE_FBDEV;
                 goto fbdev_init;
             }
+            if (wm_init(&win->wm, win)) {
+                s_log_warn("Failed to initialize the window manager "
+                    "for a DRI window. Falling back to fbdev.");
+                wm_destroy(&win->wm);
+                win->type = WINDOW_TYPE_FBDEV;
+                goto fbdev_init;
+            }
             win->color_format = BGRX32;
             win->ev_offset.x = win->x;
             win->ev_offset.y = win->y;
@@ -76,6 +89,8 @@ struct p_window * p_window_open(const unsigned char *title,
         fbdev_init:
             if (window_fbdev_open(&win->fbdev, area, flags))
                 goto_error("Failed to open fbdev window");
+            if (wm_init(&win->wm, win))
+                goto_error("Failed to initialize the window manager.");
             win->color_format = BGRX32;
             win->ev_offset.x = win->x;
             win->ev_offset.y = win->y;
@@ -138,10 +153,9 @@ void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
             window_X11_render(&win->x11, fb);
             break;
         case WINDOW_TYPE_DRI:
-            window_dri_render(&win->dri, fb);
-            break;
         case WINDOW_TYPE_FBDEV:
-            window_fbdev_render_to_display(&win->fbdev, fb);
+            wm_draw_all(&win->wm, fb);
+            break;
         case WINDOW_TYPE_DUMMY:
             /* Do nothing, it's a dummy lol */
             break;
@@ -163,6 +177,23 @@ i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
     out->color_format = win->color_format;
 
     return 0;
+}
+
+/* Only works for windows that use software rendering.
+ * Returns the current back buffer on success and `NULL` on failure. */
+struct pixel_flat_data * p_window_swap_buffers(struct p_window *win)
+{
+    if (win->gpu_acceleration != WINDOW_ACCELERATION_NONE)
+        return NULL;
+
+    switch (win->type) {
+        case WINDOW_TYPE_X11: return NULL;
+        case WINDOW_TYPE_DRI: return NULL;
+        case WINDOW_TYPE_FBDEV: return window_fbdev_swap_buffers(&win->fbdev);
+        case WINDOW_TYPE_DUMMY: return NULL;
+    }
+
+    return NULL;
 }
 
 /* From `window-internal.h` */
@@ -216,5 +247,5 @@ static enum window_type detect_environment()
         return WINDOW_TYPE_X11;
 
     /* If nothing is detected, DRI/fbdev are the only choices */
-    return WINDOW_TYPE_DRI;
+    return WINDOW_TYPE_FBDEV;
 }

@@ -6,10 +6,8 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include <core/int.h>
+#include <core/pixel.h>
 #include <core/shapes.h>
-#define P_INTERNAL_GUARD__
-#include "window-internal.h"
-#undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-acceleration.h"
 #undef P_INTERNAL_GUARD__
@@ -43,14 +41,16 @@ struct wm {
 i32 wm_init(struct wm *wm, struct p_window *win);
 void wm_destroy(struct wm *wm);
 
+void wm_draw_client(struct wm *wm, const struct pixel_flat_data *frame);
 void wm_draw_decorations(struct wm *wm);
-void wm_draw_cursor(struct wm *wm);
 void wm_draw_borders(struct wm *wm);
+void wm_draw_cursor(struct wm *wm);
 
-#define wm_draw_all(wm) do {    \
-    wm_draw_decorations(wm);    \
-    wm_draw_cursor(wm);         \
-    wm_draw_borders(wm);        \
+#define wm_draw_all(wm, frame) do { \
+    wm_draw_client(wm, frame);      \
+    wm_draw_decorations(wm);        \
+    wm_draw_borders(wm);            \
+    wm_draw_cursor(wm);             \
 } while (0)
 
 #endif /* WINDOW_MANAGER_H_ */

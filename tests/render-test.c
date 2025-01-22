@@ -23,9 +23,8 @@
 static FILE *log_fp = NULL;
 static struct p_window *win = NULL;
 static struct p_opengl_ctx *gl_ctx = NULL;
-static struct pixel_flat_data sw_ren_test_buf = { 0 };
 
-static i32 opengl_test(void);
+static __attribute_maybe_unused__ i32 opengl_test(void);
 static i32 software_test(void);
 
 static void cleanup_log(void);
@@ -47,14 +46,13 @@ int cgd_main(int argc, char **argv)
         goto_error("Failed to open the window. Stop.");
 
     if (software_test()) goto err;
-    if (opengl_test()) goto err;
+    //if (opengl_test()) goto err;
 
     s_log_info("Closing the window...");
     p_window_close(&win);
 
     return EXIT_SUCCESS;
 err:
-    if (sw_ren_test_buf.buf != NULL) u_nfree(&sw_ren_test_buf.buf);
     if (gl_ctx != NULL) p_opengl_destroy_context(&gl_ctx);
     if (win != NULL) p_window_close(&win);
     return EXIT_FAILURE;
@@ -124,18 +122,18 @@ err:
 static i32 software_test(void)
 {
     s_log_info("Initializing the software rendering test...");
-    sw_ren_test_buf.w = WINDOW_AREA->w;
-    sw_ren_test_buf.h = WINDOW_AREA->h;
-    const u32 size = sw_ren_test_buf.w * sw_ren_test_buf.h * sizeof(pixel_t);
-    sw_ren_test_buf.buf = malloc(size);
-    if (sw_ren_test_buf.buf == NULL)
-        goto_error("Failed to allocate the sw rendering test buffer. Stop.");
+    struct pixel_flat_data *back_buf = p_window_swap_buffers(win);
+    if (back_buf == NULL)
+        goto_error("Failed to swap buffers. Stop.");
+    const u32 size = back_buf->w * back_buf->h * sizeof(pixel_t);
 
     struct p_event ev;
 
     /* Fill the buffer with white pixels */
-    memset(sw_ren_test_buf.buf, (u8)255, size);
-    p_window_render(win, &sw_ren_test_buf);
+    memset(back_buf->buf, (u8)255, size);
+    back_buf = p_window_swap_buffers(win);
+    if (back_buf == NULL)
+        goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -145,8 +143,10 @@ static i32 software_test(void)
     }
 
     /* Fill the buffer with black pixels */
-    memset(sw_ren_test_buf.buf, (u8)0, size);
-    p_window_render(win, &sw_ren_test_buf);
+    memset(back_buf->buf, (u8)0, size);
+    back_buf = p_window_swap_buffers(win);
+    if (back_buf == NULL)
+        goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -156,8 +156,11 @@ static i32 software_test(void)
     }
 
     /* Fill just the first half of the buffer with white pixels */
-    memset(sw_ren_test_buf.buf, (u8)255, size / 2);
-    p_window_render(win, &sw_ren_test_buf);
+    memset(back_buf->buf, (u8)0, size);
+    memset(back_buf->buf, (u8)255, size / 2);
+    back_buf = p_window_swap_buffers(win);
+    if (back_buf == NULL)
+        goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -167,9 +170,11 @@ static i32 software_test(void)
     }
 
     /* Fill the second first half of the buffer with white pixels */
-    memset(sw_ren_test_buf.buf, (u8)255, size);
-    memset(sw_ren_test_buf.buf, (u8)0, size / 2);
-    p_window_render(win, &sw_ren_test_buf);
+    memset(back_buf->buf, (u8)255, size);
+    memset(back_buf->buf, (u8)0, size / 2);
+    back_buf = p_window_swap_buffers(win);
+    if (back_buf == NULL)
+        goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -177,9 +182,6 @@ static i32 software_test(void)
                 ev.info.page_flip_status);
         }
     }
-
-    s_log_info("Cleaning up the software rendering test...");
-    u_nfree(&sw_ren_test_buf.buf);
 
     return 0;
 

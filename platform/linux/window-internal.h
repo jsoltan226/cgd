@@ -9,6 +9,9 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #define P_INTERNAL_GUARD__
+#include "wm.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
@@ -59,6 +62,7 @@ struct p_window {
         struct window_fbdev fbdev;
         struct window_dummy dummy;
     };
+    struct wm wm; /* Only used by `fbdev` and `dri` */
 
     pixelfmt_t color_format;
     vec2d_t ev_offset;
