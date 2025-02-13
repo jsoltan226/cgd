@@ -9,9 +9,10 @@ typedef struct timestamp {
 } timestamp_t;
 
 /* Store the amount of time elapsed from `t0` to `t1` in `o` */
-#define timestamp_delta(o, t0, t1) do { \
-    (o).ns = (t1).ns - (t0).ns;         \
-    (o).s = (t1).s - (t0).s;            \
+#define timestamp_delta(o, t0, t1) do {     \
+    (o).ns = (t1).ns - (t0).ns;             \
+    (o).s = (t1).s - (t0).s;                \
+    (o).ns += ((o).ns < 0) * 1000000000L;   \
 } while (0)
 
 /* Retrieve the current UNIX time into `o`.

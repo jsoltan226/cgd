@@ -34,11 +34,13 @@ struct p_opengl_ctx * p_opengl_create_context(struct p_window *win);
 i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
     struct p_opengl_functions *o);
 
-/* Display the contents of the buffer to the window to which `ctx` is bound */
-void p_opengl_swap_buffers(struct p_opengl_ctx *ctx);
+/* Swap the buffers in `ctx` and perform a page flip on the window `win`.
+ * Note that `win` must be the same window with which `ctx` was created. */
+void p_opengl_swap_buffers(struct p_opengl_ctx *ctx, struct p_window *win);
 
 /* Destroy (and unbind) the context that `ctx_p` points to,
  * and set the value of `*ctx_p` to NULL. */
-void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p);
+void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
+    struct p_window *win);
 
 #endif /* OPENGL_LOAD_H_ */

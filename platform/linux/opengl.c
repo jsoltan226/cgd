@@ -8,6 +8,7 @@
 #define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
+#include "../window.h"
 #include "../librtld.h"
 #include <core/int.h>
 #include <core/log.h>
@@ -62,7 +63,11 @@ struct egl_functions {
 
 struct p_opengl_ctx {
     struct p_opengl_functions functions;
-    struct p_window *bound_win;
+
+    /* Only used in `p_opengl_swap_buffers` and `p_opengl_destroy_context`
+     * to check that the provided window is the same with which the context
+     * was created, so it can be read-only */
+    const struct p_window *bound_win;
 
     struct egl_ctx {
         struct p_lib *lib;
@@ -95,7 +100,8 @@ struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
     s_assert(ctx != NULL, "calloc() failed for new OpenGL context");
 
     ctx->bound_win = win;
-    window_set_acceleration(ctx->bound_win, WINDOW_ACCELERATION_EGL_OPENGL);
+    if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL))
+        goto_error("Failed to set window acceleration to OpenGL.");
 
     if (init_egl(&ctx->egl, win))
         goto_error("Failed to initialize EGL.");
@@ -106,7 +112,7 @@ struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
     return ctx;
 
 err:
-    p_opengl_destroy_context(&ctx);
+    p_opengl_destroy_context(&ctx, win);
     return NULL;
 }
 
@@ -119,27 +125,45 @@ i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
     return 0;
 }
 
-void p_opengl_swap_buffers(struct p_opengl_ctx *ctx)
+void p_opengl_swap_buffers(struct p_opengl_ctx *ctx, struct p_window *win)
 {
-    u_check_params(ctx != NULL && ctx->bound_win != NULL);
+    u_check_params(ctx != NULL && win != NULL);
+    if (ctx->bound_win != win) {
+        s_log_error("Attempt to swap buffers with the wrong window.");
+        return;
+    }
 
     EGLBoolean r = ctx->egl.fns.eglSwapBuffers(ctx->egl.dpy, ctx->egl.surface);
     s_assert(r != EGL_FALSE, "Failed to swap buffers: %s",
         egl_get_last_error(&ctx->egl));
 
-    if (ctx->bound_win->type == WINDOW_TYPE_DRI)
-        window_dri_set_egl_buffers_swapped(&ctx->bound_win->dri);
+    switch (ctx->bound_win->type) {
+    case WINDOW_TYPE_X11: break;
+    case WINDOW_TYPE_DRI:
+        window_dri_set_egl_buffers_swapped(&win->dri);
+        window_dri_render(&win->dri, NULL);
+        break;
+    case WINDOW_TYPE_FBDEV:
+    case WINDOW_TYPE_DUMMY:
+        break; /* Not supported */
+    }
 }
 
-void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p)
+void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
+    struct p_window *win)
 {
     if (ctx_p == NULL || *ctx_p == NULL) return;
     struct p_opengl_ctx *ctx = *ctx_p;
 
+    if (ctx->bound_win != win) {
+        s_log_error("Attempt to destroy context with the wrong window.");
+        return;
+    }
+
     terminate_egl(&ctx->egl);
 
     if (ctx->bound_win != NULL)
-        window_set_acceleration(ctx->bound_win, WINDOW_ACCELERATION_NONE);
+        p_window_set_acceleration(win, P_WINDOW_ACCELERATION_NONE);
 
     memset(ctx, 0, sizeof(struct p_opengl_ctx));
     u_nfree(ctx_p);

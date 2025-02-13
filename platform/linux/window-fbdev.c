@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <termios.h>
+#include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
@@ -37,16 +38,20 @@ static void * window_fbdev_listener_fn(void *arg);
 static void empty_handler(i32 sig_num);
 static void write_to_fb(void *map, const u32 stride, const rect_t *display_rect,
     const rect_t *win_rect, const struct pixel_flat_data *pixels);
+static i32 post_sem_if_blocked(sem_t *sem);
 
 i32 window_fbdev_open(struct window_fbdev *win,
     const rect_t *area, const u32 flags)
 {
+    memset(win, 0, sizeof(struct window_fbdev));
+    win->closed = false;
+    win->tty_fd = -1;
+
     if (flags & P_WINDOW_REQUIRE_ACCELERATED)
         goto_error("GPU acceleration requried, "
             "but fbdev windows don't support it.");
-
-    win->closed = false;
-    win->tty_fd = -1;
+    else if (flags & P_WINDOW_PREFER_ACCELERATED)
+        s_log_warn("Acceleration not supported for fbdev windows.");
 
     win->fd = open(FBDEV_PATH, O_RDWR);
     if (win->fd == -1) {
@@ -133,21 +138,24 @@ i32 window_fbdev_open(struct window_fbdev *win,
         goto_error("Failed to wait for vsync: %s", strerror(errno));
 
     /* Allocate the buffers */
-    win->back_buffer.w = win->listener.front_buffer.w = win->xres;
-    win->back_buffer.h = win->listener.front_buffer.h = win->yres;
+    win->back_buffer.w = win->front_buffer.w = win->win_rect.w;
+    win->back_buffer.h = win->front_buffer.h = win->win_rect.h;
     const u64 n_pixels = win->xres * win->yres;
     win->back_buffer.buf = calloc(n_pixels, sizeof(pixel_t));
-    win->listener.front_buffer.buf = calloc(n_pixels, sizeof(pixel_t));
-    if (win->back_buffer.buf == NULL || win->listener.front_buffer.buf == NULL)
+    win->front_buffer.buf = calloc(n_pixels, sizeof(pixel_t));
+    if (win->back_buffer.buf == NULL || win->front_buffer.buf == NULL)
         goto_error("Failed to allocate the pixel buffers");
 
     /* Init the listener thread */
+    if (sem_init(&win->listener.page_flip_pending, 0, 0))
+        goto_error("Failed to init the page flip semaphore");
+    atomic_store(&win->listener.front_buffer_p, NULL);
+    win->listener.map_p = &win->mem;
+
     win->listener.fd_p = &win->fd;
     win->listener.win_rect_p = &win->win_rect;
     win->listener.display_rect_p = &win->display_rect;
-    win->listener.map_p = &win->mem;
     win->listener.stride_p = &win->stride;
-    atomic_store(&win->listener.page_flip_pending, false);
 
     /* Always returns 0 */
     (void) pthread_mutex_init(&win->listener.buf_mutex, NULL);
@@ -210,10 +218,11 @@ kill_thread:
     }
 
     (void) pthread_mutex_destroy(&win->listener.buf_mutex);
+    (void) sem_destroy(&win->listener.page_flip_pending);
 
     /* Free the pixel buffers */
-    if (win->listener.front_buffer.buf != NULL)
-        u_nfree(&win->listener.front_buffer.buf);
+    if (win->front_buffer.buf != NULL)
+        u_nfree(&win->front_buffer.buf);
     if (win->back_buffer.buf != NULL)
         u_nfree(&win->back_buffer.buf);
 
@@ -247,23 +256,39 @@ kill_thread:
     win->closed = true;
 }
 
-void window_fbdev_render(struct window_fbdev *win,
-    const struct pixel_flat_data *pixels)
-{
-}
-
-struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win)
+/* Swaps the buffers and informs the listener thread to perform a page flip */
+struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
+    const enum p_window_present_mode present_mode)
 {
     if (win == NULL) return NULL;
 
-    /* If a page flip is in progress, wait for it to finish */
+    /* If another page flip is in progress, wait for it to finish */
     pthread_mutex_lock(&win->listener.buf_mutex);
-    atomic_store(&win->listener.page_flip_pending, true);
 
-    /* We can just swap the buffers themselves as the metadata stays the same */
-    pixel_t *new_back_buffer = win->listener.front_buffer.buf;
-    win->listener.front_buffer.buf = win->back_buffer.buf;
+    /* We can just swap the pointers themselves since the metadata
+     * (width and height) is the same bor both buffers */
+    pixel_t *new_back_buffer = win->front_buffer.buf;
+    win->front_buffer.buf = win->back_buffer.buf;
     win->back_buffer.buf = new_back_buffer;
+
+    /* If vsync is on, let the listener thread do the rendering
+     * when it receives a vblank event.
+     * Otherwise, just copy the front buffer to the screen. */
+    switch (present_mode) {
+    case P_WINDOW_PRESENT_VSYNC:
+        atomic_store(&win->listener.front_buffer_p, &win->front_buffer);
+        if (post_sem_if_blocked(&win->listener.page_flip_pending)) {
+            s_log_error("Failed to post the page flip semaphore");
+            pthread_mutex_unlock(&win->listener.buf_mutex);
+            return NULL;
+        }
+        break;
+    case P_WINDOW_PRESENT_NOW:
+        write_to_fb(win->mem, win->stride, &win->display_rect, &win->win_rect,
+            &win->front_buffer);
+        break;
+    }
+
     pthread_mutex_unlock(&win->listener.buf_mutex);
 
     return &win->back_buffer;
@@ -279,14 +304,17 @@ static void write_to_fb(void *map, const u32 stride, const rect_t *display_rect,
     memcpy(&area, win_rect, sizeof(rect_t));
     rect_clip(&area, display_rect);
 
+    const u32 src_x_offset = win_rect->x < area.x ? area.x - win_rect->x : 0;
+    const u32 src_y_offset = win_rect->y < area.y ? area.y - win_rect->y : 0;
+
     for (u32 y = 0; y < area.h; y++) {
         const u32 dst_offset = (
             ((area.y + y) * stride)
             + area.x
         ) * sizeof(pixel_t);
         const u32 src_offset = (
-            ((area.y + y) * pixels->w)
-            + area.x
+            (src_y_offset + y) * pixels->w
+            + src_x_offset
         );
 
         memcpy(
@@ -333,32 +361,41 @@ static void * window_fbdev_listener_fn(void *arg)
         "Failed to set the SIGUSR1 handler: %s", strerror(errno));
 
     while (atomic_load(&listener->running)) {
-        if (atomic_load(&listener->page_flip_pending)) {
-            pthread_mutex_lock(&listener->buf_mutex);
-            timestamp_t start;
-            p_time_get_ticks(&start);
-            write_to_fb(*listener->map_p, *listener->stride_p,
-                listener->display_rect_p, listener->win_rect_p,
-                &listener->front_buffer);
-            atomic_store(&listener->page_flip_pending, false);
-            s_log_debug("memcpy took %lu micro-seconds", p_time_delta_us(&start));
-            pthread_mutex_unlock(&listener->buf_mutex);
-
-            /* Inform everyone that a page flip has occured */
-            const struct p_event ev = {
-                .type = P_EVENT_PAGE_FLIP,
-                .info.page_flip_status = 0,
-            };
-            p_event_send(&ev);
-
-            i32 dummy = 0;
-            if (ioctl(*listener->fd_p, FBIO_WAITFORVSYNC, &dummy)) {
-                if (errno == EINTR) /* Interrupted by signal */
-                    continue;
-                else
-                    s_log_error("Failed to wait for vsync: %s", strerror(errno));
+        if (sem_wait(&listener->page_flip_pending)) {
+            if (errno == EINTR) continue; /* Interrupted by signal */
+            else {
+                s_log_error("Failed to wait on the page flip semaphore: %s",
+                    strerror(errno));
+                break;
             }
         }
+        pthread_mutex_lock(&listener->buf_mutex);
+
+        /* Wait for VSync */
+        i32 dummy = 0;
+        if (ioctl(*listener->fd_p, FBIO_WAITFORVSYNC, &dummy)) {
+            if (errno == EINTR) /* Interrupted by signal */
+                continue;
+            else
+                s_log_error("Failed to wait for vsync: %s", strerror(errno));
+        }
+
+        write_to_fb(*listener->map_p, *listener->stride_p,
+            listener->display_rect_p, listener->win_rect_p,
+            atomic_load(&listener->front_buffer_p));
+
+        atomic_store(&listener->front_buffer_p, NULL);
+        pthread_mutex_unlock(&listener->buf_mutex);
+
+        timestamp_t time;
+        p_time(&time);
+
+        /* Inform everyone that a page flip has occured */
+        const struct p_event ev = {
+            .type = P_EVENT_PAGE_FLIP,
+            .info.page_flip_status = 0,
+        };
+        p_event_send(&ev);
     }
 
     pthread_exit(NULL);
@@ -367,4 +404,23 @@ static void * window_fbdev_listener_fn(void *arg)
 static void empty_handler(i32 sig_num)
 {
     (void) sig_num;
+}
+
+static i32 post_sem_if_blocked(sem_t *sem)
+{
+    i32 value = 0;
+    if (sem_getvalue(sem, &value)) {
+        s_log_error("Failed to get the value of a semaphore: %s",
+            strerror(errno));
+        return 1;
+    }
+
+    if (value == 0) {
+        if (sem_post(sem)) {
+            s_log_error("Failed to post a semaphore: %s", strerror(errno));
+            return 1;
+        }
+    }
+
+    return 0;
 }

@@ -176,7 +176,7 @@ void r_surface_render(struct r_ctx *rctx, const struct r_surface *src,
     u_check_params(rctx != NULL && src != NULL);
 
     struct r_surface tmp_rctx_surface;
-    memcpy(&tmp_rctx_surface.data, rctx->render_buffer,
+    memcpy(&tmp_rctx_surface.data, rctx->curr_buf,
         sizeof(struct pixel_flat_data));
     memcpy(&tmp_rctx_surface.data_rect, &rctx->pixels_rect, sizeof(rect_t));
 

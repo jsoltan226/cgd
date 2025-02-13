@@ -5,6 +5,7 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
+#include "../window.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
@@ -22,9 +23,6 @@
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-dummy.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "window-acceleration.h"
 #undef P_INTERNAL_GUARD__
 
 #define N_WINDOW_TYPES 4
@@ -66,18 +64,8 @@ struct p_window {
 
     pixelfmt_t color_format;
     vec2d_t ev_offset;
-    enum window_acceleration gpu_acceleration;
+    enum p_window_acceleration gpu_acceleration;
 };
-
-static inline enum window_acceleration
-window_get_acceleration(struct p_window *win)
-{
-    return win->gpu_acceleration;
-}
-
-/* Implemented in `platform/linux/window.c` */
-void window_set_acceleration(struct p_window *win,
-    enum window_acceleration val);
 
 #undef WINDOW_TYPE_LIST
 #endif /* WINDOW_INTERNAL_H_ */

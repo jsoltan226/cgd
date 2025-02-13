@@ -2,9 +2,6 @@
 #define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "window-acceleration.h"
-#undef P_INTERNAL_GUARD__
 #include "../event.h"
 #include "../window.h"
 #include "../librtld.h"
@@ -150,18 +147,19 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area, const u32 flags)
         win->win_rect.y = (win->display_rect.h - win->win_rect.h) / 2;
 
     /* By default, initialize software rendering (no acceleration) */
-    win->accelerated = WINDOW_ACCELERATION_UNSET;
-    window_dri_set_acceleration(win, WINDOW_ACCELERATION_NONE);
+    win->acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_NONE))
+        goto_error("Failed to init software rendering");
 
     /* Initialize the listener thread */
     win->listener.fd_p = &win->dev.fd;
-    win->listener.accelerated_p = &win->accelerated;
+    win->listener.acceleration_p = &win->acceleration;
     win->listener.drm = &win->drm;
     win->listener.gbm = &win->gbm;
-
+    win->listener.render_ctx = &win->render;
     atomic_store(&win->listener.page_flip_pending, false);
     atomic_store(&win->listener.running, true);
-    win->listener.render_ctx = &win->render;
+
     i32 ret = pthread_create(&win->listener.thread, NULL,
         window_dri_listener_fn, &win->listener);
     if (ret != 0) {
@@ -216,14 +214,14 @@ kill_thread:
     }
 
     /* Clean up of acceleration-specific stuff */
-    switch (win->accelerated) {
-        case WINDOW_ACCELERATION_NONE:
+    switch (win->acceleration) {
+        case P_WINDOW_ACCELERATION_NONE:
             render_destroy_software(&win->render.sw, &win->drm, &win->gbm);
             break;
-        case WINDOW_ACCELERATION_EGL_OPENGL:
+        case P_WINDOW_ACCELERATION_OPENGL:
             render_destroy_egl(&win->render.egl, &win->gbm);
             break;
-        case WINDOW_ACCELERATION_VULKAN:
+        case P_WINDOW_ACCELERATION_VULKAN:
         default:
             break;
     }
@@ -245,7 +243,7 @@ kill_thread:
 
 void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb)
 {
-    if (win->accelerated == WINDOW_ACCELERATION_EGL_OPENGL) {
+    if (win->acceleration == P_WINDOW_ACCELERATION_OPENGL) {
         (void) fb;
         window_dri_render_egl(win);
     } else {
@@ -253,60 +251,67 @@ void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb)
     }
 }
 
-void window_dri_set_acceleration(struct window_dri *win,
-    enum window_acceleration val)
+i32 window_dri_set_acceleration(struct window_dri *win,
+    enum p_window_acceleration val)
 {
-    u_check_params(win != NULL && val >= 0 && val < WINDOW_ACCELERATION_MAX_);
+    u_check_params(win != NULL && val >= 0 && val < P_WINDOW_ACCELERATION_MAX_);
 
-    if (win->accelerated == val) {
+    if (win->acceleration == val) {
         s_log_warn("%s(): The desired acceleration mode is the same "
             "as the previous one; not doing anything.", __func__);
-        return;
+        return 0;
     }
 
-    switch (win->accelerated) {
-        case WINDOW_ACCELERATION_NONE:
+    switch (win->acceleration) {
+        case P_WINDOW_ACCELERATION_NONE:
             render_destroy_software(&win->render.sw, &win->drm, &win->gbm);
             break;
-        case WINDOW_ACCELERATION_EGL_OPENGL:
+        case P_WINDOW_ACCELERATION_OPENGL:
             render_destroy_egl(&win->render.egl, &win->gbm);
             break;
-        case WINDOW_ACCELERATION_UNSET: /* previously unset, do nothing */
+        case P_WINDOW_ACCELERATION_UNSET_: /* previously unset, do nothing */
             break;
-        case WINDOW_ACCELERATION_VULKAN:
+        case P_WINDOW_ACCELERATION_VULKAN:
         default:
             /* Shouldn't be possible */
             break;
     }
 
-    i32 r = 0;
+    win->acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (val) {
-    case WINDOW_ACCELERATION_NONE:
-        r = render_init_software(&win->render.sw, win->gbm_dev, &win->dev,
-            &win->drm, &win->gbm);
-        s_assert(r == 0, "Failed to set the window up for software rendering.");
-        break;
-    case WINDOW_ACCELERATION_EGL_OPENGL:
-        r = render_init_egl(&win->render.egl,
-            win->gbm_dev, &win->dev, &win->gbm);
-        s_assert(r == 0, "Failed to set the window up for EGL rendering.");
-        break;
-    case WINDOW_ACCELERATION_VULKAN:
-        s_log_fatal(MODULE_NAME, __func__,
-            "Vulkan acceleration not yet implemented.");
+    case P_WINDOW_ACCELERATION_NONE:
+        if (render_init_software(&win->render.sw, win->gbm_dev, &win->dev,
+            &win->drm, &win->gbm))
+        {
+            s_log_error("Failed to set the window up for software rendering.");
+            return 1;
+        }
+        return 0;
+    case P_WINDOW_ACCELERATION_OPENGL:
+        if (render_init_egl(&win->render.egl,
+            win->gbm_dev, &win->dev, &win->gbm))
+        {
+            s_log_error("Failed to set the window up for EGL rendering.");
+            return 1;
+        }
+        return 0;
+    case P_WINDOW_ACCELERATION_VULKAN:
+        s_log_error("Vulkan acceleration not implemented yet.");
+        return 1;
         break;
     default: /* Technically not possible */
-        return;
+        s_log_error("Unsupported acceleration mode: %u", val);
+        return 1;
     }
 
-    win->accelerated = val;
+    win->acceleration = val;
 }
 
 void window_dri_set_egl_buffers_swapped(struct window_dri *win)
 {
     u_check_params(win != NULL);
-    s_assert(win->accelerated == WINDOW_ACCELERATION_EGL_OPENGL,
+    s_assert(win->acceleration == P_WINDOW_ACCELERATION_OPENGL,
         "OpenGL acceleration must be enabled to swap EGL buffers");
     atomic_store(&win->render.egl.buffers_swapped, true);
 }
@@ -537,9 +542,10 @@ static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
         if (enc == NULL)
             continue;
 
-        for (u32 crtc_id = 0; crtc_id < res->count_crtcs; crtc_id++) {
-            if (enc->possible_crtcs & (1 << crtc_id)) {
+        for (u32 j = 0; j < res->count_crtcs; j++) {
+            if (enc->possible_crtcs & (1 << j)) {
                 /* We found a compatible CRTC! Yay! */
+                u32 crtc_id = res->crtcs[j];
                 ret = drm->drmModeGetCrtc(fd, crtc_id);
                 if (ret != NULL) {
                     drm->drmModeFreeEncoder(enc);
@@ -808,7 +814,7 @@ static void finish_frame(struct window_dri_listener_thread *listener,
 {
     s_assert(listener->fd_p != NULL && *listener->fd_p != -1,
         "The DRM device file descriptor is not initialized!");
-    s_assert(listener->accelerated_p != NULL,
+    s_assert(listener->acceleration_p != NULL,
         "The acceleration mode pointer is not initialized!");
     s_assert(listener->drm != NULL && listener->drm->loaded_,
         "The libdrm functions are not initialized");;
@@ -816,7 +822,7 @@ static void finish_frame(struct window_dri_listener_thread *listener,
         "The libgbm functions are not initialized");;
 
     /* Clean everything up */
-    if (*listener->accelerated_p == WINDOW_ACCELERATION_EGL_OPENGL) {
+    if (*listener->acceleration_p == P_WINDOW_ACCELERATION_OPENGL) {
 
         /* Clean up the previous frame */
         struct egl_render_ctx *egl_rctx = &listener->render_ctx->egl;

@@ -5,12 +5,10 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
+#include "../window.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
-#define P_INTERNAL_GUARD__
-#include "window-acceleration.h"
-#undef P_INTERNAL_GUARD__
 
 struct wm_decorations {
 
@@ -27,7 +25,7 @@ struct wm {
 
     struct p_window *win;
 
-    enum window_acceleration acceleration;
+    enum p_window_acceleration acceleration;
     union wm_render_ctx {
         struct wm_software_render_ctx {
         } sw;

@@ -16,8 +16,7 @@ struct r_ctx {
     struct p_window *win;
     struct p_window_meta win_meta;
 
-    struct pixel_flat_data buffers[2];
-    struct pixel_flat_data *render_buffer, *present_buffer;
+    struct pixel_flat_data *curr_buf;
 
     rect_t pixels_rect;
 
@@ -25,7 +24,8 @@ struct r_ctx {
 
     p_mt_thread_t thread;
     struct r_ctx_thread_info {
-        p_mt_cond_t running;
+        _Atomic bool running;
+        p_mt_cond_t cond;
         p_mt_mutex_t mutex;
     } thread_info;
 };

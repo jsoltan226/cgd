@@ -20,18 +20,18 @@ void r_draw_rect(struct r_ctx *ctx,
 {
     if (ctx == NULL || u_w < 0 || u_h < 0) return;
 
-    const u32 start_x = u_clamp(0, u_x,        ctx->render_buffer->w - 1);
-    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->render_buffer->w - 1);
-    const u32 start_y = u_clamp(0, u_y,        ctx->render_buffer->h - 1);
-    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->render_buffer->h - 1);
+    const u32 start_x = u_clamp(0, u_x,        ctx->curr_buf->w - 1);
+    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->curr_buf->w - 1);
+    const u32 start_y = u_clamp(0, u_y,        ctx->curr_buf->h - 1);
+    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->curr_buf->h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;
 
-    register pixel_t *buf = ctx->render_buffer->buf;
+    register pixel_t *buf = ctx->curr_buf->buf;
     register color_RGBA32_t color = ctx->current_color;
     register u32 x, y;
-    register u32 w = ctx->render_buffer->w;
+    register u32 w = ctx->curr_buf->w;
 
     if (start_y == u_y) {
         y = start_y;
@@ -66,16 +66,16 @@ void r_fill_rect(struct r_ctx *ctx,
 
     if (ctx == NULL || u_w < 0 || u_h < 0) return;
 
-    const u32 start_x = u_clamp(0, u_x,        ctx->render_buffer->w - 1);
-    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->render_buffer->w - 1);
-    const u32 start_y = u_clamp(0, u_y,        ctx->render_buffer->h - 1);
-    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->render_buffer->h - 1);
+    const u32 start_x = u_clamp(0, u_x,        ctx->curr_buf->w - 1);
+    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->curr_buf->w - 1);
+    const u32 start_y = u_clamp(0, u_y,        ctx->curr_buf->h - 1);
+    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->curr_buf->h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;
 
-    register pixel_t *buf = ctx->render_buffer->buf;
-    register u32 w = ctx->render_buffer->w;
+    register pixel_t *buf = ctx->curr_buf->buf;
+    register u32 w = ctx->curr_buf->w;
     register color_RGBA32_t color = ctx->current_color;
 
     for (register u32 y = start_y; y < end_y; y++) {

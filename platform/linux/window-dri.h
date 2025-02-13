@@ -5,9 +5,7 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#define P_INTERNAL_GUARD__
-#include "window-acceleration.h"
-#undef P_INTERNAL_GUARD__
+#include "../window.h"
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -136,7 +134,7 @@ struct window_dri_listener_thread {
 
     /* The values of these should be read-only for the thread */
     const i32 *fd_p;
-    const enum window_acceleration *accelerated_p;
+    const enum p_window_acceleration *acceleration_p;
     const struct libdrm_functions *drm;
     const struct libgbm_functions *gbm;
 
@@ -152,7 +150,7 @@ struct window_dri {
 
     struct drm_device dev;
 
-    enum window_acceleration accelerated;
+    enum p_window_acceleration acceleration;
     struct gbm_device *gbm_dev;
     union window_dri_render_ctx {
         struct software_render_ctx sw;
@@ -174,8 +172,8 @@ void window_dri_close(struct window_dri *win);
 
 void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb);
 
-void window_dri_set_acceleration(struct window_dri *win,
-    enum window_acceleration val);
+i32 window_dri_set_acceleration(struct window_dri *win,
+    enum p_window_acceleration val);
 void window_dri_set_egl_buffers_swapped(struct window_dri *win);
 
 #endif /* P_WINDOW_DRI_H_ */

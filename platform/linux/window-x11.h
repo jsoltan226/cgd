@@ -6,6 +6,7 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../thread.h"
+#include "../window.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
@@ -57,7 +58,7 @@ struct window_x11 {
 
     xcb_key_symbols_t *key_symbols;
 
-    i32 gpu_acceleration;
+    enum p_window_acceleration gpu_acceleration;
 };
 
 /* Returns 0 on success and non-zero on failure.
@@ -80,6 +81,7 @@ i32 window_X11_register_mouse(struct window_x11 *win,
 void window_X11_deregister_keyboard(struct window_x11 *win);
 void window_X11_deregister_mouse(struct window_x11 *win);
 
-void window_X11_set_acceleration(struct window_x11 *win, i32 val_i32);
+i32 window_X11_set_acceleration(struct window_x11 *win,
+    enum p_window_acceleration new_val);
 
 #endif /* P_WINDOW_X11_H_ */

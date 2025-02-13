@@ -9,6 +9,8 @@
 #include <render/rect.h>
 #include <gui/menu-mgr.h>
 
+#define MODULE_NAME "main"
+
 void process_events(struct platform_ctx *p, struct gui_ctx *gui)
 {
     struct p_event ev;

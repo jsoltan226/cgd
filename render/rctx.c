@@ -7,6 +7,7 @@
 #include <core/shapes.h>
 #include <platform/window.h>
 #include <platform/thread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,8 +16,6 @@
 #undef R_INTERNAL_GUARD__
 
 #define MODULE_NAME "rctx"
-
-static void swap_buffers(struct r_ctx *rctx);
 
 struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 {
@@ -37,31 +36,30 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     }
 
     ctx->win = win;
-    if (p_window_get_meta(ctx->win, &ctx->win_meta))
-        goto_error("Failed to get window metadata!");
-
+    p_window_get_meta(ctx->win, &ctx->win_meta);
     s_log_debug("win_meta->w: %u, win_meta->h: %u",
         ctx->win_meta.w, ctx->win_meta.h);
 
-    ctx->buffers[0].buf = calloc(ctx->win_meta.w * ctx->win_meta.h, sizeof(pixel_t));
-    ctx->buffers[1].buf = calloc(ctx->win_meta.w * ctx->win_meta.h, sizeof(pixel_t));
-    s_assert(ctx->buffers[0].buf != NULL && ctx->buffers[1].buf != NULL,
-        "calloc() failed for the pixel buffer(s)");
+    if (ctx->win_meta.acceleration != P_WINDOW_ACCELERATION_NONE) {
+        if (p_window_set_acceleration(ctx->win, P_WINDOW_ACCELERATION_NONE))
+            goto_error("Failed to set window acceleration");
+    }
 
-    ctx->buffers[0].w = ctx->buffers[1].w = ctx->win_meta.w;
-    ctx->buffers[0].h = ctx->buffers[1].h = ctx->win_meta.h;
-    u_rect_from_pixel_data(&ctx->buffers[0], &ctx->pixels_rect);
+    ctx->curr_buf = p_window_swap_buffers(ctx->win, P_WINDOW_PRESENT_VSYNC);
+    if (ctx->curr_buf == NULL)
+        goto_error("Failed to swap buffers");
+    u_rect_from_pixel_data(ctx->curr_buf, &ctx->pixels_rect);
 
-    ctx->render_buffer = &ctx->buffers[0];
-    ctx->present_buffer = &ctx->buffers[1];
     ctx->current_color = BLACK_PIXEL;
 
     /* Prepare and start the thread */
     ctx->thread_info.mutex = p_mt_mutex_create();
-    ctx->thread_info.running = p_mt_cond_create();
-
-    if (p_mt_thread_create(&ctx->thread, renderer_main, &ctx->thread_info))
+    ctx->thread_info.cond = p_mt_cond_create();
+    atomic_store(&ctx->thread_info.running, true);
+    if (p_mt_thread_create(&ctx->thread, renderer_main, &ctx->thread_info)) {
+        atomic_store(&ctx->thread_info.running, false);
         goto_error("Failed to spawn the renderer thread!");
+    }
 
     /* Render 1 empty frame on init
      * to avoid junk uninitialized data being displayed */
@@ -80,12 +78,13 @@ void r_ctx_destroy(struct r_ctx **ctx_p)
     if (ctx_p == NULL || *ctx_p == NULL) return;
     struct r_ctx *ctx = *ctx_p;
 
-    p_mt_cond_signal(ctx->thread_info.running);
-    p_mt_thread_wait(&ctx->thread);
-    p_mt_cond_destroy(&ctx->thread_info.running);
-    p_mt_mutex_destroy(&ctx->thread_info.mutex);
-    free(ctx->buffers[0].buf);
-    free(ctx->buffers[1].buf);
+    if (atomic_load(&ctx->thread_info.running)) {
+        atomic_store(&ctx->thread_info.running, false);
+        p_mt_cond_signal(ctx->thread_info.cond);
+        p_mt_thread_wait(&ctx->thread);
+        p_mt_cond_destroy(&ctx->thread_info.cond);
+        p_mt_mutex_destroy(&ctx->thread_info.mutex);
+    }
     u_nzfree(ctx_p);
 }
 
@@ -103,25 +102,14 @@ void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 void r_flush(struct r_ctx *ctx)
 {
     u_check_params(ctx != NULL);
-    swap_buffers(ctx);
-    p_window_render(ctx->win, ctx->present_buffer);
+    ctx->curr_buf = p_window_swap_buffers(ctx->win, P_WINDOW_PRESENT_VSYNC);
+    s_assert(ctx->curr_buf != NULL, "Failed to swap buffers!");
 }
 
 void r_reset(struct r_ctx *ctx)
 {
     u_check_params(ctx != NULL);
-    memset(ctx->render_buffer->buf, 0,
-        ctx->render_buffer->w * ctx->render_buffer->h * sizeof(pixel_t)
+    memset(ctx->curr_buf->buf, 0,
+        ctx->curr_buf->w * ctx->curr_buf->h * sizeof(pixel_t)
     );
-}
-
-static void swap_buffers(struct r_ctx *rctx)
-{
-    if (rctx->render_buffer == &rctx->buffers[0]) {
-        rctx->present_buffer = &rctx->buffers[0];
-        rctx->render_buffer = &rctx->buffers[1];
-    } else {
-        rctx->present_buffer = &rctx->buffers[1];
-        rctx->render_buffer = &rctx->buffers[0];
-    }
 }
