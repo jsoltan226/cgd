@@ -183,7 +183,7 @@ void r_surface_render(struct r_ctx *rctx, const struct r_surface *src,
     /* Don't ignore the alpha channel since we are not drawing
      * to a normal surface, but to the whole framebuffer,
      * which is where everything else also gets rendered */
-    tmp_rctx_surface.color_format = rctx->win_meta.color_format;
+    tmp_rctx_surface.color_format = rctx->win_info.display_color_format;
     if (tmp_rctx_surface.color_format == BGRX32)
         tmp_rctx_surface.color_format = BGRA32;
     else if (tmp_rctx_surface.color_format == RGBX32)

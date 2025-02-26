@@ -12,7 +12,7 @@
 #define MODULE_NAME "keyboard-test"
 #include "log-util.h"
 
-#define WINDOW_TITLE (const unsigned char *)MODULE_NAME
+#define WINDOW_TITLE MODULE_NAME
 #define WINDOW_RECT (rect_t) { 0, 0, 500, 500 }
 #define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
 

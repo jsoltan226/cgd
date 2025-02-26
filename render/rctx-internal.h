@@ -14,7 +14,7 @@ struct r_ctx {
     enum r_type type;
 
     struct p_window *win;
-    struct p_window_meta win_meta;
+    struct p_window_info win_info;
 
     struct pixel_flat_data *curr_buf;
 

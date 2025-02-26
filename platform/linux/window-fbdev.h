@@ -25,7 +25,7 @@ struct window_fbdev_listener {
     /* The thread only needs to read from the buffer
      * and write to the map */
     const struct pixel_flat_data *_Atomic front_buffer_p;
-    void *const *map_p;
+    u8 *const *map_p;
 
     /* All of these should be read-only for the thread */
     const i32 *fd_p;
@@ -38,7 +38,9 @@ struct window_fbdev {
     struct fb_fix_screeninfo fixed_info;
     struct fb_var_screeninfo var_info;
 
-    void *mem;
+    struct p_window_info *generic_info_p;
+
+    u8 *mem;
     u64 mem_size;
 
     struct pixel_flat_data back_buffer;
@@ -51,9 +53,6 @@ struct window_fbdev {
     u32 stride;
     u32 refresh_rate;
 
-    rect_t win_rect;
-    rect_t display_rect;
-
     bool closed;
 
     i32 tty_fd;
@@ -61,7 +60,8 @@ struct window_fbdev {
 };
 
 i32 window_fbdev_open(struct window_fbdev *win,
-    const rect_t *area, const u32 flags);
+    const rect_t *area, const u32 flags,
+    struct p_window_info *info);
 void window_fbdev_close(struct window_fbdev *win);
 
 struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,

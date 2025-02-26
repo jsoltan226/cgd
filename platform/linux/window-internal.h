@@ -49,11 +49,20 @@ static const char * const window_type_strings[N_WINDOW_TYPES] = {
 };
 #undef X_
 
+struct window_generic_info {
+    rect_t client_area;
+
+    rect_t display_area;
+    pixelfmt_t display_color_format;
+
+    enum p_window_acceleration gpu_acceleration;
+    bool vsync_supported;
+};
+
 struct p_window {
+    struct p_window_info info;
+    vec2d_t mouse_ev_offset;
     enum window_type type;
-
-    i32 x, y, w, h;
-
     union {
         struct window_x11 x11;
         struct window_dri dri;
@@ -61,10 +70,6 @@ struct p_window {
         struct window_dummy dummy;
     };
     struct wm wm; /* Only used by `fbdev` and `dri` */
-
-    pixelfmt_t color_format;
-    vec2d_t ev_offset;
-    enum p_window_acceleration gpu_acceleration;
 };
 
 #undef WINDOW_TYPE_LIST

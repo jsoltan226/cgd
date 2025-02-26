@@ -16,15 +16,15 @@
 
 #define MODULE_NAME "render-test"
 
-#define WINDOW_TITLE ((const unsigned char *)"render-test")
+#define WINDOW_TITLE ("render-test")
 #define WINDOW_AREA (&(const rect_t) { 0, 0, 500, 500 })
-#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY)
+#define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY | P_WINDOW_NO_ACCELERATION)
 
 static FILE *log_fp = NULL;
 static struct p_window *win = NULL;
 static struct p_opengl_ctx *gl_ctx = NULL;
 
-static __attribute_maybe_unused__ i32 opengl_test(void);
+static i32 opengl_test(void);
 static i32 software_test(void);
 
 static void cleanup_log(void);
@@ -45,8 +45,10 @@ int cgd_main(int argc, char **argv)
     if (win == NULL)
         goto_error("Failed to open the window. Stop.");
 
+    p_time_sleep(3);
     if (software_test()) goto err;
-    //if (opengl_test()) goto err;
+    p_time_sleep(3);
+    if (opengl_test()) goto err;
 
     s_log_info("Closing the window...");
     p_window_close(&win);
@@ -75,6 +77,7 @@ static i32 opengl_test(void)
     GL.glClearColor(0.0f, 0.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -87,6 +90,7 @@ static i32 opengl_test(void)
     GL.glClearColor(1.0f, 0.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -99,6 +103,7 @@ static i32 opengl_test(void)
     GL.glClearColor(0.0f, 1.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {

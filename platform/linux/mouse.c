@@ -43,10 +43,12 @@ struct p_mouse * p_mouse_init(struct p_window *win)
                 break;
             case MOUSE_TYPE_EVDEV:
                 /* Set the mouse X and Y to the middle of the window */
-                m->pos.x = (f32)(win->x + win->w) / 2.f;
-                m->pos.y = (f32)(win->y + win->h) / 2.f;
+                m->pos.x = (f32)
+                    (win->info.client_area.x + win->info.client_area.w) / 2.f;
+                m->pos.y = (f32)
+                    (win->info.client_area.y + win->info.client_area.h) / 2.f;
                 if (mouse_evdev_init(&m->evdev))
-                    s_log_warn("Failed to set up mouse using /dev/input");
+                    s_log_warn("Failed to set up mouse using event devices");
                 else
                     goto mouse_setup_success;
                 break;
@@ -84,16 +86,16 @@ void p_mouse_update(struct p_mouse *mouse)
 
     const rect_t
         mouse_r = {
-            .x = mouse->pos.x + mouse->win->ev_offset.x,
-            .y = mouse->pos.y + mouse->win->ev_offset.y,
+            .x = mouse->pos.x + mouse->win->mouse_ev_offset.x,
+            .y = mouse->pos.y + mouse->win->mouse_ev_offset.y,
             .w = 0,
             .h = 0,
         },
         window_r = {
             .x = 0,
             .y = 0,
-            .w = mouse->win->w,
-            .h = mouse->win->h
+            .w = mouse->win->info.client_area.w,
+            .h = mouse->win->info.client_area.h
         };
     mouse->is_out_of_window = !u_collision(&mouse_r, &window_r);
 

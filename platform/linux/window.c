@@ -31,23 +31,19 @@
 #define MODULE_NAME "window"
 
 static i32 check_flags(const u32 flags);
+static void set_default_flags(u32 *flags);
 static enum window_type detect_environment(void);
 
-struct p_window * p_window_open(const unsigned char *title,
-    const rect_t *area, const u32 flags)
+struct p_window * p_window_open(const char *title,
+    const rect_t *area, u32 flags)
 {
-    u_check_params(area != NULL);
-
-    if (check_flags(flags))
-        return NULL;
+    u_check_params(area != NULL && check_flags(flags) == 0);
+    set_default_flags(&flags);
 
     struct p_window *win = calloc(1, sizeof(struct p_window));
     s_assert(win != NULL, "calloc() failed for struct window!");
 
-    win->x = area->x;
-    win->y = area->y;
-    win->w = area->w;
-    win->h = area->h;
+    memcpy(&win->info.client_area, area, sizeof(rect_t));
 
     if (flags & P_WINDOW_TYPE_DUMMY)
         win->type = WINDOW_TYPE_DUMMY;
@@ -59,14 +55,14 @@ struct p_window * p_window_open(const unsigned char *title,
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            if (window_X11_open(&win->x11, title, area, flags))
+            if (window_X11_open(&win->x11, (const unsigned char *)title, area, flags))
                 goto_error("Failed to open X11 window");
-            win->color_format = BGRX32;
-            win->ev_offset.x = 0;
-            win->ev_offset.y = 0;
+            win->info.display_color_format = BGRX32;
+            win->mouse_ev_offset.x = 0;
+            win->mouse_ev_offset.y = 0;
             break;
         case WINDOW_TYPE_DRI:
-            if (window_dri_open(&win->dri, area, flags)) {
+            if (window_dri_open(&win->dri, area, flags, &win->info)) {
                 s_log_warn("Failed to open DRI window. Falling back to fbdev.");
                 window_dri_close(&win->dri);
                 win->type = WINDOW_TYPE_FBDEV;
@@ -74,34 +70,37 @@ struct p_window * p_window_open(const unsigned char *title,
             }
             if (wm_init(&win->wm, win)) {
                 s_log_warn("Failed to initialize the window manager "
-                    "for a DRI window. Falling back to fbdev.");
+                    "for a DRI window. //Falling back to fbdev.");
                 wm_destroy(&win->wm);
+                /*
                 window_dri_close(&win->dri);
                 win->type = WINDOW_TYPE_FBDEV;
                 goto fbdev_init;
+                */
             }
-            win->color_format = BGRX32;
-            win->ev_offset.x = win->x;
-            win->ev_offset.y = win->y;
+            win->info.display_color_format = BGRX32;
+            win->mouse_ev_offset.x = win->info.client_area.x;
+            win->mouse_ev_offset.y = win->info.client_area.y;
             break;
         case WINDOW_TYPE_FBDEV:
         fbdev_init:
-            if (window_fbdev_open(&win->fbdev, area, flags))
+            if (window_fbdev_open(&win->fbdev, area, flags, &win->info)
+            ) {
                 goto_error("Failed to open fbdev window");
+            }
             if (wm_init(&win->wm, win)) {
                 s_log_warn("Failed to initialize the window manager.");
                 wm_destroy(&win->wm);
             }
-            win->color_format = BGRX32;
-            win->ev_offset.x = win->x;
-            win->ev_offset.y = win->y;
+            win->mouse_ev_offset.x = win->info.client_area.x;
+            win->mouse_ev_offset.y = win->info.client_area.y;
             break;
         case WINDOW_TYPE_DUMMY:
             if (window_dummy_init(&win->dummy, flags))
                 goto_error("Failed to init dummy window");
-            win->color_format = RGBX32;
-            win->ev_offset.x = 0;
-            win->ev_offset.y = 0;
+            win->info.display_color_format = RGBX32;
+            win->mouse_ev_offset.x = 0;
+            win->mouse_ev_offset.y = 0;
             break;
     }
 
@@ -138,31 +137,23 @@ void p_window_close(struct p_window **win_p)
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 }
 
-void p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
+void p_window_get_info(const struct p_window *win, struct p_window_info *out)
 {
     u_check_params(win != NULL && out != NULL);
 
-    out->x = win->x;
-    out->y = win->y;
-    out->w = win->w;
-    out->h = win->h;
-
-    out->color_format = win->color_format;
-    out->acceleration = win->gpu_acceleration;
+    memcpy(out, &win->info, sizeof(struct p_window_info));
 }
 
 struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     const enum p_window_present_mode present_mode)
 {
-    if (win->gpu_acceleration != P_WINDOW_ACCELERATION_NONE)
-        return NULL;
-
     switch (win->type) {
-        case WINDOW_TYPE_X11: return NULL;
-        case WINDOW_TYPE_DRI: return NULL;
-        case WINDOW_TYPE_FBDEV:
-            return window_fbdev_swap_buffers(&win->fbdev, present_mode);
-        case WINDOW_TYPE_DUMMY: return NULL;
+    case WINDOW_TYPE_X11: return NULL;
+    case WINDOW_TYPE_DRI:
+        return window_dri_swap_buffers(&win->dri, present_mode);
+    case WINDOW_TYPE_FBDEV:
+        return window_fbdev_swap_buffers(&win->fbdev, present_mode);
+    case WINDOW_TYPE_DUMMY: return NULL;
     }
 
     return NULL;
@@ -175,21 +166,17 @@ i32 p_window_set_acceleration(struct p_window *win,
 
     switch (new_acceleration_mode) {
     case P_WINDOW_ACCELERATION_NONE:
-        if (win->gpu_acceleration == P_WINDOW_ACCELERATION_NONE) {
+        if (win->info.gpu_acceleration == P_WINDOW_ACCELERATION_NONE) {
             s_log_warn("Attempt to disable GPU acceleration "
                 "when it's already disabled. Not doing anything.");
             return 0;
         }
         break;
     case P_WINDOW_ACCELERATION_OPENGL:
-        if (win->gpu_acceleration == P_WINDOW_ACCELERATION_OPENGL) {
+        if (win->info.gpu_acceleration == P_WINDOW_ACCELERATION_OPENGL) {
             s_log_warn("Attempt to enable EGL/OpenGL acceleration twice. "
                 "Not doing anything.");
             return 0;
-        } else if (win->gpu_acceleration != P_WINDOW_ACCELERATION_NONE) {
-            s_log_error("Attempt to enable gpu acceleration while another "
-                "acceleration mode is still active.");
-            return 1;
         }
         break;
     case P_WINDOW_ACCELERATION_VULKAN:
@@ -228,7 +215,8 @@ static i32 check_flags(const u32 flags)
         { P_WINDOW_PREFER_ACCELERATED, P_WINDOW_REQUIRE_VULKAN },
         { P_WINDOW_REQUIRE_ACCELERATED, P_WINDOW_REQUIRE_VULKAN },
         { P_WINDOW_REQUIRE_ACCELERATED, P_WINDOW_REQUIRE_OPENGL },
-        { P_WINDOW_REQUIRE_VULKAN, P_WINDOW_REQUIRE_OPENGL }
+        { P_WINDOW_REQUIRE_VULKAN, P_WINDOW_REQUIRE_OPENGL },
+        { P_WINDOW_VSYNC_SUPPORT_REQUIRED, P_WINDOW_VSYNC_SUPPORT_OPTIONAL },
     };
     i32 ret = 0;
     for (u32 i = 0; i < u_arr_size(contradicting_pairs); i++) {
@@ -240,13 +228,39 @@ static i32 check_flags(const u32 flags)
             while (flag_a != 1 << index_a) index_a++;
             while (flag_b != 1 << index_b) index_b++;
 
-            s_log_error("Contradicting flags: \"%s\" and \"%s\"",
+            s_log_error("Mutually exclusive flags: \"%s\" and \"%s\"",
                 p_window_flag_strings[index_a], p_window_flag_strings[index_b]);
             ret++;
         }
     }
 
     return ret;
+}
+
+static void set_default_flags(u32 *flags)
+{
+    const u32 orig_flags = *flags;
+#define not_set(flag) (!(orig_flags & flag))
+
+    if (not_set(P_WINDOW_TYPE_NORMAL) && not_set(P_WINDOW_TYPE_DUMMY))
+        *flags |= P_WINDOW_TYPE_NORMAL;
+
+    if (not_set(P_WINDOW_VSYNC_SUPPORT_REQUIRED) &&
+        not_set(P_WINDOW_VSYNC_SUPPORT_OPTIONAL))
+    {
+        *flags |= P_WINDOW_VSYNC_SUPPORT_OPTIONAL;
+    }
+
+    if (not_set(P_WINDOW_PREFER_ACCELERATED) &&
+        not_set(P_WINDOW_REQUIRE_ACCELERATED) &&
+        not_set(P_WINDOW_REQUIRE_OPENGL) &&
+        not_set(P_WINDOW_REQUIRE_VULKAN) &&
+        not_set(P_WINDOW_NO_ACCELERATION))
+    {
+        *flags |= P_WINDOW_PREFER_ACCELERATED;
+    }
+
+#undef not_set
 }
 
 static enum window_type detect_environment(void)
@@ -257,5 +271,5 @@ static enum window_type detect_environment(void)
         return WINDOW_TYPE_X11;
 
     /* If nothing is detected, DRI/fbdev are the only choices */
-    return WINDOW_TYPE_FBDEV;
+    return WINDOW_TYPE_DRI;
 }

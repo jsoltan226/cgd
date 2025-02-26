@@ -41,13 +41,17 @@ static void write_to_fb(void *map, const u32 stride, const rect_t *display_rect,
 static i32 post_sem_if_blocked(sem_t *sem);
 
 i32 window_fbdev_open(struct window_fbdev *win,
-    const rect_t *area, const u32 flags)
+    const rect_t *area, const u32 flags,
+    struct p_window_info *info)
 {
     memset(win, 0, sizeof(struct window_fbdev));
     win->closed = false;
     win->tty_fd = -1;
+    win->generic_info_p = info;
 
-    if (flags & P_WINDOW_REQUIRE_ACCELERATED)
+    if (flags & P_WINDOW_REQUIRE_ACCELERATED ||
+        flags & P_WINDOW_REQUIRE_OPENGL ||
+        flags & P_WINDOW_REQUIRE_VULKAN)
         goto_error("GPU acceleration requried, "
             "but fbdev windows don't support it.");
     else if (flags & P_WINDOW_PREFER_ACCELERATED)
@@ -66,7 +70,8 @@ i32 window_fbdev_open(struct window_fbdev *win,
 
     /* Make sure the display is on */
     if (ioctl(win->fd, FBIOBLANK, FB_BLANK_UNBLANK))
-        goto_error("ioctl() failed: %s, make sure the display is on!", strerror(errno));
+        goto_error("FBIOBLANK failed: %s, make sure the display is on!",
+            strerror(errno));
 
     /* Read fixed screen info */
     if (ioctl(win->fd, FBIOGET_FSCREENINFO, &win->fixed_info))
@@ -77,21 +82,23 @@ i32 window_fbdev_open(struct window_fbdev *win,
         goto_error("Failed to get variable screen info: %s", strerror(errno));
 
     if (win->var_info.bits_per_pixel != 32)
-        goto_error("Unsupported display bits per pixel '%i'", win->var_info.bits_per_pixel);
+        goto_error("Unsupported display bits per pixel '%i'",
+            win->var_info.bits_per_pixel);
+
+    info->display_color_format = BGRX32;
 
     win->mem_size = win->fixed_info.smem_len;
-    win->mem = mmap(0, win->mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->fd, 0);
+    win->mem = mmap(0, win->mem_size, PROT_READ | PROT_WRITE,
+        MAP_SHARED, win->fd, 0);
     if (win->mem == MAP_FAILED)
         goto_error("Failed to mmap() framebuffer device to program memory: %s",
             strerror(errno));
 
     win->xres = win->var_info.xres;
     win->yres = win->var_info.yres;
-    win->padding = (win->fixed_info.line_length / sizeof(u32)) - win->var_info.xres;
+    win->padding = (win->fixed_info.line_length / sizeof(u32))
+        - win->var_info.xres;
     win->stride = win->xres + win->padding;
-
-    s_log_debug("win->var_info.xres_virtual: %u, win->var_info.yres_virtual: %u",
-        win->var_info.xres_virtual, win->var_info.yres_virtual);
 
     /* Calculate the refresh rate */
     const u64 total_px_horizontal = win->var_info.xres + win->var_info.hsync_len
@@ -102,7 +109,7 @@ i32 window_fbdev_open(struct window_fbdev *win,
 
     /* 10^12 / pixclock */
     if (win->var_info.pixclock == 0) {
-        s_log_warn("The pixel clock is set to 0; "
+        s_log_debug("The pixel clock is set to 0; "
             "monitor refresh rate cannot be calculated.");
         win->refresh_rate = 0;
     } else {
@@ -111,18 +118,17 @@ i32 window_fbdev_open(struct window_fbdev *win,
         win->refresh_rate = (u32)(pixel_clock_hz / total_px);
     }
 
-    win->display_rect.x = 0;
-    win->display_rect.y = 0;
-    win->display_rect.w = win->xres;
-    win->display_rect.h = win->yres;
+    info->display_rect.x = 0;
+    info->display_rect.y = 0;
+    info->display_rect.w = win->xres;
+    info->display_rect.h = win->yres;
 
-    memcpy(&win->win_rect, area, sizeof(rect_t));
     /* Handle P_WINDOW_POS_CENTERED flags */
     if (flags & P_WINDOW_POS_CENTERED_X)
-        win->win_rect.x = abs((i32)win->xres - area->w) / 2;
+        info->client_area.x = abs((i32)win->xres - area->w) / 2;
 
     if (flags & P_WINDOW_POS_CENTERED_Y)
-        win->win_rect.y = abs((i32)win->yres - area->h) / 2;
+        info->client_area.y = abs((i32)win->yres - area->h) / 2;
 
     /* Set the terminal to raw mode to avoid echoing user input
      * on the console */
@@ -138,8 +144,8 @@ i32 window_fbdev_open(struct window_fbdev *win,
         goto_error("Failed to wait for vsync: %s", strerror(errno));
 
     /* Allocate the buffers */
-    win->back_buffer.w = win->front_buffer.w = win->win_rect.w;
-    win->back_buffer.h = win->front_buffer.h = win->win_rect.h;
+    win->back_buffer.w = win->front_buffer.w = area->w;
+    win->back_buffer.h = win->front_buffer.h = area->h;
     const u64 n_pixels = win->xres * win->yres;
     win->back_buffer.buf = calloc(n_pixels, sizeof(pixel_t));
     win->front_buffer.buf = calloc(n_pixels, sizeof(pixel_t));
@@ -153,8 +159,8 @@ i32 window_fbdev_open(struct window_fbdev *win,
     win->listener.map_p = &win->mem;
 
     win->listener.fd_p = &win->fd;
-    win->listener.win_rect_p = &win->win_rect;
-    win->listener.display_rect_p = &win->display_rect;
+    win->listener.win_rect_p = &win->generic_info_p->client_area;
+    win->listener.display_rect_p = &win->generic_info_p->display_rect;
     win->listener.stride_p = &win->stride;
 
     /* Always returns 0 */
@@ -266,7 +272,7 @@ struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
     pthread_mutex_lock(&win->listener.buf_mutex);
 
     /* We can just swap the pointers themselves since the metadata
-     * (width and height) is the same bor both buffers */
+     * (width and height) is the same for both buffers */
     pixel_t *new_back_buffer = win->front_buffer.buf;
     win->front_buffer.buf = win->back_buffer.buf;
     win->back_buffer.buf = new_back_buffer;
@@ -284,7 +290,9 @@ struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
         }
         break;
     case P_WINDOW_PRESENT_NOW:
-        write_to_fb(win->mem, win->stride, &win->display_rect, &win->win_rect,
+        write_to_fb(win->mem, win->stride,
+            &win->generic_info_p->display_rect,
+            &win->generic_info_p->client_area,
             &win->front_buffer);
         break;
     }
@@ -300,27 +308,38 @@ static void write_to_fb(void *map, const u32 stride, const rect_t *display_rect,
     if (map == NULL || display_rect == NULL || win_rect == NULL
         || pixels == NULL || pixels->buf == NULL) return;
 
-    rect_t area;
-    memcpy(&area, win_rect, sizeof(rect_t));
-    rect_clip(&area, display_rect);
+    rect_t dst;
+    memcpy(&dst, win_rect, sizeof(rect_t));
+    rect_clip(&dst, display_rect);
 
-    const u32 src_x_offset = win_rect->x < area.x ? area.x - win_rect->x : 0;
-    const u32 src_y_offset = win_rect->y < area.y ? area.y - win_rect->y : 0;
+    /* "Project" the changes made to dst onto src */
+    const rect_t src = {
+        .x = dst.x - win_rect->x,
+        .y = dst.y - win_rect->y,
+        .w = pixels->w + (dst.w - win_rect->w),
+        .h = pixels->h + (dst.h - win_rect->h),
+    };
 
-    for (u32 y = 0; y < area.h; y++) {
+    /* Fix pointer arithmetic shenanigans */
+    u8 *src_mem = (u8 *)pixels->buf;
+    u8 *dst_mem = (u8 *)map;
+    const u32 src_stride_bytes = src.w * sizeof(pixel_t);
+
+    /* Blit the window to the screen */
+    for (i32 y = 0; y < src.h; y++) {
         const u32 dst_offset = (
-            ((area.y + y) * stride)
-            + area.x
+            ((dst.y + y) * stride)
+            + dst.x
         ) * sizeof(pixel_t);
         const u32 src_offset = (
-            (src_y_offset + y) * pixels->w
-            + src_x_offset
-        );
+            ((src.y + y) * src.w)
+            + src.x
+        ) * sizeof(pixel_t);
 
         memcpy(
-            map + dst_offset,
-            pixels->buf + src_offset,
-            area.w * sizeof(pixel_t)
+            dst_mem + dst_offset,
+            src_mem + src_offset,
+            src_stride_bytes
         );
     }
 }

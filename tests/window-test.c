@@ -31,7 +31,7 @@ int cgd_main(int argc, char **argv)
         return EXIT_FAILURE;
 
     win = p_window_open(
-        (const unsigned char *)MODULE_NAME,
+        MODULE_NAME,
         &(rect_t) { 0, 0, WINDOW_W, WINDOW_H },
         WINDOW_FLAGS
     );

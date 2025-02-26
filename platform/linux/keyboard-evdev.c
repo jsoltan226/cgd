@@ -140,7 +140,7 @@ static void read_keyevents_from_evdev(i32 fd,
                     p_kb_keycode = linux_input_code_2_kb_keycode_map[i][0];
                     break;
                 }
-            } while (i++ < P_KEYBOARD_N_KEYS);
+            } while (++i < P_KEYBOARD_N_KEYS);
         }
 
         if (p_kb_keycode == -1) return; /* Unsupported key press */

@@ -85,20 +85,14 @@ void mouse_evdev_update(struct p_mouse *mouse)
             }
 
             /* Update mouse out-of-window status */
-            const rect_t
-            mouse_rect = {
+            const rect_t mouse_rect = {
                 .x = mouse->pos.x,
                 .y = mouse->pos.y,
                 .w = 0,
                 .h = 0,
-            },
-            window_rect = {
-                .x = mouse->win->x,
-                .y = mouse->win->y,
-                .w = mouse->win->w,
-                .h = mouse->win->h,
             };
-            mouse->is_out_of_window = !u_collision(&mouse_rect, &window_rect);
+            mouse->is_out_of_window =
+                !u_collision(&mouse_rect, &mouse->win->info.client_area);
         }
     }
 }

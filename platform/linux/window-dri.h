@@ -41,7 +41,7 @@
         uint32_t flags, void *user_data                                     \
     )                                                                       \
     X_(int, drmHandleEvent, int fd, drmEventContextPtr evctx)               \
-
+    X_(int, drmIoctl, int fd, unsigned long request, void *arg)             \
 
 #define LIBGBM_LIBNAME "libgbm"
 #define LIBGBM_FUNCTIONS_LIST                                               \
@@ -72,6 +72,8 @@
     X_(void, gbm_surface_release_buffer,                                    \
         struct gbm_surface *surface, struct gbm_bo *bo                      \
     )                                                                       \
+    X_(void, gbm_device_destroy, struct gbm_device *gbm)                    \
+
 
 #define X_(return_type, name, ...) return_type(*name)(__VA_ARGS__);
 struct libdrm_functions {
@@ -113,11 +115,24 @@ struct drm_device {
 };
 
 struct software_render_ctx {
-    struct gbm_bo *bo;
+    u32 handle;
+    u32 stride;
+    u32 width, height;
+    bool dumb_created;
+
     u32 fb_id;
+    bool fb_added;
+
+    u8 *map;
+    u64 map_size;
+    bool fb_mapped;
+
+    struct pixel_flat_data front_buf, back_buf;
+
     bool initialized_;
 };
 struct egl_render_ctx {
+    struct gbm_device *device;
     struct gbm_surface *surface;
 
     _Atomic bool front_buffer_in_use;
@@ -125,6 +140,7 @@ struct egl_render_ctx {
     struct gbm_bo *curr_bo, *next_bo;
 
     _Atomic bool buffers_swapped;
+    bool crtc_set;
     bool initialized_;
 };
 
@@ -150,15 +166,12 @@ struct window_dri {
 
     struct drm_device dev;
 
-    enum p_window_acceleration acceleration;
-    struct gbm_device *gbm_dev;
     union window_dri_render_ctx {
         struct software_render_ctx sw;
         struct egl_render_ctx egl;
     } render;
 
-    rect_t win_rect;
-    rect_t display_rect;
+    struct p_window_info *generic_info_p;
 
     struct window_dri_listener_thread listener;
 
@@ -166,11 +179,13 @@ struct window_dri {
 };
 
 i32 window_dri_open(struct window_dri *win,
-    const rect_t *area, const u32 flags);
+    const rect_t *area, const u32 flags,
+    struct p_window_info *info);
 
 void window_dri_close(struct window_dri *win);
 
-void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb);
+struct pixel_flat_data * window_dri_swap_buffers(struct window_dri *win,
+    const enum p_window_present_mode present_mode);
 
 i32 window_dri_set_acceleration(struct window_dri *win,
     enum p_window_acceleration val);

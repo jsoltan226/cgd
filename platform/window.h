@@ -26,6 +26,21 @@ struct p_window;
     X_(P_WINDOW_POS_CENTERED_X, 10)                                         \
     X_(P_WINDOW_POS_CENTERED_Y, 11)                                         \
                                                                             \
+    /** VSYNC **/                                                           \
+    /* Makes `p_window_open` fail if vsync is not supported. */             \
+    X_(P_WINDOW_VSYNC_SUPPORT_REQUIRED, 15)                                 \
+                                                                            \
+    /* A warning is logged by `p_window_open` if vsync is not supported,    \
+     * but the initialization will still proceed.                           \
+     *                                                                      \
+     * If vsync is to be enabled in the future, call `p_window_get_meta`    \
+     * to check whether it's actually supported.                            \
+     *                                                                      \
+     * Obviously it's mututally exclusive with the previous flag.           \
+     *                                                                      \
+     * This is the default. */                                              \
+    X_(P_WINDOW_VSYNC_SUPPORT_OPTIONAL, 16)                                 \
+                                                                            \
     /** GPU ACCELERATION FLAGS **/                                          \
     /* The fallback order is as follows:                                    \
      * Vulkan -> OpenGL -> Software (none) -> FAIL.                         \
@@ -72,8 +87,8 @@ static const char *const p_window_flag_strings[P_WINDOW_MAX_N_FLAGS_] = {
 
 enum p_window_acceleration {
     P_WINDOW_ACCELERATION_UNSET_ = -1,
-    P_WINDOW_ACCELERATION_NONE = 0,
-    P_WINDOW_ACCELERATION_OPENGL = 1,
+    P_WINDOW_ACCELERATION_NONE,
+    P_WINDOW_ACCELERATION_OPENGL,
     P_WINDOW_ACCELERATION_VULKAN,
     P_WINDOW_ACCELERATION_MAX_
 };
@@ -85,31 +100,8 @@ enum p_window_acceleration {
  * Returns a handle to the new window on success,
  * and `NULL` on failure.
  */
-struct p_window * p_window_open(const unsigned char *title,
-    const rect_t *area, const u32 flags);
-
-/* Closes, destroys and sets to `NULL` the window that `win_p` points to */
-void p_window_close(struct p_window **win_p);
-
-/* Retrieves information about the window `win` into `out`. */
-struct p_window_meta {
-    i32 x, y, w, h;
-    pixelfmt_t color_format;
-    enum p_window_acceleration acceleration;
-};
-void p_window_get_meta(const struct p_window *win, struct p_window_meta *out);
-
-/* Sets the GPU acceleration mode in `win` to `new_acceleration_mode`.
- *
- * Destroys/deallocates everything associated with the previous acceleration
- * mode, and initialized the new one.
- *
- * If at any point something goes wrong, a non-zero value is returned
- * and the acceleration mode is unchanged.
- * On success, 0 is returned.
- */
-i32 p_window_set_acceleration(struct p_window *win,
-    enum p_window_acceleration new_acceleration_mode);
+struct p_window * p_window_open(const char *title,
+    const rect_t *area, u32 flags);
 
 /* Only works for windows that use software rendering.
  * Returns the current back buffer on success and `NULL` on failure. */
@@ -119,6 +111,31 @@ enum p_window_present_mode {
 };
 struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     const enum p_window_present_mode present_mode);
+
+/* Closes, destroys and sets to `NULL` the window that `win_p` points to */
+void p_window_close(struct p_window **win_p);
+
+/* Retrieves information about the window `win` into `out`. */
+struct p_window_info {
+    rect_t client_area;
+    rect_t display_rect;
+    pixelfmt_t display_color_format;
+    enum p_window_acceleration gpu_acceleration;
+    bool vsync_supported;
+};
+void p_window_get_info(const struct p_window *win, struct p_window_info *out);
+
+/* Sets the GPU acceleration mode in `win` to `new_acceleration_mode`.
+ *
+ * Destroys/deallocates everything associated with the previous acceleration
+ * mode, and initialized the new one.
+ *
+ * If at any point something goes wrong, a non-zero value is returned
+ * and the acceleration mode becomes `P_WINDOW_ACCELERATION_UNSET_`.
+ * On success, 0 is returned.
+ */
+i32 p_window_set_acceleration(struct p_window *win,
+    enum p_window_acceleration new_acceleration_mode);
 
 #undef P_WINDOW_FLAG_LIST
 #endif /* P_WINDOW_H_ */

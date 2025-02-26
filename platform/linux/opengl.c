@@ -141,7 +141,6 @@ void p_opengl_swap_buffers(struct p_opengl_ctx *ctx, struct p_window *win)
     case WINDOW_TYPE_X11: break;
     case WINDOW_TYPE_DRI:
         window_dri_set_egl_buffers_swapped(&win->dri);
-        window_dri_render(&win->dri, NULL);
         break;
     case WINDOW_TYPE_FBDEV:
     case WINDOW_TYPE_DUMMY:
@@ -369,7 +368,7 @@ static i32 egl_get_native_platform_and_display(const struct egl_ctx *egl,
                 return 1;
             }
             *platform_o = EGL_PLATFORM_GBM_KHR;
-            *display_o = (u64)win->dri.gbm_dev;
+            *display_o = (u64)win->dri.render.egl.device;
             return 0;
         case WINDOW_TYPE_FBDEV:
             s_log_error("Fbdev windows do not support graphics acceleration!");

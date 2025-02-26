@@ -13,11 +13,11 @@
 
 #define LOG_FILEPATH "log.txt"
 
-#define WINDOW_TITLE        (const unsigned char *)"cgd"
+#define WINDOW_TITLE        "cgd"
 #define WINDOW_W 750
 #define WINDOW_H 500
 #define WINDOW_RECT         (rect_t) { 0, 0, WINDOW_W, WINDOW_H }
-#define WINDOW_FLAGS        (P_WINDOW_POS_CENTERED_XY)
+#define WINDOW_FLAGS        (P_WINDOW_POS_CENTERED_XY | P_WINDOW_NO_ACCELERATION)
 
 #define FPS                 60
 #define FRAME_DURATION_us   (1000000 / FPS)

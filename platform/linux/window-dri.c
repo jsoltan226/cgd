@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -40,6 +41,9 @@ struct file {
     char path[u_FILEPATH_MAX];
 };
 
+static i32 load_libdrm(struct window_dri *win);
+static i32 load_libgbm(struct window_dri *win);
+
 static VECTOR(struct file) open_available_devices(void);
 static i32 dri_dev_scandir_filter(const struct dirent *d);
 
@@ -54,57 +58,59 @@ static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
 static void destroy_drm_device(struct drm_device *dev,
     const struct libdrm_functions *drm);
 
+static i32 initialize_acceleration(struct window_dri *win,
+    const enum p_window_flags flags);
+
 static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    struct gbm_device *gbm_dev, const struct drm_device *drm_dev,
+    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
     const struct libgbm_functions *gbm);
-static void render_destroy_egl(struct egl_render_ctx *egl_rctx,
-    const struct libgbm_functions *gbm);
+static void render_destroy_egl(struct egl_render_ctx *egl_rctx, i32 drm_dev_fd,
+    const struct libdrm_functions *drm, const struct libgbm_functions *gbm);
 
 static i32 render_init_software(struct software_render_ctx *sw_rctx,
-    struct gbm_device *gbm_dev, const struct drm_device *drm_dev,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm);
+    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
+    const rect_t *win_rect);
 static void render_destroy_software(struct software_render_ctx *sw_rctx,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm);
+    const struct libdrm_functions *drm, const struct drm_device *drm_dev);
 
-static void window_dri_render_software(struct window_dri *win,
-    struct pixel_flat_data *fb);
-static void window_dri_render_egl(struct window_dri *win);
-static void perform_drm_page_flip(struct window_dri *win, u32 fb_handle);
+static struct pixel_flat_data *
+render_prepare_frame_software(struct window_dri *win);
+static void render_prepare_frame_egl(struct window_dri *win);
+
+static void render_present_frame(struct window_dri *win, u32 fb_handle,
+    const enum p_window_present_mode present_mode);
 
 #define OK 0
 #define NOT_OK 1
-static void finish_frame(struct window_dri_listener_thread *listener,
+static void render_finish_frame(struct window_dri_listener_thread *listener,
     bool status);
 
 static void * window_dri_listener_fn(void *arg);
 static void page_flip_handler(int fd, unsigned int frame,
     unsigned int tv_sec, unsigned int tv_usec, void *user_data);
-static void window_dri_listener_signal_handler(i32 sig_num);
+static void cleanup_page_flip_handler(int fd, unsigned int frame,
+    unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
-i32 window_dri_open(struct window_dri *win, const rect_t *area, const u32 flags)
+static void do_nothing(i32 sig_num)
+{
+    (void) sig_num;
+}
+
+i32 window_dri_open(struct window_dri *win, const rect_t *area,
+    const u32 flags, struct p_window_info *info)
 {
     VECTOR(struct file) files = NULL;
     memset(win, 0, sizeof(struct window_dri));
+    win->generic_info_p = info;
 
-    /* See if we can even use KMS at all (usually that isn't the case) */
+    /* See if we can use KMS at all (usually that isn't the case) */
     win->initialized_ = true;
     files = open_available_devices();
     if (files == NULL)
         goto_error("No available DRM devices were found.");
 
-    /* Load libdrm */
-    win->libdrm = p_librtld_load(LIBDRM_LIBNAME, libdrm_symnames);
-    if (win->libdrm == NULL)
-        goto_error("Unable to load libdrm");
-
-#define X_(return_type, name, ...)                                  \
-    win->drm.name = p_librtld_load_sym(win->libdrm, #name);         \
-    if (win->drm.name == NULL)                                      \
-        goto_error("Failed to load libdrm function \"%s\"", #name); \
-
-    LIBDRM_FUNCTIONS_LIST
-#undef X_
-    win->drm.loaded_ = true;
+    if (load_libdrm(win))
+        goto err;
 
     /* Check which device (if any) we should use */
     if (select_and_init_device(files, &win->dev, &win->drm))
@@ -113,47 +119,27 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area, const u32 flags)
     /* We don't need this anymore */
     vector_destroy(&files);
 
-    /* Load and init libgbm */
-    win->libgbm = p_librtld_load(LIBGBM_LIBNAME, libgbm_symnames);
-    if (win->libgbm == NULL)
-        goto_error("Unable to load libgbm");
+    /* Init the generic window parameters */
+    info->display_rect.x = info->display_rect.y = 0;
+    info->display_rect.w = win->dev.width;
+    info->display_rect.h = win->dev.height;
+    info->display_color_format = BGRX32;
 
-#define X_(return_type, name, ...)                                  \
-    win->gbm.name = p_librtld_load_sym(win->libgbm, #name);         \
-    if (win->gbm.name == NULL)                                      \
-        goto_error("Failed to load libgbm function \"%s\"", #name); \
-
-    LIBGBM_FUNCTIONS_LIST
-#undef X_
-    win->gbm.loaded_ = true;
-
-    win->gbm_dev = win->gbm.gbm_create_device(win->dev.fd);
-    if (win->gbm_dev == NULL) {
-        s_log_error("Failed to create GBM device.");
-        return 1;
-    }
-
-    /* Init the window parameters */
-    win->display_rect.x = win->display_rect.y = 0;
-    win->display_rect.w = win->dev.width;
-    win->display_rect.h = win->dev.height;
-
-    memcpy(&win->win_rect, area, sizeof(rect_t));
+    memcpy(&info->client_area, area, sizeof(rect_t));
 
     if (flags & P_WINDOW_POS_CENTERED_X)
-        win->win_rect.x = (win->display_rect.w - win->win_rect.w) / 2;
+        info->client_area.x = (info->display_rect.w - info->client_area.w) / 2;
 
     if (flags & P_WINDOW_POS_CENTERED_Y)
-        win->win_rect.y = (win->display_rect.h - win->win_rect.h) / 2;
+        info->client_area.y = (info->display_rect.h - info->client_area.h) / 2;
 
-    /* By default, initialize software rendering (no acceleration) */
-    win->acceleration = P_WINDOW_ACCELERATION_UNSET_;
-    if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_NONE))
-        goto_error("Failed to init software rendering");
+    /* Initialize the GPU acceleration */
+    if (initialize_acceleration(win, flags))
+        goto_error("Failed to initialize GPU acceleration");
 
     /* Initialize the listener thread */
     win->listener.fd_p = &win->dev.fd;
-    win->listener.acceleration_p = &win->acceleration;
+    win->listener.acceleration_p = &info->gpu_acceleration;
     win->listener.drm = &win->drm;
     win->listener.gbm = &win->gbm;
     win->listener.render_ctx = &win->render;
@@ -213,13 +199,27 @@ kill_thread:
         }
     }
 
+    /* Clean up any pending frames and remove the DRM framebuffers */
+    if (atomic_load(&win->listener.page_flip_pending)) {
+        drmEventContext ev_ctx = {
+            .version = DRM_EVENT_CONTEXT_VERSION,
+            .page_flip_handler = cleanup_page_flip_handler,
+        };
+        if (win->drm.drmHandleEvent(win->dev.fd, &ev_ctx)) {
+            s_log_error("Failed to clean up pending frame: I/O error. "
+                "Forcing framebuffer removal.");
+            cleanup_page_flip_handler(win->dev.fd, 0, 0, 0, &win->listener);
+        }
+    }
+
     /* Clean up of acceleration-specific stuff */
-    switch (win->acceleration) {
+    switch (win->generic_info_p->gpu_acceleration) {
         case P_WINDOW_ACCELERATION_NONE:
-            render_destroy_software(&win->render.sw, &win->drm, &win->gbm);
+            render_destroy_software(&win->render.sw, &win->drm, &win->dev);
             break;
         case P_WINDOW_ACCELERATION_OPENGL:
-            render_destroy_egl(&win->render.egl, &win->gbm);
+            render_destroy_egl(&win->render.egl, win->dev.fd,
+                &win->drm, &win->gbm);
             break;
         case P_WINDOW_ACCELERATION_VULKAN:
         default:
@@ -227,9 +227,8 @@ kill_thread:
     }
 
     /* Close the device itself */
-    if (win->dev.initialized_) {
+    if (win->dev.initialized_)
         destroy_drm_device(&win->dev, &win->drm);
-    }
 
     /* Finally, unload the libraries */
     if (win->libgbm != NULL)
@@ -241,14 +240,22 @@ kill_thread:
     win->dev.fd = -1;
 }
 
-void window_dri_render(struct window_dri *win, struct pixel_flat_data *fb)
+struct pixel_flat_data * window_dri_swap_buffers(struct window_dri *win,
+    const enum p_window_present_mode present_mode)
 {
-    if (win->acceleration == P_WINDOW_ACCELERATION_OPENGL) {
-        (void) fb;
-        window_dri_render_egl(win);
+    struct pixel_flat_data *new_back_buf = NULL;
+    u32 fb_id = -1;
+    if (win->generic_info_p->gpu_acceleration == P_WINDOW_ACCELERATION_OPENGL) {
+        render_prepare_frame_egl(win);
+        fb_id = win->render.egl.next_fb_id;
     } else {
-        window_dri_render_software(win, fb);
+        new_back_buf = render_prepare_frame_software(win);
+        fb_id = win->render.sw.fb_id;
     }
+
+    render_present_frame(win, fb_id, present_mode);
+
+    return new_back_buf;
 }
 
 i32 window_dri_set_acceleration(struct window_dri *win,
@@ -256,18 +263,19 @@ i32 window_dri_set_acceleration(struct window_dri *win,
 {
     u_check_params(win != NULL && val >= 0 && val < P_WINDOW_ACCELERATION_MAX_);
 
-    if (win->acceleration == val) {
+    if (win->generic_info_p->gpu_acceleration == val) {
         s_log_warn("%s(): The desired acceleration mode is the same "
             "as the previous one; not doing anything.", __func__);
         return 0;
     }
 
-    switch (win->acceleration) {
+    switch (win->generic_info_p->gpu_acceleration) {
         case P_WINDOW_ACCELERATION_NONE:
-            render_destroy_software(&win->render.sw, &win->drm, &win->gbm);
+            render_destroy_software(&win->render.sw, &win->drm, &win->dev);
             break;
         case P_WINDOW_ACCELERATION_OPENGL:
-            render_destroy_egl(&win->render.egl, &win->gbm);
+            render_destroy_egl(&win->render.egl, win->dev.fd,
+                &win->drm, &win->gbm);
             break;
         case P_WINDOW_ACCELERATION_UNSET_: /* previously unset, do nothing */
             break;
@@ -277,43 +285,104 @@ i32 window_dri_set_acceleration(struct window_dri *win,
             break;
     }
 
-    win->acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (val) {
     case P_WINDOW_ACCELERATION_NONE:
-        if (render_init_software(&win->render.sw, win->gbm_dev, &win->dev,
-            &win->drm, &win->gbm))
+        if (render_init_software(&win->render.sw, &win->dev,
+            &win->drm, &win->generic_info_p->client_area))
         {
-            s_log_error("Failed to set the window up for software rendering.");
+            s_log_error("Failed to set up the window for software rendering.");
             return 1;
         }
-        return 0;
+        break;
     case P_WINDOW_ACCELERATION_OPENGL:
-        if (render_init_egl(&win->render.egl,
-            win->gbm_dev, &win->dev, &win->gbm))
-        {
-            s_log_error("Failed to set the window up for EGL rendering.");
+        if (!win->gbm.loaded_ && load_libgbm(win) != 0) {
+            s_log_error("%s: Couldn't load libgbm!", __func__);
             return 1;
         }
-        return 0;
+        if (render_init_egl(&win->render.egl, &win->dev,
+                &win->drm, &win->gbm))
+        {
+            s_log_error("Failed to set up the window for EGL rendering.");
+            return 1;
+        }
+        break;
     case P_WINDOW_ACCELERATION_VULKAN:
         s_log_error("Vulkan acceleration not implemented yet.");
         return 1;
-        break;
     default: /* Technically not possible */
         s_log_error("Unsupported acceleration mode: %u", val);
         return 1;
     }
 
-    win->acceleration = val;
+    win->generic_info_p->gpu_acceleration = val;
+    return 0;
 }
 
 void window_dri_set_egl_buffers_swapped(struct window_dri *win)
 {
     u_check_params(win != NULL);
-    s_assert(win->acceleration == P_WINDOW_ACCELERATION_OPENGL,
+    const enum p_window_acceleration curr_acceleration =
+        win->generic_info_p->gpu_acceleration;
+    s_assert(curr_acceleration == P_WINDOW_ACCELERATION_OPENGL,
         "OpenGL acceleration must be enabled to swap EGL buffers");
     atomic_store(&win->render.egl.buffers_swapped, true);
+}
+
+static i32 load_libdrm(struct window_dri *win)
+{
+    if (win->drm.loaded_ || win->libdrm != NULL) {
+        s_log_error("libdrm alread loaded!");
+        return -1;
+    }
+
+    win->libdrm = p_librtld_load(LIBDRM_LIBNAME, libdrm_symnames);
+    if (win->libdrm == NULL)
+        goto_error("Unable to load libdrm");
+
+#define X_(return_type, name, ...)                                  \
+    win->drm.name = p_librtld_load_sym(win->libdrm, #name);         \
+    if (win->drm.name == NULL)                                      \
+        goto_error("Failed to load libdrm function \"%s\"", #name); \
+
+    LIBDRM_FUNCTIONS_LIST
+#undef X_
+    win->drm.loaded_ = true;
+
+    return 0;
+err:
+    memset(&win->drm, 0, sizeof(struct libdrm_functions));
+    win->libdrm = NULL;
+    return 1;
+}
+
+static i32 load_libgbm(struct window_dri *win)
+{
+    if (win->gbm.loaded_ || win->libgbm != NULL) {
+        s_log_error("libgbm alread loaded!");
+        return -1;
+    }
+
+    win->libgbm = p_librtld_load(LIBGBM_LIBNAME, libgbm_symnames);
+    if (win->libgbm == NULL)
+        goto_error("Unable to load libgbm");
+
+#define X_(return_type, name, ...)                                  \
+    win->gbm.name = p_librtld_load_sym(win->libgbm, #name);         \
+    if (win->gbm.name == NULL)                                      \
+        goto_error("Failed to load libgbm function \"%s\"", #name); \
+
+    LIBGBM_FUNCTIONS_LIST
+#undef X_
+    win->gbm.loaded_ = true;
+
+    return 0;
+
+err:
+    memset(&win->gbm, 0, sizeof(struct libgbm_functions));
+    win->libgbm = NULL;
+    return 1;
 }
 
 static VECTOR(struct file) open_available_devices(void)
@@ -340,7 +409,7 @@ static VECTOR(struct file) open_available_devices(void)
             u_FILEPATH_MAX - strlen(f.path) - 1);
         f.path[u_FILEPATH_MAX - 1] = '\0'; /* just in case */
 
-        f.fd = open(f.path, O_RDWR);
+        f.fd = open(f.path, O_RDWR | O_NONBLOCK | O_CLOEXEC);
         if (f.fd == -1) {
             u_nfree(&namelist[i]);
             continue;
@@ -463,8 +532,7 @@ static i32 select_connector_and_mode(i32 fd, u32 n_conns, u32 *conn_ids,
     drmModeModeInfoPtr ret_mode = NULL;
     u32 top_score = 0;
 
-    u32 i = 0;
-    for (; i < n_conns; i++) {
+    for (u32 i = 0; i < n_conns; i++) {
         drmModeConnectorPtr conn = drm->drmModeGetConnector(fd, conn_ids[i]);
 
         if (conn == NULL) {
@@ -476,7 +544,7 @@ static i32 select_connector_and_mode(i32 fd, u32 n_conns, u32 *conn_ids,
             continue;
         }
 
-        /* The first mode is usually the "preffered" one */
+        /* The first mode is usually the "preferred" one */
         drmModeModeInfoPtr best_mode_ptr = &conn->modes[0];
         ret_mode = best_mode_ptr;
         u32 top_mode_score = 0;
@@ -567,9 +635,11 @@ static void destroy_drm_device(struct drm_device *dev,
 
     if (dev->crtc != NULL) {
         /* Restore the previous CRTC configuration */
-        (void) drm->drmModeSetCrtc(dev->fd, dev->crtc->crtc_id,
+        i32 ret = drm->drmModeSetCrtc(dev->fd, dev->crtc->crtc_id,
             dev->crtc->buffer_id, dev->crtc->x, dev->crtc->y,
             &dev->conn->connector_id, 1, &dev->crtc->mode);
+        if (ret != 0)
+            s_log_error("Failed to restore the CRTC: %s", strerror(errno));
         drm->drmModeFreeCrtc(dev->crtc);
         dev->crtc = NULL;
     }
@@ -591,16 +661,98 @@ static void destroy_drm_device(struct drm_device *dev,
     dev->width = dev->height = dev->refresh_rate = 0;
 }
 
+static i32 initialize_acceleration(struct window_dri *win,
+    const enum p_window_flags flags)
+{
+    /* Decide which acceleration modes to try
+     * and which are required to succeed */
+    const bool try_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_VULKAN);
+    const bool warn_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
+    const bool require_vulkan = (flags & P_WINDOW_REQUIRE_VULKAN) || 0;
+
+    const bool try_opengl = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_OPENGL);
+    const bool warn_opengl = (flags & P_WINDOW_PREFER_ACCELERATED) || 0;
+    const bool require_opengl = (flags & P_WINDOW_REQUIRE_OPENGL)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
+
+    const bool try_software = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_NO_ACCELERATION);
+
+    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    if (try_vulkan) {
+        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_VULKAN)) {
+            if (require_vulkan) {
+                s_log_error("Failed to initialize Vulkan.");
+                return 1;
+            } else if (warn_vulkan && try_opengl) {
+                s_log_warn("Failed to initialize Vulkan. "
+                    "Falling back to OpenGL.");
+            } else if (warn_vulkan && try_software) {
+                s_log_warn("Failed to initialize Vulkan. "
+                    "Falling back to software rendering.");
+            } else if (warn_vulkan) {
+                s_log_warn("Failed to initialize Vulkan.");
+            }
+        } else {
+            s_log_debug("OK initializing Vulkan acceleration.");
+            return 0;
+        }
+    }
+
+    if (try_opengl) {
+        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL)) {
+            if (require_opengl) {
+                s_log_error("Failed to initialize OpenGL.");
+                return 1;
+            } else if (warn_opengl && try_software) {
+                s_log_warn("Failed to initialize OpenGL. "
+                    "Falling back to software.");
+            } else if (warn_opengl) {
+                s_log_warn("Failed to initialize OpenGL.");
+            }
+        } else {
+            s_log_debug("OK initializing OpenGL acceleration.");
+            return 0;
+        }
+    }
+
+    if (try_software) {
+        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_NONE)) {
+            s_log_error("Failed to initialize software rendering.");
+            return 1;
+        } else {
+            s_log_debug("OK initializing software rendering.");
+            return 0;
+        }
+    }
+
+    s_log_error("No GPU acceleration mode could be initialized.");
+    return 1;
+}
+
 static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    struct gbm_device *gbm_dev, const struct drm_device *drm_dev,
+    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
     const struct libgbm_functions *gbm)
 {
     memset(egl_rctx, 0, sizeof(struct egl_render_ctx));
     egl_rctx->initialized_ = true;
 
     atomic_store(&egl_rctx->buffers_swapped, false);
+    atomic_store(&egl_rctx->front_buffer_in_use, false);
+    egl_rctx->crtc_set = false;
 
-    egl_rctx->surface = gbm->gbm_surface_create(gbm_dev,
+    egl_rctx->device = gbm->gbm_create_device(drm_dev->fd);
+    if (egl_rctx->device == NULL) {
+        s_log_error("Failed to create GBM device");
+        return 1;
+    }
+
+    egl_rctx->surface = gbm->gbm_surface_create(egl_rctx->device,
         drm_dev->width, drm_dev->height, GBM_BO_FORMAT_XRGB8888,
         GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
     if (egl_rctx->surface == NULL) {
@@ -610,186 +762,265 @@ static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
 
     egl_rctx->curr_bo = egl_rctx->next_bo = NULL;
     egl_rctx->curr_fb_id = egl_rctx->next_fb_id = 0;
-    atomic_store(&egl_rctx->front_buffer_in_use, false);
 
     return 0;
 }
 
-static void render_destroy_egl(struct egl_render_ctx *egl_rctx,
-    const struct libgbm_functions *gbm)
+static void render_destroy_egl(struct egl_render_ctx *egl_rctx, i32 drm_dev_fd,
+    const struct libdrm_functions *drm, const struct libgbm_functions *gbm)
 {
     if (!egl_rctx->initialized_) return;
 
+    if (atomic_load(&egl_rctx->front_buffer_in_use)) {
+        s_log_error("Front buffer in use after listener thread termination!");
+        atomic_store(&egl_rctx->front_buffer_in_use, false);
+    }
+
     if (egl_rctx->surface != NULL) {
         gbm->gbm_surface_destroy(egl_rctx->surface);
+        egl_rctx->surface = NULL;
+    }
+
+    if (egl_rctx->device != NULL) {
+        gbm->gbm_device_destroy(egl_rctx->device);
+        egl_rctx->device = NULL;
     }
 
     memset(egl_rctx, 0, sizeof(struct egl_render_ctx));
 }
 
 static i32 render_init_software(struct software_render_ctx *sw_rctx,
-    struct gbm_device *gbm_dev, const struct drm_device *drm_dev,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm)
+    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
+    const rect_t *win_rect)
 {
+    i32 ret = 0;
     memset(sw_rctx, 0, sizeof(struct software_render_ctx));
     sw_rctx->initialized_ = true;
-    sw_rctx->fb_id = -1;
 
-    sw_rctx->bo = gbm->gbm_bo_create(gbm_dev, drm_dev->width, drm_dev->height,
-        GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
-    if (sw_rctx->bo == NULL) {
-        s_log_error("Failed to create GBM buffer object");
-        return 1;
-    }
+    /* Create the buffer */
+    struct drm_mode_create_dumb create_dumb_req = {
+        .width = drm_dev->width,
+        .height = drm_dev->height,
+        .bpp = 32,
+        .flags = 0,
+    };
+    ret = drm->drmIoctl(drm_dev->fd,
+        DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb_req);
+    if (ret != 0)
+        goto_error("Failed to create dumb buffer: %s", strerror(errno));
 
-    const u32 stride = gbm->gbm_bo_get_stride(sw_rctx->bo);
-    const u32 handle = gbm->gbm_bo_get_handle(sw_rctx->bo).u32;
-    i32 ret = drm->drmModeAddFB(drm_dev->fd, drm_dev->width, drm_dev->height,
-        24, 32, stride, handle, &sw_rctx->fb_id);
-    if (ret != 0) {
-        s_log_error("Failed to add framebuffer: %s", strerror(errno));
-        gbm->gbm_bo_destroy(sw_rctx->bo);
-        sw_rctx->bo = NULL;
-        sw_rctx->fb_id = -1;
-        return 1;
-    }
+    sw_rctx->handle = create_dumb_req.handle;
+    sw_rctx->stride = create_dumb_req.pitch;
+    sw_rctx->width = drm_dev->width;
+    sw_rctx->height = drm_dev->height;
+    sw_rctx->dumb_created = true;
 
+    /* Create the framebuffer object in the DRM */
+    ret = drm->drmModeAddFB(drm_dev->fd, drm_dev->width, drm_dev->height,
+        24, 32, sw_rctx->stride, sw_rctx->handle, &sw_rctx->fb_id);
+    if (ret != 0)
+        goto_error("Failed to create the framebuffer object: %s",
+            strerror(errno));
+    sw_rctx->fb_added = true;
+
+    /* Prepare the buffer for mapping */
+    struct drm_mode_map_dumb map_dumb_req = { .handle = sw_rctx->handle };
+    ret = drm->drmIoctl(drm_dev->fd,
+        DRM_IOCTL_MODE_MAP_DUMB, &map_dumb_req);
+    if (ret != 0)
+        goto_error("Failed to prepare dumb buffer for mapping: %s",
+            strerror(errno));
+
+    /* Finally, map the buffer */
+    sw_rctx->map_size = drm_dev->width * drm_dev->height * sizeof(pixel_t);
+    sw_rctx->map = mmap(NULL, sw_rctx->map_size, PROT_READ | PROT_WRITE,
+        MAP_SHARED, drm_dev->fd, map_dumb_req.offset);
+    if (sw_rctx->map == MAP_FAILED)
+        goto_error("Failed to map dumb buffer: %s", strerror(errno));
+    sw_rctx->fb_mapped = true;
+
+    /* Allocate the window pixel buffers */
+    sw_rctx->front_buf.w = sw_rctx->back_buf.w = win_rect->w;
+    sw_rctx->front_buf.h = sw_rctx->back_buf.h = win_rect->h;
+
+    const u64 buf_size = win_rect->w * win_rect->h * sizeof(pixel_t);
+    sw_rctx->front_buf.buf = malloc(buf_size);
+    sw_rctx->back_buf.buf = malloc(buf_size);
+    if (sw_rctx->front_buf.buf == NULL || sw_rctx->back_buf.buf == NULL)
+        goto_error("Failed to allocate the window pixel buffers");
+
+    /* Set the dumb framebuffer as the scanout buffer */
     ret = drm->drmModeSetCrtc(drm_dev->fd, drm_dev->crtc->crtc_id,
         sw_rctx->fb_id, 0, 0, &drm_dev->conn->connector_id, 1,
         drm_dev->mode);
-    if (ret != 0) {
-        s_log_error("Failed to set CRTC: %s", strerror(errno));
-        (void) drm->drmModeRmFB(drm_dev->fd, sw_rctx->fb_id);
-        gbm->gbm_bo_destroy(sw_rctx->bo);
-        sw_rctx->bo = NULL;
-        sw_rctx->fb_id = -1;
-        return 1;
-    }
+    if (ret != 0)
+        goto_error("Failed to set CRTC: %s", strerror(errno));
 
     return 0;
+
+err:
+    render_destroy_software(sw_rctx, drm, drm_dev);
+    return 1;
 }
 
 static void render_destroy_software(struct software_render_ctx *sw_rctx,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm)
+    const struct libdrm_functions *drm, const struct drm_device *drm_dev)
 {
     if (!sw_rctx->initialized_) return;
 
-    if (sw_rctx->bo != NULL) {
-        if (sw_rctx->fb_id != -1) {
-            i32 fd = gbm->gbm_bo_get_fd(sw_rctx->bo);
-            (void) drm->drmModeRmFB(fd, sw_rctx->fb_id);
-        }
-        gbm->gbm_bo_destroy(sw_rctx->bo);
+    if (sw_rctx->back_buf.buf != NULL)
+        u_nfree(&sw_rctx->back_buf.buf);
+    if (sw_rctx->front_buf.buf != NULL)
+        u_nfree(&sw_rctx->front_buf.buf);
+
+    if (sw_rctx->fb_mapped) {
+        munmap(sw_rctx->map, sw_rctx->map_size);
+        sw_rctx->map = NULL;
+        sw_rctx->fb_mapped = false;
+    }
+
+    if (sw_rctx->fb_added) {
+        drm->drmModeRmFB(drm_dev->fd, sw_rctx->fb_id);
+        sw_rctx->fb_id = -1;
+        sw_rctx->fb_added = false;
+    }
+
+    if (sw_rctx->dumb_created) {
+        struct drm_mode_destroy_dumb destroy_dumb_req = {
+            .handle = sw_rctx->handle,
+        };
+        i32 ret = drm->drmIoctl(drm_dev->fd,
+            DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb_req);
+        if (ret != 0)
+            s_log_error("Failed to destroy dumb buffer: %s", strerror(errno));
+
+        sw_rctx->handle = 0;
+        sw_rctx->dumb_created = false;
     }
 
     memset(sw_rctx, 0, sizeof(struct software_render_ctx));
-    sw_rctx->fb_id = -1;
 }
 
-static void window_dri_render_software(struct window_dri *win,
-    struct pixel_flat_data *fb)
+static struct pixel_flat_data *
+render_prepare_frame_software(struct window_dri *win)
 {
-    s_assert(fb != NULL && fb->buf != NULL,
-        "No buffer provided in software-renderered window");
+    struct software_render_ctx *sw_rctx = &win->render.sw;
 
-    u32 *map = NULL;
-    void *map_data = NULL;
-    u32 stride = 0;
-    map = win->gbm.gbm_bo_map(win->render.sw.bo,
-        0, 0, win->dev.width, win->dev.height,
-        GBM_BO_TRANSFER_WRITE, &stride, &map_data
-    );
-    s_assert(map != NULL, "Failed to map GBM buffer: %s", strerror(errno));
+    /* Swap the buffers */
+    pixel_t *const tmp = sw_rctx->front_buf.buf;
+    sw_rctx->front_buf.buf = sw_rctx->back_buf.buf;
+    sw_rctx->back_buf.buf = tmp;
 
     /* Clip the window rect to be within the screen */
-    rect_t dst = win->win_rect;
-    rect_clip(&dst, &win->display_rect);
+    const rect_t win_rect = win->generic_info_p->client_area;
+    rect_t dst = win_rect;
+    rect_clip(&dst, &win->generic_info_p->display_rect);
 
     /* "Project" the changes made to dst onto src */
-    const rect_t src = {
-        .x = -(win->win_rect.x - dst.x),
-        .y = -(win->win_rect.y - dst.y),
-        .w = fb->w - (win->win_rect.w - dst.w),
-        .h = fb->h - (win->win_rect.h - dst.h),
+    rect_t src = {
+        .x = dst.x - win_rect.x,
+        .y = dst.y - win_rect.y,
+        .w = sw_rctx->front_buf.w + (dst.w - win_rect.w),
+        .h = sw_rctx->front_buf.h + (dst.h - win_rect.h),
     };
-    for (u32 y = 0; y < src.h; y++) {
+
+    /* Convert src and dst to bytes (instead of pixels) */
+    src.x *= sizeof(pixel_t);
+    src.w *= sizeof(pixel_t);
+    dst.x *= sizeof(pixel_t);
+    dst.w *= sizeof(pixel_t);
+
+    /* C Pointer arithmetic is useless & stupid, change my mind */
+    u8 *const restrict dst_mem = (u8 *)sw_rctx->map;
+    const u8 *const restrict src_mem = (u8 *)sw_rctx->front_buf.buf;
+    const u32 src_stride = src.w;
+    const u32 dst_stride = sw_rctx->stride;
+
+    /* Finally, copy the window buffer to the screen */
+    for (i32 y = 0; y < src.h; y++) {
         const u32 dst_offset = (
-            (dst.y + y) * (stride / 4)
+            ((dst.y + y) * dst_stride)
             + dst.x
         );
         const u32 src_offset = (
-            ((src.y + y) * src.w)
+            ((src.y + y) * src_stride)
             + src.x
         );
 
         memcpy(
-            map + dst_offset,
-            fb->buf + src_offset,
-            src.w * sizeof(pixel_t)
+            dst_mem + dst_offset,
+            src_mem + src_offset,
+            src_stride
         );
     }
 
-    win->gbm.gbm_bo_unmap(win->render.sw.bo, map_data);
-
-    i32 ret = win->drm.drmModeSetCrtc(win->dev.fd, win->dev.crtc->crtc_id,
-        win->render.sw.fb_id, 0, 0, &win->dev.conn->connector_id, 1,
-        win->dev.mode);
-    if (ret != 0) {
-        s_log_error("Failed to set CRTC: %s", strerror(errno));
-        return;
-    }
-
-    perform_drm_page_flip(win, win->render.sw.fb_id);
+    return &sw_rctx->back_buf;
 }
 
-static void window_dri_render_egl(struct window_dri *win)
+static void render_prepare_frame_egl(struct window_dri *win)
 {
+    struct egl_render_ctx *const egl_rctx = &win->render.egl;
+
     /* Sanity checks */
-    if (atomic_load(&win->render.egl.front_buffer_in_use)) {
+    if (atomic_load(&egl_rctx->front_buffer_in_use)) {
         s_log_error("Another frame is being displayed right now! "
             "Dropping this one!");
         return;
     }
-    atomic_store(&win->render.egl.front_buffer_in_use, true);
+    atomic_store(&egl_rctx->front_buffer_in_use, true);
 
-    if (!atomic_load(&win->render.egl.buffers_swapped)) {
+    if (!atomic_load(&egl_rctx->buffers_swapped)) {
         s_log_error("Attempt to present framebuffer without first swapping it; "
             "dropping this frame.");
         return;
     }
-    win->render.egl.buffers_swapped = false;
+    atomic_store(&egl_rctx->buffers_swapped, false);
 
-    if (!win->gbm.gbm_surface_has_free_buffers(win->render.egl.surface)) {
+    if (!win->gbm.gbm_surface_has_free_buffers(egl_rctx->surface)) {
         s_log_error("GBM surface has no free buffers left; dropping frame.");
         return;
     }
 
     /* Get the new front buffer... */
     struct gbm_bo *bo =
-        win->gbm.gbm_surface_lock_front_buffer(win->render.egl.surface);
+        win->gbm.gbm_surface_lock_front_buffer(egl_rctx->surface);
     s_assert(bo != NULL, "Failed to lock GBM front buffer");
-    win->render.egl.next_bo = bo;
+    egl_rctx->next_bo = bo;
 
     /* ...And add it to our CRTC */
     const u32 stride = win->gbm.gbm_bo_get_stride(bo);
     const u32 handle = win->gbm.gbm_bo_get_handle(bo).u32;
     i32 ret = win->drm.drmModeAddFB(win->dev.fd,
         win->dev.width, win->dev.height, 24, 32, stride, handle,
-        &win->render.egl.next_fb_id);
+        &egl_rctx->next_fb_id);
     if (ret != 0) {
         s_log_error("Failed to add framebuffer: %s. Dropping this frame.",
             strerror(errno));
-        win->gbm.gbm_surface_release_buffer(win->render.egl.surface, bo);
-        win->render.egl.curr_bo = NULL;
-        atomic_store(&win->render.egl.front_buffer_in_use, false);
+        win->gbm.gbm_surface_release_buffer(egl_rctx->surface, bo);
+        egl_rctx->curr_bo = NULL;
+        atomic_store(&egl_rctx->front_buffer_in_use, false);
         return;
     }
 
-    /* And finally, schedule the pageflip for the next VBlank */
-    perform_drm_page_flip(win, win->render.egl.next_fb_id);
+    /* If this is the first frame drawn, set the CRTC */
+    if (!egl_rctx->crtc_set) {
+        ret = win->drm.drmModeSetCrtc(win->dev.fd, win->dev.crtc->crtc_id,
+            egl_rctx->next_fb_id, 0, 0, &win->dev.conn->connector_id, 1,
+            win->dev.mode);
+        if (ret != 0) {
+            s_log_error("Failed to set the CRTC: %s. Dropping this frame.",
+                strerror(errno));
+            win->gbm.gbm_surface_release_buffer(egl_rctx->surface, bo);
+            egl_rctx->curr_bo = NULL;
+            atomic_store(&egl_rctx->front_buffer_in_use, false);
+            return;
+        }
+        egl_rctx->crtc_set = true;
+    }
 }
 
-static void perform_drm_page_flip(struct window_dri *win, u32 fb_handle)
+static void render_present_frame(struct window_dri *win, u32 fb_handle,
+    const enum p_window_present_mode present_mode)
 {
     if (atomic_load(&win->listener.page_flip_pending)) {
         s_log_warn("Another page flip already scheduled! Dropping this frame.");
@@ -797,8 +1028,14 @@ static void perform_drm_page_flip(struct window_dri *win, u32 fb_handle)
     }
     atomic_store(&win->listener.page_flip_pending, true);
 
+    u32 flags = 0;
+    if (present_mode == P_WINDOW_PRESENT_VSYNC)
+        flags |= DRM_MODE_PAGE_FLIP_EVENT;
+    else if (present_mode == P_WINDOW_PRESENT_NOW)
+        flags |= DRM_MODE_PAGE_FLIP_ASYNC;
+
     i32 ret = win->drm.drmModePageFlip(win->dev.fd, win->dev.crtc->crtc_id,
-        fb_handle, DRM_MODE_PAGE_FLIP_EVENT, &win->listener);
+        fb_handle, flags, &win->listener);
     if (ret != 0) {
         s_log_error("Failed to schedule a page flip: %s", strerror(errno));
 
@@ -806,10 +1043,11 @@ static void perform_drm_page_flip(struct window_dri *win, u32 fb_handle)
         (void) pthread_kill(win->listener.thread, SIGUSR1);
         return;
     }
-    s_log_debug("Scheduled page flip for next VBlank");
+
+    //s_log_debug("Scheduled page flip for next VBlank");
 }
 
-static void finish_frame(struct window_dri_listener_thread *listener,
+static void render_finish_frame(struct window_dri_listener_thread *listener,
     bool status)
 {
     s_assert(listener->fd_p != NULL && *listener->fd_p != -1,
@@ -817,24 +1055,28 @@ static void finish_frame(struct window_dri_listener_thread *listener,
     s_assert(listener->acceleration_p != NULL,
         "The acceleration mode pointer is not initialized!");
     s_assert(listener->drm != NULL && listener->drm->loaded_,
-        "The libdrm functions are not initialized");;
-    s_assert(listener->gbm != NULL && listener->gbm->loaded_,
-        "The libgbm functions are not initialized");;
+        "The libdrm functions are not initialized");
 
     /* Clean everything up */
     if (*listener->acceleration_p == P_WINDOW_ACCELERATION_OPENGL) {
+        s_assert(listener->gbm != NULL && listener->gbm->loaded_,
+            "The libgbm functions are not initialized");;
 
         /* Clean up the previous frame */
         struct egl_render_ctx *egl_rctx = &listener->render_ctx->egl;
 
         if (egl_rctx->curr_fb_id != 0) {
-            (void) listener->drm->drmModeRmFB(
+            i32 ret = listener->drm->drmModeRmFB(
                 *listener->fd_p, egl_rctx->curr_fb_id
             );
+            if (ret != 0) {
+                s_log_error("Failed to remove current DRM framebuffer: %s",
+                    strerror(errno));
+            }
             egl_rctx->curr_fb_id = 0;
         }
         if (egl_rctx->curr_bo != NULL) {
-            (void) listener->gbm->gbm_surface_release_buffer(egl_rctx->surface,
+            listener->gbm->gbm_surface_release_buffer(egl_rctx->surface,
                 egl_rctx->curr_bo);
             egl_rctx->curr_bo = NULL;
         }
@@ -869,7 +1111,7 @@ static void * window_dri_listener_fn(void *arg)
 
     /* Set the signal handler for SIGUSR1 */
     struct sigaction sa = { 0 };
-    sa.sa_handler = window_dri_listener_signal_handler;
+    sa.sa_handler = do_nothing;
     sa.sa_flags = 0;
     /* Block all other signals while the handler is running */
     sigfillset(&sa.sa_mask);
@@ -883,13 +1125,6 @@ static void * window_dri_listener_fn(void *arg)
 
     s_assert(listener->drm != NULL && listener->drm->loaded_,
         "The libdrm functions are not initialized");;
-    s_assert(listener->gbm != NULL && listener->gbm->loaded_,
-        "The libgbm functions are not initialized");;
-
-    struct pollfd poll_fd = {
-        .fd = *listener->fd_p,
-        .events = POLLIN,
-    };
 
     drmEventContext ev_ctx = {
         .version = DRM_EVENT_CONTEXT_VERSION,
@@ -900,26 +1135,30 @@ static void * window_dri_listener_fn(void *arg)
         s_assert(listener->fd_p != NULL && *listener->fd_p != -1,
             "The device file descriptor is invalid");
 
+        struct pollfd poll_fd = {
+            .fd = *listener->fd_p,
+            .events = POLLIN,
+        };
         ret = poll(&poll_fd, 1, -1);
         if (ret > 0 && poll_fd.revents & POLLIN) {
 
-            /* If everything is OK, `finish_frame` will be called
+            /* If everything is OK, `render_finish_frame` will be called
              * in the page flip handler */
             if (listener->drm->drmHandleEvent(*listener->fd_p, &ev_ctx) != 0) {
                 s_log_error("drmHandleEvent failed: I/O error");
-                finish_frame(listener, NOT_OK);
+                render_finish_frame(listener, NOT_OK);
             }
         } else if (ret == 0 && atomic_load(&listener->page_flip_pending)) {
             /* The fd isn't ready for I/O,
              * which means that the timeout expired */
             s_log_warn("Timeout for vblank expired; dropping frame");
-            finish_frame(listener, NOT_OK);
+            render_finish_frame(listener, NOT_OK);
         } else if (ret == -1) {
             if (errno == EINTR) { /* Interrupted by signal */
                 s_log_debug("%s: poll() interrupted by signal", __func__);
                 if (atomic_load(&listener->page_flip_pending)) {
                     s_log_debug("Dropping current frame due to interruption.");
-                    finish_frame(listener, NOT_OK);
+                    render_finish_frame(listener, NOT_OK);
                 }
                 continue;
             } else {
@@ -937,18 +1176,71 @@ static void page_flip_handler(int fd, unsigned int frame,
 {
     struct window_dri_listener_thread *listener = user_data;
 
-    if (atomic_load(&listener->page_flip_pending) != true) {
+    if (!atomic_load(&listener->page_flip_pending)) {
         s_log_error("%s: Nothing is waiting for the vblank event "
             "(or another frame is being displayed)!", __func__);
-        finish_frame(listener, NOT_OK);
+        render_finish_frame(listener, NOT_OK);
         return;
     }
 
-    finish_frame(listener, OK);
+    render_finish_frame(listener, OK);
 }
 
-static void window_dri_listener_signal_handler(i32 sig_num)
+static void cleanup_page_flip_handler(int fd, unsigned int frame,
+    unsigned int tv_sec, unsigned int tv_usec, void *user_data)
 {
-    (void) sig_num;
-    /* Do nothing lol */
+    struct window_dri_listener_thread *listener = user_data;
+
+    if (!atomic_load(&listener->page_flip_pending))
+        return;
+
+    s_assert(listener->fd_p != NULL && *listener->fd_p != -1,
+        "The DRM device file descriptor is not initialized!");
+    s_assert(listener->acceleration_p != NULL,
+        "The acceleration mode pointer is not initialized!");
+    s_assert(listener->drm != NULL && listener->drm->loaded_,
+        "The libdrm functions are not initialized");
+
+    /* Clean up both buffers */
+    if (*listener->acceleration_p == P_WINDOW_ACCELERATION_OPENGL) {
+        s_assert(listener->gbm != NULL && listener->gbm->loaded_,
+            "The libgbm functions are not initialized");;
+
+        struct egl_render_ctx *egl_rctx = &listener->render_ctx->egl;
+
+        if (egl_rctx->curr_fb_id != 0) {
+            i32 ret = listener->drm->drmModeRmFB(
+                *listener->fd_p, egl_rctx->curr_fb_id
+            );
+            if (ret != 0) {
+                s_log_error("Failed to remove current DRM framebuffer: %s",
+                    strerror(errno));
+            }
+            egl_rctx->curr_fb_id = 0;
+        }
+        if (egl_rctx->curr_bo != NULL) {
+            listener->gbm->gbm_surface_release_buffer(egl_rctx->surface,
+                egl_rctx->curr_bo);
+            egl_rctx->curr_bo = NULL;
+        }
+        atomic_store(&listener->render_ctx->egl.front_buffer_in_use, false);
+
+        if (egl_rctx->next_fb_id != 0) {
+            i32 ret = listener->drm->drmModeRmFB(
+                *listener->fd_p, egl_rctx->curr_fb_id
+            );
+            if (ret != 0) {
+                s_log_error("Failed to remove current DRM framebuffer: %s",
+                    strerror(errno));
+            }
+            egl_rctx->curr_fb_id = 0;
+        }
+        if (egl_rctx->curr_bo != NULL) {
+            listener->gbm->gbm_surface_release_buffer(egl_rctx->surface,
+                egl_rctx->curr_bo);
+            egl_rctx->curr_bo = NULL;
+        }
+    }
+
+    atomic_store(&listener->page_flip_pending, false);
 }

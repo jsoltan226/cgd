@@ -36,11 +36,11 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     }
 
     ctx->win = win;
-    p_window_get_meta(ctx->win, &ctx->win_meta);
-    s_log_debug("win_meta->w: %u, win_meta->h: %u",
-        ctx->win_meta.w, ctx->win_meta.h);
+    p_window_get_info(ctx->win, &ctx->win_info);
+    s_log_debug("win_rect->w: %u, win_rect->h: %u",
+        ctx->win_info.client_area.w, ctx->win_info.client_area.h);
 
-    if (ctx->win_meta.acceleration != P_WINDOW_ACCELERATION_NONE) {
+    if (ctx->win_info.gpu_acceleration != P_WINDOW_ACCELERATION_NONE) {
         if (p_window_set_acceleration(ctx->win, P_WINDOW_ACCELERATION_NONE))
             goto_error("Failed to set window acceleration");
     }
@@ -92,8 +92,8 @@ void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 {
     u_check_params(ctx != NULL);
 
-    if (ctx->win_meta.color_format == BGRA32 ||
-        ctx->win_meta.color_format == BGRX32)
+    if (ctx->win_info.display_color_format == BGRA32 ||
+        ctx->win_info.display_color_format == BGRX32)
         u_rgba_swap_b_r(color);
 
     ctx->current_color = color;
