@@ -1,5 +1,6 @@
 #ifndef PIXEL_H_
 #define PIXEL_H_
+#include "static-tests.h"
 
 #include "shapes.h"
 #include "int.h"

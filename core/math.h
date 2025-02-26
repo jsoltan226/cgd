@@ -1,5 +1,6 @@
 #ifndef CORE_MATH_H_
 #define CORE_MATH_H_
+#include "static-tests.h"
 
 #include "int.h"
 #include "pixel.h"

@@ -1,5 +1,6 @@
 #ifndef UTIL_H_
 #define UTIL_H_
+#include "static-tests.h"
 
 #include "log.h"
 #include <stdlib.h>

@@ -1,5 +1,6 @@
 #ifndef U_SHAPES_H_
 #define U_SHAPES_H_
+#include "static-tests.h"
 
 #include "int.h"
 #include <assert.h>

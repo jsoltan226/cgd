@@ -58,3 +58,12 @@
     * Added calls to `p_window_swap_buffers` in the `opengl_test` in `tests/render-test`
     * Fixed many typos and overly long lines
 
+* Added `core/static-tests.h` which contains necessary checks on the target platform
+    * The header is included in all headers in `core/` (except for `core/ansi-esc-sequences.h`)
+    * It's also `cpp`d as a dependency of all build targets in the `Makefile`
+    * It contains checks for anything that's assumed by the codebase, but is not guaranteed by the C standard. This includes:
+        * The size of `float`
+        * The size of `double`
+        * Support for `stdatomic.h`
+    * It also checks for the C standard version (`__STDC__` and `__STDC_VERSION__`),
+        as well as the completeness of the standard library implemetation (`__STDC_HOSTED__`)

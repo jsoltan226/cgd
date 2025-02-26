@@ -1,5 +1,6 @@
 #ifndef LOG_H_
 #define LOG_H_
+#include "static-tests.h"
 
 #include <stdbool.h>
 #include <stdio.h>

@@ -1,5 +1,6 @@
 #ifndef VECTOR_H_
 #define VECTOR_H_
+#include "static-tests.h"
 
 #include "int.h"
 #include "log.h"

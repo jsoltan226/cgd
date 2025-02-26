@@ -1,5 +1,6 @@
 #ifndef PRESSABLEOBJ_H
 #define PRESSABLEOBJ_H
+#include "static-tests.h"
 
 #include <stdbool.h>
 #include "int.h"

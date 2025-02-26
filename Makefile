@@ -9,13 +9,14 @@ endif
 # Compiler and flags
 CC ?= cc
 CCLD ?= $(CC)
+CPP ?= cpp
 
 INCLUDES ?=
 ifeq ($(PLATFORM), linux)
 INCLUDES += -I$(PREFIX)/include/libdrm
 endif
 
-COMMON_CFLAGS = -Wall -I. -pipe -fPIC -pthread $(INCLUDES)
+COMMON_CFLAGS = -std=c11 -Wall -I. -pipe -fPIC -pthread $(INCLUDES)
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie
@@ -71,6 +72,8 @@ TEST_SRCS = $(wildcard $(TEST_SRC_DIR)/*.c)
 TEST_EXES = $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
 TEST_LOGFILE = $(TEST_SRC_DIR)/testlog.txt
 
+STATIC_TESTS=core/static-tests.h
+
 # Sources and objects
 PLATFORM_SRCS = $(wildcard $(PLATFORM_SRCDIR)/$(PLATFORM)/*.c)
 
@@ -96,11 +99,11 @@ EXEARGS =
 
 # Build targets
 all: CFLAGS = -ggdb -O0 -Wall
-all: $(OBJDIR) $(BINDIR) $(EXE)
+all: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
 release: LDFLAGS += -flto
 release: CFLAGS = -O3 -Wall -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
-release: clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
+release: $(STATIC_TESTS) clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run
 
@@ -176,7 +179,7 @@ tests: build-tests test-hooks
 
 # Test compilation targets
 build-tests: CFLAGS = -ggdb -O0 -Wall
-build-tests: $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
+build-tests: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
 
 compile-tests: CFLAGS = -ggdb -O0 -Wall
 compile-tests: $(TEST_EXES)
@@ -185,6 +188,9 @@ $(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
 $(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
+
+$(STATIC_TESTS):
+	@$(CPP) $(STATIC_TESTS) >/dev/null
 
 # Cleanup targets
 mostlyclean:

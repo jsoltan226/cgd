@@ -1,5 +1,6 @@
 #ifndef U_INT_H_
 #define U_INT_H_
+#include "static-tests.h"
 
 #include <stdint.h>
 #include <assert.h>
@@ -16,10 +17,5 @@ typedef int64_t i64;
 
 typedef float f32;
 typedef double f64;
-static_assert(sizeof(f32) == 4, "Sizeof float32 must be 4 bytes (32 bits)");
-static_assert(sizeof(f64) == 8, "Sizeof float64 must be 8 bytes (64 bits)");
-
-static_assert(sizeof(char) == 1, "Sizeof char must be 1 byte (8 bits)");
-static_assert(sizeof(void *) == 8, "Sizeof void * must be 8 bytes (64 bits)");
 
 #endif /* U_INT_H_ */
