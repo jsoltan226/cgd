@@ -57,12 +57,12 @@ i32 window_fbdev_open(struct window_fbdev *win,
     else if (flags & P_WINDOW_PREFER_ACCELERATED)
         s_log_warn("Acceleration not supported for fbdev windows.");
 
-    win->fd = open(FBDEV_PATH, O_RDWR);
+    win->fd = open(FBDEV_PATH, O_RDWR | O_CLOEXEC);
     if (win->fd == -1) {
         s_log_warn("Failed to open framebuffer device '%s': %s",
             FBDEV_PATH, strerror(errno));
 
-        win->fd = open(FBDEV_FALLBACK_PATH, O_RDWR);
+        win->fd = open(FBDEV_FALLBACK_PATH, O_RDWR | O_CLOEXEC);
         if (win->fd == -1)
             goto_error("Failed to open fallback framebuffer device '%s': %s",
                 FBDEV_FALLBACK_PATH, strerror(errno));
@@ -132,7 +132,7 @@ i32 window_fbdev_open(struct window_fbdev *win,
 
     /* Set the terminal to raw mode to avoid echoing user input
      * on the console */
-    win->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK);
+    win->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (win->tty_fd != -1) {
         (void) tty_keyboard_set_term_raw_mode(win->tty_fd,
             &win->orig_term_config, NULL);

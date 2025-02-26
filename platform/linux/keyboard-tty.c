@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "../keyboard.h"
 #include <core/log.h>
 #include <core/util.h>
@@ -26,7 +27,7 @@ i32 tty_keyboard_init(struct keyboard_tty *kb)
     kb->is_orig_termios_initialized_ = false;
 
     /* Open the tty device */
-    kb->fd = open(TTYDEV_FILEPATH, O_RDONLY | O_NONBLOCK);
+    kb->fd = open(TTYDEV_FILEPATH, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (kb->fd == -1)
         goto_error("Failed to open %s: %s", TTYDEV_FILEPATH, strerror(errno));
 

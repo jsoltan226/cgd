@@ -5,6 +5,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
+#include <core/math.h>
 #include <core/vector.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
 
@@ -23,11 +25,8 @@
 
 static i32 dev_input_event_scandir_filter(const struct dirent *dirent);
 
-static bool keyboard_check(i32 fd, const char *path);
-static bool mouse_check(i32 fd, const char *path);
-
-static bool ev_bit_check(const u64 bits[], u32 n_bits,
-    const i32 checks[], u32 n_checks);
+static i32 ev_cap_check(i32 fd, const char *path, enum evdev_type type);
+static i32 ev_bit_check(const u64 bits[], u32 n_bits, const i32 *checks);
 
 VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 {
@@ -114,8 +113,8 @@ err:
 
 i32 evdev_load(const char *rel_path, struct evdev *out, enum evdev_type type)
 {
-    bool err_invalid_type = false;
     u_check_params(rel_path != NULL && out != NULL);
+    u_check_params(type > 0 && type < EVDEV_N_TYPES);
     memset(out, 0, sizeof(struct evdev));
 
     strncpy(out->path, DEVINPUT_DIR "/", u_FILEPATH_MAX);
@@ -138,31 +137,16 @@ i32 evdev_load(const char *rel_path, struct evdev *out, enum evdev_type type)
             __func__, out->path, strerror(errno));
     }
 
-
-    /* Silently fail if device is of invalid type */
-    switch (type) {
-        case EVDEV_KEYBOARD:
-            if (!keyboard_check(out->fd, out->path)) {
-                err_invalid_type = true;
-                goto err;
-            }
-            break;
-        case EVDEV_MOUSE:
-            if (!mouse_check(out->fd, out->path)) {
-                err_invalid_type = true;
-                goto err;
-            }
-            break;
-        default: case EVDEV_UNKNOWN:
-            s_log_error("%s: Invalid type parameter: %i\n", __func__, type);
-            goto err;
-    }
-
     /* Get device name */
     if (ioctl(out->fd, EVIOCGNAME(MAX_EVDEV_NAME_LEN - 1), out->name) < 0) {
         s_log_warn("Failed to get name for event device %s: %s",
             out->path, strerror(errno));
     }
+    //s_log_debug("Trying \"%s\" (%s)...", out->name, out->path);
+
+    /* Silently fail if device is of invalid type */
+    if (ev_cap_check(out->fd, out->path, type))
+        goto err;
 
     return 0;
 
@@ -172,8 +156,7 @@ err:
         out->fd = -1;
     }
 
-    if (err_invalid_type) return 1;
-    else return -1;
+    return 1;
 }
 
 static i32 dev_input_event_scandir_filter(const struct dirent *dirent)
@@ -181,96 +164,67 @@ static i32 dev_input_event_scandir_filter(const struct dirent *dirent)
     return !strncmp(dirent->d_name, "event", u_strlen("event"));
 }
 
-static bool keyboard_check(i32 fd, const char *evdev_path)
+static i32 ev_cap_check(i32 fd, const char *path, enum evdev_type type)
 {
     u64 ev_bits[u_nbits(EV_MAX)];
     if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0) {
         s_log_error("Failed to get supported events from %s: %s",
-            evdev_path, strerror(errno));
+            path, strerror(errno));
         return false;
     }
 
-    /* Fail is device is a mouse (doesn't support KEY events or
-     * supports REL events which are typically only found in mice)
-     */
-    if (!(ev_bits[0] & 1 << EV_KEY) || (ev_bits[0] & 1 << EV_REL))
-        return false;
+    u32 i = 0;
+    const i32 *ev_checks = evdev_type_checks[type][0];
+    while (i < EV_max_n_checks_ && ev_checks[i] != EV_check_end_) {
+        const i32 curr_ev_bit = ev_checks[i];
+        s_assert(curr_ev_bit > 0 && curr_ev_bit < EV_CNT,
+            "Invalid EV_* value (%i)", curr_ev_bit);
+        const u32 curr_max_val = ev_max_vals[i];
 
-    u64 key_bits[u_nbits(KEY_MAX)];
-    if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
-        s_log_error("Failed to get key events supported by %s: %s",
-            evdev_path, strerror(errno));
-        return false;
+        u64 bits[EV_bits_max_size_u64_];
+        if (ioctl(fd, EVIOCGBIT(curr_ev_bit, curr_max_val), bits) < 0) {
+            s_log_error("Failed to get event bits from %s: %s",
+                path, strerror(errno));
+            return 1;
+        }
+
+        const i32 *curr_checks = evdev_type_checks[type][curr_ev_bit];
+        if (ev_bit_check(bits, curr_max_val, curr_checks)) {
+            //s_log_error("EV bit %i check failed", curr_ev_bit);
+            return 1;
+        }
+
+        i++;
     }
 
-    static const i32 key_checks[] = {
-        KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0,
-        KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_H, KEY_J, KEY_L, KEY_Z,
-        KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
-        KEY_SPACE, KEY_ESC, KEY_ENTER, KEY_BACKSPACE, KEY_TAB
-    };
-
-    return ev_bit_check(key_bits, u_arr_size(key_bits),
-            key_checks, u_arr_size(key_checks));
+    return 0;
 }
 
-static bool mouse_check(i32 fd, const char *evdev_path)
+static i32 ev_bit_check(const u64 bits[], u32 n_bits, const i32 *checks)
 {
-    u64 ev_bits[u_nbits(EV_MAX)];
-    if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0) {
-        s_log_error("Failed to get events supported by %s: %s",
-            evdev_path, strerror(errno));
-        return false;
-    }
+    i32 ret = 0;
 
-    /* A mouse must support REL and KEY events */
-    if (!(ev_bits[0] & (1 << EV_REL) && ev_bits[0] & (1 << EV_KEY)))
-        return false;
-
-    /* A mouse must also support mouse button events */
-    u64 key_bits[u_nbits(KEY_MAX)];
-    if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
-        s_log_error("Failed to get KEY events supported by %s: %s",
-            evdev_path, strerror(errno));
-        return false;
-    }
-
-    static const i32 key_checks[] = {
-        BTN_LEFT, BTN_RIGHT, BTN_MIDDLE
-    };
-    if (!ev_bit_check(key_bits, u_arr_size(key_bits),
-            key_checks, u_arr_size(key_checks)))
-        return false;
-
-    u64 rel_bits[u_nbits(KEY_MAX)];
-    if (ioctl(fd, EVIOCGBIT(EV_REL, sizeof(rel_bits)), rel_bits) < 0) {
-        s_log_error("Failed to get REL events supported by %s: %s",
-            evdev_path, strerror(errno));
-        return false;
-    }
-
-    static const i32 rel_checks[] = {
-        REL_X, REL_Y, REL_WHEEL
-    };
-    if (!ev_bit_check(rel_bits, u_arr_size(rel_bits),
-            rel_checks, u_arr_size(rel_checks)))
-        return false;
-
-    return true;
-}
-
-static bool ev_bit_check(const u64 bits[], u32 n_bits,
-    const i32 checks[], u32 n_checks)
-{
-    for (u32 i = 0; i < n_checks; i++) {
-        u32 arr_index = checks[i] / 64;
+    u32 i = 0;
+    while (i < EV_max_n_checks_ && checks[i] != EV_check_end_) {
+        const u32 arr_index = checks[i] / 64;
         if (arr_index >= n_bits) continue;
 
-        u32 bit_index = checks[i] % 64;
+        const u64 mask = (u64)1 << (u64)(checks[i] % 64);
 
-        if (!(bits[arr_index] & (1 << bit_index)))
-            return false;
+        if (!(bits[arr_index] & mask)) {
+            //s_log_error("Bit 0x%x not present", checks[i]);
+            ret++;
+        }
+
+        i++;
     }
 
-    return true;
+    if (i >= EV_max_n_checks_ &&
+        checks[EV_max_n_checks_ - 1] != EV_check_end_)
+    {
+        s_log_fatal(MODULE_NAME, __func__,
+            "No terminator at the end of an event check array!");
+    }
+
+    return ret;
 }

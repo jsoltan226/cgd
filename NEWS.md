@@ -67,3 +67,13 @@
         * Support for `stdatomic.h`
     * It also checks for the C standard version (`__STDC__` and `__STDC_VERSION__`),
         as well as the completeness of the standard library implemetation (`__STDC_HOSTED__`)
+
+* Reworked the device capability checking in `platform/linux/evdev`
+    * The checks for all event types of each device type are now defined in a big array
+        in `platform/linux/evdev.c`, and all the checking is done automatically
+        by a single function `ev_cap_check`.
+    * This means that we no longer need a new `*_check` function for a new device type (yay!)
+        making this effectively kind of a framework.
+    * Also fixed some bugs in `ev_bit_check`
+    * And as a bonus, actually added `O_CLOEXEC` to ALL calls to `open()` in the entire project
+        (and not just in `platform/linux/window-dri.c`)

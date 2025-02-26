@@ -78,11 +78,13 @@ void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
 
     u32 n_poll_fds = vector_size(kb->poll_fds);
 
-    if (poll(kb->poll_fds, n_poll_fds, 0) == -1) {
+    i32 ret = poll(kb->poll_fds, n_poll_fds, 0);
+    if (ret < 0) {
         s_log_error("Failed to poll() on keyboard event devices: %s",
             strerror(errno));
         return;
-    }
+    } else if (ret == 0) /* No file descriptors are ready */
+        return;
 
     bool updated_keys[P_KEYBOARD_N_KEYS] = { 0 };
     for (u32 i = 0; i < n_poll_fds; i++) {
