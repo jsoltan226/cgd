@@ -44,13 +44,15 @@ i32 p_event_poll(struct p_event *o)
         goto ret;
 
     memcpy(o,
-        vector_end(g_event_queue) - sizeof(struct p_event),
+        (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
         sizeof(struct p_event)
     );
     vector_pop_back(g_event_queue);
 
+#ifndef CGD_BUILDTYPE_RELEASE
     if (o->type == P_EVENT_QUIT)
         s_log_debug("Caught QUIT event");
+#endif /* CGD_BUILDTYPE_RELEASE */
 
 ret:
     p_mt_mutex_unlock(&g_event_queue_mutex);
@@ -143,6 +145,9 @@ static void destroy_event_queue(void)
 
 static void SIGTERM_handler(i32 sig_num)
 {
+    if (!(sig_num == SIGTERM || sig_num == SIGINT))
+        return;
+
     if (atomic_flag_test_and_set(&g_signal_handler_running))
         return;
 

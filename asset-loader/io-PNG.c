@@ -91,14 +91,15 @@
 
 static void libPNG_warning_handler(png_structp png_ptr,
     png_const_charp warning_message);
-static void noreturn libPNG_error_handler(png_structp png_ptr,
+noreturn static void libPNG_error_handler(png_structp png_ptr,
     png_const_charp error_message);
 
 static struct p_lib *libPNG = NULL;
 static p_mt_mutex_t libPNG_mutex = P_MT_MUTEX_INITIALIZER;
 
+/* "ISO C forbids conversion of object pointer to function pointer type" */
 #define X_(ret_type, name, ...) \
-    ret_type (*name) __VA_ARGS__;
+    union { ret_type (*name) __VA_ARGS__; void *_voidp_ ##name; };
 static struct libPNG_syms {
     LIBPNG_SYM_LIST
 } PNG = { 0 };
@@ -331,7 +332,7 @@ err:
     return 1;
 }
 
-i32 load_libPNG()
+i32 load_libPNG(void)
 {
     p_mt_mutex_lock(&libPNG_mutex);
     if (libPNG != NULL) {
@@ -356,17 +357,15 @@ i32 load_libPNG()
     }
 
 #define X_(ret_type, name, ...) \
-    PNG.name = p_librtld_load_sym(libPNG, #name);
-
+    PNG._voidp_##name = p_librtld_load_sym(libPNG, #name);
     LIBPNG_SYM_LIST
-
 #undef X_
 
     p_mt_mutex_unlock(&libPNG_mutex);
     return 0;
 }
 
-void close_libPNG()
+void close_libPNG(void)
 {
     if (libPNG != NULL) {
         p_mt_mutex_lock(&libPNG_mutex);
@@ -392,12 +391,14 @@ i32 is_PNG(FILE *fp)
 static void libPNG_warning_handler(png_structp png_ptr,
     png_const_charp warning_message)
 {
+    (void) png_ptr;
     s_log_warn("libPNG warning: %s", warning_message);
 }
 
-static void noreturn libPNG_error_handler(png_structp png_ptr,
+noreturn static void libPNG_error_handler(png_structp png_ptr,
     png_const_charp error_message)
 {
+    (void) png_ptr;
     s_log_fatal(MODULE_NAME, "libPNG",
         "libPNG fatal error: %s", error_message);
 }

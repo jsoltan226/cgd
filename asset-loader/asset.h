@@ -30,6 +30,6 @@ i32 asset_write(
 void asset_destroy(struct asset **asset);
 
 /* Get the absolute path to the directory in which assets are stored */
-const char * asset_get_assets_dir();
+const char * asset_get_assets_dir(void);
 
 #endif /* ASSET_H_ */

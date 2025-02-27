@@ -31,6 +31,8 @@ static void cleanup_log(void);
 
 int cgd_main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
     //log_fp = fopen("log.txt", "wb");
     log_fp = stdout;
     if (log_fp == NULL)

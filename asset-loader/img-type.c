@@ -18,7 +18,8 @@ enum asset_img_type asset_get_img_type(FILE *fp)
         return IMG_TYPE_UNKNOWN;
     }
 
-    fseek(fp, 0, SEEK_SET); /* Move the file pointer back to the start of the file */
+    /* Move the file pointer back to the start of the file */
+    fseek(fp, 0, SEEK_SET);
 
     s_log_debug("Image type is PNG");
     return IMG_TYPE_PNG;

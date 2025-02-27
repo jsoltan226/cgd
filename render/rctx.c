@@ -20,6 +20,7 @@
 struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 {
     u_check_params(win != NULL);
+    (void) flags;
 
     struct r_ctx *ctx = calloc(1, sizeof(struct r_ctx));
     s_assert(ctx != NULL, "calloc() for struct r_ctx failed!");
@@ -29,6 +30,7 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
         case R_TYPE_VULKAN:
             s_log_warn("The Vulkan and OpenGL renderers are not yet implemented."
                 " Falling back to software.");
+            /* Fall through */
         case R_TYPE_SOFTWARE:
         default: case R_TYPE_DEFAULT:
             ctx->type = R_TYPE_SOFTWARE;

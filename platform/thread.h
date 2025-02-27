@@ -23,7 +23,7 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
     p_mt_thread_fn_t thread_fn, void *arg);
 
 /* Exit from a thread */
-void noreturn p_mt_thread_exit(void);
+noreturn void p_mt_thread_exit(void);
 
 /* Waits for thread pointed to by `thread_p` to terminate. */
 void p_mt_thread_wait(p_mt_thread_t *thread_p);

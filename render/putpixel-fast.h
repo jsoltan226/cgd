@@ -10,12 +10,12 @@
 
 static inline void r_putpixel_fast_(
     pixel_t *const buf,
-    const i32 x, const i32 y, const u32 w,
+    const i32 x, const i32 y, const u32 stride,
     register color_RGBA32_t color,
     const pixelfmt_t dst_pixelfmt)
 {
     /* Get the pixel location in the buffer */
-    pixel_t *const pixel_ptr = buf + ((y * w) + x);
+    pixel_t *const pixel_ptr = buf + ((y * stride) + x);
 
     /* Convert BGRA if needed */
     if (dst_pixelfmt == BGRA32) {
@@ -48,7 +48,7 @@ static inline void r_putpixel_fast_(
 
 static inline void r_putpixel_fast_noalpha_(
     pixel_t *const buf,
-    const i32 x, const i32 y, const u32 w,
+    const i32 x, const i32 y, const u32 stride,
     register color_RGBA32_t color,
     const pixelfmt_t dst_pixelfmt)
 {
@@ -58,16 +58,16 @@ static inline void r_putpixel_fast_noalpha_(
         color.b = tmp;
     }
 
-    *(buf + ((y * w) + x)) = color;
+    *(buf + ((y * stride) + x)) = color;
 }
 
 static inline void r_putpixel_fast_matching_pixelfmt_(
     pixel_t *const buf,
-    const i32 x, const i32 y, const u32 w,
+    const i32 x, const i32 y, const u32 stride,
     const color_RGBA32_t color)
 {
 
-    register pixel_t *const pixel_ptr = buf + (y * w) + x;
+    register pixel_t *const pixel_ptr = buf + (y * stride) + x;
 
     /* Read the existing color */
     register color_RGBA32_t dst = *pixel_ptr;
@@ -85,10 +85,10 @@ static inline void r_putpixel_fast_matching_pixelfmt_(
 
 static inline void r_putpixel_fast_matching_pixelfmt_noalpha_(
     pixel_t *const buf,
-    const i32 x, const i32 y, const u32 w,
+    const i32 x, const i32 y, const u32 stride,
     const color_RGBA32_t color)
 {
-    *(buf + ((y * w) + x)) = color;
+    *(buf + ((y * stride) + x)) = color;
 }
 
 #endif /* R_PUTPIXEL_FAST__ */

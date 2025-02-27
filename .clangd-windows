@@ -1,5 +1,5 @@
-CompileFlags: 
-  Add: 
+CompileFlags:
+  Add:
     - "-I."
     - "-I.."
     - "-I../.."
@@ -9,6 +9,9 @@ CompileFlags:
     - "x86_64-w64-mingw32"
     - "-D_WIN32"
     - "-DWIN32_LEAN_AND_MEAN"
-    - "-std=c11"
     - "-xc"
+    - "-std=c11"
     - "-Wall"
+    - "-Wpedantic"
+    - "-Wextra"
+    - "-Wno-unused-function"

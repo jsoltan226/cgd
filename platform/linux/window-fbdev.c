@@ -125,10 +125,10 @@ i32 window_fbdev_open(struct window_fbdev *win,
 
     /* Handle P_WINDOW_POS_CENTERED flags */
     if (flags & P_WINDOW_POS_CENTERED_X)
-        info->client_area.x = abs((i32)win->xres - area->w) / 2;
+        info->client_area.x = abs((i32)win->xres - (i32)area->w) / 2;
 
     if (flags & P_WINDOW_POS_CENTERED_Y)
-        info->client_area.y = abs((i32)win->yres - area->h) / 2;
+        info->client_area.y = abs((i32)win->yres - (i32)area->h) / 2;
 
     /* Set the terminal to raw mode to avoid echoing user input
      * on the console */
@@ -326,7 +326,7 @@ static void write_to_fb(void *map, const u32 stride, const rect_t *display_rect,
     const u32 src_stride_bytes = src.w * sizeof(pixel_t);
 
     /* Blit the window to the screen */
-    for (i32 y = 0; y < src.h; y++) {
+    for (u32 y = 0; y < src.h; y++) {
         const u32 dst_offset = (
             ((dst.y + y) * stride)
             + dst.x

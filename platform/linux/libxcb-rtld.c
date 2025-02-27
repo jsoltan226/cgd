@@ -82,8 +82,8 @@ i32 libxcb_load(struct libxcb *o)
         g_n_active_handles = 0;
         memset(&g_libxcb_syms, 0, sizeof(struct libxcb));
 
-        *(i32 *)&g_libxcb_syms.handleno_ = -1; /* Cast away const */
-        *(bool *)&g_libxcb_syms.failed_ = false; /* Cast away const */
+        g_libxcb_syms.handleno_ = -1;
+        g_libxcb_syms.failed_ = false;
 
         g_libxcb_lib = p_librtld_load(LIBXCB_SO_NAME, libxcb_sym_names);
 
@@ -115,47 +115,46 @@ i32 libxcb_load(struct libxcb *o)
         if (g_libxcb_shm_lib == NULL)
             g_libxcb_shm_ok = false;
 
-#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_lib, #name);
             LIBXCB_SYM_LIST
 #undef X_
-#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_image_lib, #name);
             LIBXCB_IMAGE_SYM_LIST
 #undef X_
-#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_icccm_lib, #name);
             LIBXCB_ICCCM_SYM_LIST
 #undef X_
-#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_input_lib, #name);
             LIBXCB_INPUT_SYM_LIST
 #undef X_
-#define X_(ret_type, name, ...) g_libxcb_syms.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_keysyms_lib, #name);
             LIBXCB_KEYSYMS_SYM_LIST
 #undef X_
         if (g_libxcb_shm_ok) {
-#define X_(ret_type, name, ...) g_libxcb_syms.shm.name = \
+#define X_(ret_type, name, ...) g_libxcb_syms.shm._voidp_##name = \
                 p_librtld_load_sym(g_libxcb_shm_lib, #name);
             LIBXCB_SHM_SYM_LIST
 #undef X_
             /* Cast away const */
-            *(bool *)&g_libxcb_syms.shm.has_shm_extension_ = true;
+            g_libxcb_syms.shm.has_shm_extension_ = true;
         } else {
             memset(&g_libxcb_syms.shm, 0, sizeof(struct libxcb_shm));
-            /* Cast away const */
-            *(bool *)&g_libxcb_syms.shm.has_shm_extension_ = false;
+            g_libxcb_syms.shm.has_shm_extension_ = false;
         }
     }
 
     memcpy(o, &g_libxcb_syms, sizeof(struct libxcb));
-    *(i32 *)&o->handleno_ = g_n_active_handles; /* Cast away const */
+    o->handleno_ = g_n_active_handles;
     g_n_active_handles++;
 
 end:
     p_mt_mutex_unlock(&g_mutex);
-    *(bool *)&o->failed_ = ret != 0; /* Cast away const */
+    o->failed_ = ret != 0;
     return ret;
 }
 

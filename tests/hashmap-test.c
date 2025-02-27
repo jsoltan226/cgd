@@ -28,6 +28,8 @@ static const char * const key_value_pairs[MAP_SIZE][2] = {
 
 int cgd_main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
     if (test_log_setup())
         return EXIT_FAILURE;
 

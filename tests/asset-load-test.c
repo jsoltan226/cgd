@@ -23,6 +23,8 @@ static struct asset *dummy = NULL;
 
 int cgd_main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
     if (test_log_setup())
         return EXIT_FAILURE;
 

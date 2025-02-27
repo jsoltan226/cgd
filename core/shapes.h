@@ -14,7 +14,8 @@ typedef struct {
 } vec3d_t;
 
 typedef struct {
-    i32 x, y, w, h;
+    i32 x, y;
+    u32 w, h;
 } rect_t;
 
 typedef struct {

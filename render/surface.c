@@ -102,6 +102,11 @@ void r_surface_blit(struct r_surface *dst, const struct r_surface *src,
         sizeof(rect_t)
     );
 
+    s_assert((i32)final_src_rect.w >= 0 && (i32)final_src_rect.h >= 0,
+        "The source rect's dimensions are too big (integer overflow)");
+    s_assert((i32)final_dst_rect.w >= 0 && (i32)final_dst_rect.h >= 0,
+        "The destination rect's dimensions are too big (integer overflow)");
+
     /* The scale must be calculated before clipping the rects */
     const f32 scale_x = (f32)final_src_rect.w / (f32)final_dst_rect.w;
     const f32 scale_y = (f32)final_src_rect.h / (f32)final_dst_rect.h;
@@ -160,7 +165,7 @@ void r_surface_blit(struct r_surface *dst, const struct r_surface *src,
     };
 
     const u8 index = needs_scaling | needs_pixel_conversion | uses_alpha;
-    s_assert(index >= 0 && index < 8, "how?");
+    s_assert(/* (always true) index >= 0 && */ index < 8, "how?");
 
     (*(blit_function_table[index])) (
         &src->data, &dst->data,
@@ -333,8 +338,8 @@ static void scaled_unconverted_alpha_blit(
     f32 sx = (f32)src_rect->x;
     f32 sy = (f32)src_rect->y;
 
-    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
-        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+    for (i32 y = dst_rect->y; y < dst_rect->y + (i32)dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + (i32)dst_rect->w; x++) {
             const pixel_t src_pixel = *(
                 src_data->buf
                 + ((src_rect->y + (i32)sy) * src_data->w)
@@ -368,8 +373,8 @@ static void scaled_unconverted_noalpha_blit(
     f32 sx = (f32)src_rect->x;
     f32 sy = (f32)src_rect->y;
 
-    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
-        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+    for (i32 y = dst_rect->y; y < dst_rect->y + (i32)dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + (i32)dst_rect->w; x++) {
             const pixel_t src_pixel = *(
                 src_data->buf
                 + ((src_rect->y + (i32)sy) * src_data->w)
@@ -400,8 +405,8 @@ static void scaled_converted_alpha_blit(
 {
     f32 sx = src_rect->x;
     f32 sy = src_rect->y;
-    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
-        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+    for (i32 y = dst_rect->y; y < dst_rect->y + (i32)dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + (i32)dst_rect->w; x++) {
             const pixel_t src_pixel = *(
                 src_data->buf
                 + ((src_rect->y + (i32)sy) * src_data->w)
@@ -433,8 +438,8 @@ static void scaled_converted_noalpha_blit(
 {
     f32 sx = src_rect->x;
     f32 sy = src_rect->y;
-    for (i32 y = dst_rect->y; y < dst_rect->y + dst_rect->h; y++) {
-        for (i32 x = dst_rect->x; x < dst_rect->x + dst_rect->w; x++) {
+    for (i32 y = dst_rect->y; y < dst_rect->y + (i32)dst_rect->h; y++) {
+        for (i32 x = dst_rect->x; x < dst_rect->x + (i32)dst_rect->w; x++) {
             const pixel_t src_pixel = *(
                 src_data->buf
                 + ((src_rect->y + (i32)sy) * src_data->w)

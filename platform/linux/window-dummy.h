@@ -8,6 +8,7 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 struct window_dummy {
+    u64 dummy;
 };
 
 i32 window_dummy_init(struct window_dummy *win, const u32 flags);

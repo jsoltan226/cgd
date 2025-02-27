@@ -36,15 +36,23 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
 {
     u_check_params(o != NULL && thread_fn != NULL);
 
+    union {
+        void * (*pthread)(void *);
+        void (*p_mt)(void *);
+    } thread_fn_bridge;
+    static_assert(sizeof(void * (*)(void *)) == sizeof(void (*)(void *)),
+        "The size of 2 function pointers should be the same");
+    thread_fn_bridge.p_mt = thread_fn;
+
     i32 ret = pthread_create((pthread_t *)o, NULL,
-        (void *(*)(void *))thread_fn, arg);
+        thread_fn_bridge.pthread, arg);
     if (ret != 0)
         s_log_error("Failed to create thread: %s", strerror(ret));
 
     return ret;
 }
 
-void noreturn p_mt_thread_exit(void)
+noreturn void p_mt_thread_exit(void)
 {
     pthread_exit(NULL);
 }
@@ -131,7 +139,7 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
     u_nfree(mutex_p);
 }
 
-void p_mt_mutex_global_cleanup()
+void p_mt_mutex_global_cleanup(void)
 {
     pthread_mutex_lock(&master_mutex);
     cleanup_global_mutexes();

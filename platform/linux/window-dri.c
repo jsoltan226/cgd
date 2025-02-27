@@ -62,10 +62,9 @@ static i32 initialize_acceleration(struct window_dri *win,
     const enum p_window_flags flags);
 
 static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
+    const struct drm_device *drm_dev, const struct libgbm_functions *gbm);
+static void render_destroy_egl(struct egl_render_ctx *egl_rctx,
     const struct libgbm_functions *gbm);
-static void render_destroy_egl(struct egl_render_ctx *egl_rctx, i32 drm_dev_fd,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm);
 
 static i32 render_init_software(struct software_render_ctx *sw_rctx,
     const struct drm_device *drm_dev, const struct libdrm_functions *drm,
@@ -218,8 +217,7 @@ kill_thread:
             render_destroy_software(&win->render.sw, &win->drm, &win->dev);
             break;
         case P_WINDOW_ACCELERATION_OPENGL:
-            render_destroy_egl(&win->render.egl, win->dev.fd,
-                &win->drm, &win->gbm);
+            render_destroy_egl(&win->render.egl, &win->gbm);
             break;
         case P_WINDOW_ACCELERATION_VULKAN:
         default:
@@ -274,8 +272,7 @@ i32 window_dri_set_acceleration(struct window_dri *win,
             render_destroy_software(&win->render.sw, &win->drm, &win->dev);
             break;
         case P_WINDOW_ACCELERATION_OPENGL:
-            render_destroy_egl(&win->render.egl, win->dev.fd,
-                &win->drm, &win->gbm);
+            render_destroy_egl(&win->render.egl, &win->gbm);
             break;
         case P_WINDOW_ACCELERATION_UNSET_: /* previously unset, do nothing */
             break;
@@ -301,9 +298,7 @@ i32 window_dri_set_acceleration(struct window_dri *win,
             s_log_error("%s: Couldn't load libgbm!", __func__);
             return 1;
         }
-        if (render_init_egl(&win->render.egl, &win->dev,
-                &win->drm, &win->gbm))
-        {
+        if (render_init_egl(&win->render.egl, &win->dev, &win->gbm)) {
             s_log_error("Failed to set up the window for EGL rendering.");
             return 1;
         }
@@ -341,10 +336,10 @@ static i32 load_libdrm(struct window_dri *win)
     if (win->libdrm == NULL)
         goto_error("Unable to load libdrm");
 
-#define X_(return_type, name, ...)                                  \
-    win->drm.name = p_librtld_load_sym(win->libdrm, #name);         \
-    if (win->drm.name == NULL)                                      \
-        goto_error("Failed to load libdrm function \"%s\"", #name); \
+#define X_(return_type, name, ...)                                      \
+    win->drm._voidp_##name = p_librtld_load_sym(win->libdrm, #name);    \
+    if (win->drm.name == NULL)                                          \
+        goto_error("Failed to load libdrm function \"%s\"", #name);     \
 
     LIBDRM_FUNCTIONS_LIST
 #undef X_
@@ -368,10 +363,10 @@ static i32 load_libgbm(struct window_dri *win)
     if (win->libgbm == NULL)
         goto_error("Unable to load libgbm");
 
-#define X_(return_type, name, ...)                                  \
-    win->gbm.name = p_librtld_load_sym(win->libgbm, #name);         \
-    if (win->gbm.name == NULL)                                      \
-        goto_error("Failed to load libgbm function \"%s\"", #name); \
+#define X_(return_type, name, ...)                                      \
+    win->gbm._voidp_##name = p_librtld_load_sym(win->libgbm, #name);    \
+    if (win->gbm.name == NULL)                                          \
+        goto_error("Failed to load libgbm function \"%s\"", #name);     \
 
     LIBGBM_FUNCTIONS_LIST
 #undef X_
@@ -401,7 +396,7 @@ static VECTOR(struct file) open_available_devices(void)
 
     VECTOR(struct file) files = vector_new(struct file);
 
-    for (u32 i = 0; i < n_dirents; i++) {
+    for (i32 i = 0; i < n_dirents; i++) {
         struct file f = { .fd = -1, .path = { 0 } };
 
         strncpy(f.path, DRI_DEV_DIR "/", u_FILEPATH_MAX - 1);
@@ -548,7 +543,7 @@ static i32 select_connector_and_mode(i32 fd, u32 n_conns, u32 *conn_ids,
         drmModeModeInfoPtr best_mode_ptr = &conn->modes[0];
         ret_mode = best_mode_ptr;
         u32 top_mode_score = 0;
-        for (u32 i = 0; i < conn->count_modes; i++) {
+        for (i32 i = 0; i < conn->count_modes; i++) {
             /* Score = Resolution * Refresh Rate */
             const u32 curr_score = conn->modes[i].vrefresh *
                 conn->modes[i].hdisplay * conn->modes[i].vdisplay;
@@ -605,12 +600,12 @@ static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
 
     /* If no Encoder/CRTC was attached to the connector,
      * find a suitable one in it's encoder list */
-    for (u32 i = 0; i < conn->count_encoders; i++) {
+    for (i32 i = 0; i < conn->count_encoders; i++) {
         enc = drm->drmModeGetEncoder(fd, conn->encoders[i]);
         if (enc == NULL)
             continue;
 
-        for (u32 j = 0; j < res->count_crtcs; j++) {
+        for (i32 j = 0; j < res->count_crtcs; j++) {
             if (enc->possible_crtcs & (1 << j)) {
                 /* We found a compatible CRTC! Yay! */
                 u32 crtc_id = res->crtcs[j];
@@ -736,8 +731,7 @@ static i32 initialize_acceleration(struct window_dri *win,
 }
 
 static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    const struct drm_device *drm_dev, const struct libdrm_functions *drm,
-    const struct libgbm_functions *gbm)
+    const struct drm_device *drm_dev, const struct libgbm_functions *gbm)
 {
     memset(egl_rctx, 0, sizeof(struct egl_render_ctx));
     egl_rctx->initialized_ = true;
@@ -766,8 +760,8 @@ static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
     return 0;
 }
 
-static void render_destroy_egl(struct egl_render_ctx *egl_rctx, i32 drm_dev_fd,
-    const struct libdrm_functions *drm, const struct libgbm_functions *gbm)
+static void render_destroy_egl(struct egl_render_ctx *egl_rctx,
+    const struct libgbm_functions *gbm)
 {
     if (!egl_rctx->initialized_) return;
 
@@ -937,7 +931,7 @@ render_prepare_frame_software(struct window_dri *win)
     const u32 dst_stride = sw_rctx->stride;
 
     /* Finally, copy the window buffer to the screen */
-    for (i32 y = 0; y < src.h; y++) {
+    for (u32 y = 0; y < src.h; y++) {
         const u32 dst_offset = (
             ((dst.y + y) * dst_stride)
             + dst.x
@@ -1174,6 +1168,10 @@ static void * window_dri_listener_fn(void *arg)
 static void page_flip_handler(int fd, unsigned int frame,
     unsigned int tv_sec, unsigned int tv_usec, void *user_data)
 {
+    (void) fd;
+    (void) frame;
+    (void) tv_sec;
+    (void) tv_usec;
     struct window_dri_listener_thread *listener = user_data;
 
     if (!atomic_load(&listener->page_flip_pending)) {
@@ -1189,6 +1187,10 @@ static void page_flip_handler(int fd, unsigned int frame,
 static void cleanup_page_flip_handler(int fd, unsigned int frame,
     unsigned int tv_sec, unsigned int tv_usec, void *user_data)
 {
+    (void) fd;
+    (void) frame;
+    (void) tv_sec;
+    (void) tv_usec;
     struct window_dri_listener_thread *listener = user_data;
 
     if (!atomic_load(&listener->page_flip_pending))

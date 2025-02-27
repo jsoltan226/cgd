@@ -54,10 +54,12 @@
     X_(EGLBoolean, eglSwapBuffers, EGLDisplay dpy, EGLSurface surface)      \
 
 
-#define X_(return_type, name, ...) return_type (*name)(__VA_ARGS__);
+#define X_(return_type, name, ...) \
+    union { return_type (*name)(__VA_ARGS__); void *_voidp_##name; };
 struct egl_functions {
     EGL_FUNCTION_LIST
     void * (*eglGetProcAddress)(const char *procName);
+    void *_voidp_eglGetProcAddress;
 };
 #undef X_
 
@@ -85,11 +87,11 @@ static void terminate_egl(struct egl_ctx *egl);
 static i32 check_egl_support(const struct egl_ctx *egl, enum window_bit *o);
 
 static const char * egl_get_last_error(const struct egl_ctx *egl);
-static i32 egl_get_native_platform_and_display(const struct egl_ctx *egl,
-    const struct p_window *win, const enum window_bit supported_windows,
+static i32 egl_get_native_platform_and_display(const struct p_window *win,
+    const enum window_bit supported_windows,
     EGLenum *platform_o, u64 *display_o);
-static i32 egl_get_native_window(const struct egl_ctx *egl,
-    const struct p_window *win, u64 *o);
+static i32 egl_get_native_window(const struct p_window *win,
+    EGLNativeWindowType *o);
 
 static i32 load_opengl_functions(struct p_opengl_functions *o,
     void * (*eglGetProcAddress)(const char *procName));
@@ -176,13 +178,13 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
     if (egl->lib == NULL)
         goto_error("Failed to load the EGL library.");
 
-    egl->fns.eglGetProcAddress =
+    egl->fns._voidp_eglGetProcAddress =
         p_librtld_load_sym(egl->lib, "eglGetProcAddress");
     if (egl->fns.eglGetProcAddress == NULL)
         goto_error("Failed to load the eglGetProcAddress function.");
 
 #define X_(return_type, name, ...)                              \
-    egl->fns.name = egl->fns.eglGetProcAddress(#name);          \
+    egl->fns._voidp_##name = egl->fns.eglGetProcAddress(#name); \
     if (egl->fns.name == NULL)                                  \
         goto_error("Failed to load EGL function %s", #name);    \
 
@@ -195,7 +197,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
 
     EGLenum platform;
     u64 native_dpy;
-    if (egl_get_native_platform_and_display(egl, win, supported_window_types,
+    if (egl_get_native_platform_and_display(win, supported_window_types,
             &platform, &native_dpy))
         goto_error("No supported EGL native display for \"%s\".",
             window_type_strings[win->type]);
@@ -229,7 +231,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
         goto_error("Failed to select OpenGL as the EGL API.");
 
     u64 native_window;
-    if (egl_get_native_window(egl->ctx, win, &native_window))
+    if (egl_get_native_window(win, &native_window))
         goto_error("No supported EGL native window for \"%s\"",
             window_type_strings[win->type]);
 
@@ -347,8 +349,8 @@ static const char * egl_get_last_error(const struct egl_ctx *egl)
     }
 }
 
-static i32 egl_get_native_platform_and_display(const struct egl_ctx *egl,
-    const struct p_window *win, const enum window_bit supported_windows,
+static i32 egl_get_native_platform_and_display(const struct p_window *win,
+    const enum window_bit supported_windows,
     EGLenum *platform_o, u64 *display_o)
 {
     switch (win->type) {
@@ -381,9 +383,8 @@ static i32 egl_get_native_platform_and_display(const struct egl_ctx *egl,
     return 1;
 }
 
-static i32 egl_get_native_window(const struct egl_ctx *egl,
-    const struct p_window *win, EGLNativeWindowType *o)
-
+static i32 egl_get_native_window(const struct p_window *win,
+    EGLNativeWindowType *o)
 {
     switch (win->type) {
         case WINDOW_TYPE_X11:
@@ -410,7 +411,7 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
     u32 n_loaded = 0;
 
 #define X_(return_type, name, ...)                                  \
-    o->name = eglGetProcAddress(#name);                             \
+    o->_voidp_##name = eglGetProcAddress(#name);                    \
     if (o->name == NULL) {                                          \
         s_log_error("Failed to load OpenGL function %s", #name);    \
         return 1;                                                   \

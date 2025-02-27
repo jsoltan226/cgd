@@ -30,6 +30,7 @@ struct window_x11 {
     xcb_screen_t *screen;
     xcb_screen_iterator_t iter;
     xcb_window_t win;
+    bool win_created;
 
     bool shm_attached;
     xcb_shm_segment_info_t shm_info;

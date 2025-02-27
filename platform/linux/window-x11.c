@@ -91,9 +91,7 @@ i32 window_X11_open(struct window_x11 *win,
     win->screen = win->iter.data;
 
     /* Generate the window ID */
-    win->win = -1;
     win->win = win->xcb.xcb_generate_id(win->conn);
-    if (win->win == -1) goto_error("Failed to generate window ID");
 
     /* Handle WINDOW_POS_CENTERED flags */
     u16 x = area->x, y = area->y;
@@ -114,6 +112,7 @@ i32 window_X11_open(struct window_x11 *win,
         x, y, area->w, area->h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         win->screen->root_visual, value_mask, value_list);
     if (libxcb_error) goto_error("Failed to create the window");
+    win->win_created = true;
 
     /* Create or attach to the window's framebuffer */
     if (init_fb(win, area->w, area->h))
@@ -171,9 +170,8 @@ i32 window_X11_open(struct window_x11 *win,
     );
     if (libxcb_error) goto_error("Failed to set WM protocols");
 
-    win->gc = -1;
+    /* Initialize the graphics context */
     win->gc = win->xcb.xcb_generate_id(win->conn);
-    if (win->gc == -1) goto_error("Failed to generate Graphics Context ID");
 
 #define GCV_MASK XCB_GC_FOREGROUND
     const u32 gcv[] = {
@@ -270,7 +268,7 @@ void window_X11_close(struct window_x11 *win)
         if (atomic_load(&win->listener.running)) {
             atomic_store(&win->listener.running, false);
 
-            if (win->win != -1) {
+            if (win->win_created) {
                 /* Send an event to our window to interrupt the blocking
                  * `xcb_wait_for_event` call in the listener thread */
                 send_dummy_event_to_self(win);
@@ -282,7 +280,7 @@ void window_X11_close(struct window_x11 *win)
             }
         }
 
-        if (win->win != -1) win->xcb.xcb_destroy_window(win->conn, win->win);
+        if (win->win_created) win->xcb.xcb_destroy_window(win->conn, win->win);
         destroy_fb(win);
         if (win->conn) win->xcb.xcb_disconnect(win->conn);
     }
@@ -519,7 +517,7 @@ static i32 attach_shm(struct window_x11 *win, u32 w, u32 h)
         w * h * sizeof(pixel_t),
         IPC_CREAT | 0600
     );
-    if (win->shm_info.shmid == -1)
+    if ((i32)win->shm_info.shmid == -1)
         goto_error("Failed to create shared memory: %s", strerror(errno));
 
     win->shm_info.shmaddr = shmat(win->shm_info.shmid, NULL, 0);
@@ -527,7 +525,7 @@ static i32 attach_shm(struct window_x11 *win, u32 w, u32 h)
         goto_error("Failed to attach shared memory: %s", strerror(errno));
 
     win->shm_info.shmseg = win->xcb.xcb_generate_id(win->conn);
-    if (win->shm_info.shmseg == -1)
+    if ((i32)win->shm_info.shmseg == -1)
         goto_error("Failed to generate xcb shm segment ID");
 
     xcb_void_cookie_t vc = win->xcb.shm.xcb_shm_attach_checked(

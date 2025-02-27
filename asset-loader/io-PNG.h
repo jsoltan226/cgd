@@ -12,8 +12,8 @@
 i32 read_PNG(struct pixel_flat_data *pixel_data, FILE *fp);
 i32 write_PNG(struct pixel_flat_data *pixel_data, FILE *fp);
 
-i32 load_libPNG();
-void close_libPNG();
+i32 load_libPNG(void);
+void close_libPNG(void);
 
 i32 is_PNG(FILE *fp);
 

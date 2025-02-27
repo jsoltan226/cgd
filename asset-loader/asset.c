@@ -220,6 +220,7 @@ i32 asset_write(struct asset *a, const char *rel_file_path, enum asset_img_type 
                 fclose(fp);
                 return -3;
             }
+            break;
         case IMG_TYPE_UNKNOWN: default:
             s_log_error("image type of \"%s\" is UNKNOWN!", a->rel_file_path);
             fclose(fp);

@@ -20,6 +20,7 @@ static void cleanup_log(void);
 i32 do_platform_init(i32 argc, const char *const *argv,
     struct platform_ctx *ctx)
 {
+    (void) argc;
 
     /* Set up logging */
     if (setup_log(&ctx->out_log_file, &ctx->err_log_file))
@@ -30,6 +31,8 @@ i32 do_platform_init(i32 argc, const char *const *argv,
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
         s_set_log_level(LOG_DEBUG);
+#else
+    (void) argv;
 #endif /* CGD_BUILDTYPE_RELEASE */
 
     s_log_debug("Creating the window...");

@@ -42,9 +42,7 @@ union ev_bits_max_size__ {
     u8 snd[SND_MAX];
     u8 rep[REP_MAX];
     u8 ff[FF_MAX];
-    u8 pwr[0];
     u8 ff_status[FF_STATUS_MAX];
-    u8 max[0];
 };
 
 #define EV_check_end_ (-1)

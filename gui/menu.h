@@ -56,7 +56,10 @@ struct menu_onevent_config {
         bool *bool_ptr;
 
 #ifndef CGD_BUILDTYPE_RELEASE
-        void (*execute_other)();
+        union menu_onevent_execute_other {
+            void (*fn_ptr)(void);
+            void *void_ptr;
+        } execute_other;
 #endif /* CGD_BUILDTYPE_RELEASE */
     } onEventArgs;
 };

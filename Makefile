@@ -16,7 +16,7 @@ ifeq ($(PLATFORM), linux)
 INCLUDES += -I$(PREFIX)/include/libdrm
 endif
 
-COMMON_CFLAGS = -std=c11 -Wall -I. -pipe -fPIC -pthread $(INCLUDES)
+COMMON_CFLAGS = -std=c11 -Wall -Wpedantic -Wextra -I. -pipe -fPIC -pthread $(INCLUDES)
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie

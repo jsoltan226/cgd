@@ -13,9 +13,6 @@
 #include "window-internal.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
-#include "wm.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
@@ -68,16 +65,6 @@ struct p_window * p_window_open(const char *title,
                 win->type = WINDOW_TYPE_FBDEV;
                 goto fbdev_init;
             }
-            if (wm_init(&win->wm, win)) {
-                s_log_warn("Failed to initialize the window manager "
-                    "for a DRI window. //Falling back to fbdev.");
-                wm_destroy(&win->wm);
-                /*
-                window_dri_close(&win->dri);
-                win->type = WINDOW_TYPE_FBDEV;
-                goto fbdev_init;
-                */
-            }
             win->info.display_color_format = BGRX32;
             win->mouse_ev_offset.x = win->info.client_area.x;
             win->mouse_ev_offset.y = win->info.client_area.y;
@@ -87,10 +74,6 @@ struct p_window * p_window_open(const char *title,
             if (window_fbdev_open(&win->fbdev, area, flags, &win->info)
             ) {
                 goto_error("Failed to open fbdev window");
-            }
-            if (wm_init(&win->wm, win)) {
-                s_log_warn("Failed to initialize the window manager.");
-                wm_destroy(&win->wm);
             }
             win->mouse_ev_offset.x = win->info.client_area.x;
             win->mouse_ev_offset.y = win->info.client_area.y;
@@ -225,8 +208,8 @@ static i32 check_flags(const u32 flags)
         if (flags & flag_a && flags & flag_b) {
             i32 index_a = 0;
             i32 index_b = 0;
-            while (flag_a != 1 << index_a) index_a++;
-            while (flag_b != 1 << index_b) index_b++;
+            while (flag_a != 1U << index_a) index_a++;
+            while (flag_b != 1U << index_b) index_b++;
 
             s_log_error("Mutually exclusive flags: \"%s\" and \"%s\"",
                 p_window_flag_strings[index_a], p_window_flag_strings[index_b]);

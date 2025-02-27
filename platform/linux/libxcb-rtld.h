@@ -144,7 +144,8 @@
     )                                                                          \
 
 
-#define X_(ret_type, name, ...) ret_type (*name) (__VA_ARGS__);
+#define X_(ret_type, name, ...) \
+    union { ret_type (*name) (__VA_ARGS__); void *_voidp_##name; };
 struct libxcb {
     LIBXCB_SYM_LIST
     LIBXCB_IMAGE_SYM_LIST

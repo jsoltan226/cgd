@@ -169,19 +169,19 @@ void menu_destroy(struct Menu **mn_p)
     struct Menu *mn = *mn_p;
 
     if (mn->sprites != NULL) {
-        for(int i = 0; i < vector_size(mn->sprites); i++)
+        for(u32 i = 0; i < vector_size(mn->sprites); i++)
             sprite_destroy(&mn->sprites[i]);
         vector_destroy(&mn->sprites);
     }
 
     if (mn->buttons != NULL) {
-        for(int i = 0; i < vector_size(mn->buttons); i++)
+        for(u32 i = 0; i < vector_size(mn->buttons); i++)
             button_destroy(&mn->buttons[i]);
         vector_destroy(&mn->buttons);
     }
 
     if (mn->event_listeners != NULL) {
-        for(int i = 0; i < vector_size(mn->event_listeners); i++)
+        for(u32 i = 0; i < vector_size(mn->event_listeners); i++)
             event_listener_destroy(&mn->event_listeners[i]);
         vector_destroy(&mn->event_listeners);
     }
@@ -241,7 +241,7 @@ void menu_init_onevent_obj(struct on_event_obj *oeObj,
 #ifndef CGD_BUILDTYPE_RELEASE
         case MENU_ONEVENT_EXECUTE_OTHER:
             oeObj->fn = menu_onevent_api_execute_other;
-            oeObj->argv_buf[0] = (u64)(void *)oeCfg->onEventArgs.execute_other;
+            oeObj->argv_buf[0] = (u64)oeCfg->onEventArgs.execute_other.void_ptr;
             break;
 #endif /* CGD_BUILDTYPE_RELEASE */
     }
@@ -364,7 +364,10 @@ static i32 menu_onevent_api_execute_other(u64 argv_buf[ONEVENT_OBJ_ARGV_LEN])
         return EXIT_FAILURE;
 
     /* Execute the function that argv[0] points to */
-    ( ( void(*)() )argv_buf[0] ) ();
+    const union menu_onevent_execute_other execute_other = {
+        .void_ptr = (void *)argv_buf[0]
+    };
+    execute_other.fn_ptr();
 
     return EXIT_SUCCESS;
 }

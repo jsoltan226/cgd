@@ -20,9 +20,10 @@ i32 p_get_exe_path(char *buf, u32 buf_size)
         s_log_error("%s: readlink() for %s failed: %s\n",
             __func__, SELF_EXE_FILE, strerror(errno));
         return 1;
-    } else if (n_bytes_read == buf_size - 1) {
+    } else if (n_bytes_read == (i32)buf_size - 1) {
         s_log_error(
-            "%s: The output of readlink() was truncated (output buffer size %u was too small)",
+            "%s: The output of readlink() was truncated "
+            "(output buffer size %u was too small)",
             __func__, buf_size
         );
         return 2;

@@ -3,7 +3,9 @@
 #include <platform/ptime.h>
 #include <platform/event.h>
 #include <platform/window.h>
+#define P_INTERNAL_GUARD__
 #include <platform/keyboard.h>
+#undef P_INTERNAL_GUARD__
 #include <render/rctx.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +26,8 @@ static struct p_keyboard *kb = NULL;
 
 int cgd_main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
     if (test_log_setup())
         return EXIT_FAILURE;
 

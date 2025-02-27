@@ -52,7 +52,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
     }
 
     u32 n_failed = 0;
-    for (u32 i = 0; i < n_dirents; i++) {
+    for (i32 i = 0; i < n_dirents; i++) {
         struct evdev tmp;
         i32 r = evdev_load(namelist[i]->d_name, &tmp, type);
 
@@ -81,7 +81,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
     }
 
     /* Cleanup */
-    for (u32 i = 0; i < n_dirents; i++)
+    for (i32 i = 0; i < n_dirents; i++)
         u_nfree(&namelist[i]);
 
     u_nfree(&namelist);
@@ -91,7 +91,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
 
 err:
     if (namelist != NULL && n_dirents > -1) {
-        for (u32 i = 0; i < n_dirents; i++) {
+        for (i32 i = 0; i < n_dirents; i++) {
             u_nfree(&namelist[i]);
         }
         u_nfree(&namelist);
@@ -209,7 +209,7 @@ static i32 ev_bit_check(const u64 bits[], u32 n_bits, const i32 *checks)
         const u32 arr_index = checks[i] / 64;
         if (arr_index >= n_bits) continue;
 
-        const u64 mask = (u64)1 << (u64)(checks[i] % 64);
+        const u64 mask = 1ULL << (u64)(checks[i] % 64);
 
         if (!(bits[arr_index] & mask)) {
             //s_log_error("Bit 0x%x not present", checks[i]);

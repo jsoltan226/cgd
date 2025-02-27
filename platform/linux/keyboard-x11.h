@@ -36,7 +36,7 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb);
 void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
     xcb_keysym_t keysym, enum keyboard_x11_key_event event);
 
-static const i32 keycode_map[P_KEYBOARD_N_KEYS] = {
+static const u32 keycode_map[P_KEYBOARD_N_KEYS] = {
     [KB_KEYCODE_ENTER]      = 0xff0d,
     [KB_KEYCODE_SPACE]      = 0x0020,
     [KB_KEYCODE_ESCAPE]     = 0xff1b,

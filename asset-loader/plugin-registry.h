@@ -6,20 +6,11 @@
 #endif /* ASSET_PLUGIN_INTERNAL_GUARD__ */
 
 #include "plugin.h"
-#include "img-type.h"
-#include "io-PNG.h"
 #include <platform/thread.h>
 
-static struct asset_plugin plugin_registry[] = {
-    (struct asset_plugin) {
-        .name = "libPNG",
-        .handles_type = IMG_TYPE_PNG,
-        .priority = 0,
-        .load_fn = load_libPNG,
-        .unload_fn = close_libPNG
-    },
-};
+extern struct asset_plugin plugin_registry[];
+extern volatile const u32 plugin_registry_n_plugins;
 
-static p_mt_mutex_t plugin_registry_mutex = P_MT_MUTEX_INITIALIZER;
+extern p_mt_mutex_t plugin_registry_mutex;
 
 #endif /* ASSET_PLUGIN_REGISTRY_H_ */

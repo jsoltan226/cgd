@@ -2,6 +2,7 @@
 #define U_LINKED_LIST_H
 #include "static-tests.h"
 
+#include <stdlib.h>
 #include <stdbool.h>
 
 struct ll_node {

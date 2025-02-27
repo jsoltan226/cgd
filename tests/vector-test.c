@@ -20,13 +20,15 @@ static const struct large_struct large_items[N_LARGE_STRUCTS];
 static const u64 small_items[N_SMALL_ITEMS];
 
 static bool ERROR = false;
-static i32 test();
-static u32 random_u32();
+static i32 test(void);
+static u32 random_u32(void);
 
 #define N_ITERATIONS 20000
 
 int cgd_main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
     if (test_log_setup())
         return EXIT_FAILURE;
 
@@ -59,7 +61,7 @@ int cgd_main(int argc, char **argv)
 
 #undef MODULE_NAME
 #define MODULE_NAME "vectortest:test"
-static i32 test()
+static i32 test(void)
 {
     u64 *vector_small = NULL;
     struct large_struct *vector_large = NULL;
@@ -182,7 +184,7 @@ err:
     return ERROR ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
-static u32 random_u32()
+static u32 random_u32(void)
 {
     struct timeval time = { 0 };
     gettimeofday(&time, NULL);
@@ -191,38 +193,38 @@ static u32 random_u32()
 }
 
 static const struct large_struct large_items[N_LARGE_STRUCTS] = {
-    (struct large_struct) { .arr = { 0 }, .str = "0" },
-    (struct large_struct) { .arr = { 1 }, .str = "1" },
-    (struct large_struct) { .arr = { 2 }, .str = "2" },
-    (struct large_struct) { .arr = { 3 }, .str = "3" },
-    (struct large_struct) { .arr = { 4 }, .str = "4" },
-    (struct large_struct) { .arr = { 5 }, .str = "5" },
-    (struct large_struct) { .arr = { 6 }, .str = "6" },
-    (struct large_struct) { .arr = { 7 }, .str = "7" },
-    (struct large_struct) { .arr = { 8 }, .str = "8" },
-    (struct large_struct) { .arr = { 9 }, .str = "9" },
-    (struct large_struct) { .arr = { 10 }, .str = "10" },
-    (struct large_struct) { .arr = { 11 }, .str = "11" },
-    (struct large_struct) { .arr = { 12 }, .str = "12" },
-    (struct large_struct) { .arr = { 13 }, .str = "13" },
-    (struct large_struct) { .arr = { 14 }, .str = "14" },
-    (struct large_struct) { .arr = { 15 }, .str = "15" },
-    (struct large_struct) { .arr = { 16 }, .str = "16" },
-    (struct large_struct) { .arr = { 17 }, .str = "17" },
-    (struct large_struct) { .arr = { 18 }, .str = "18" },
-    (struct large_struct) { .arr = { 19 }, .str = "19" },
-    (struct large_struct) { .arr = { 20 }, .str = "20" },
-    (struct large_struct) { .arr = { 21 }, .str = "21" },
-    (struct large_struct) { .arr = { 22 }, .str = "22" },
-    (struct large_struct) { .arr = { 23 }, .str = "23" },
-    (struct large_struct) { .arr = { 24 }, .str = "24" },
-    (struct large_struct) { .arr = { 25 }, .str = "25" },
-    (struct large_struct) { .arr = { 26 }, .str = "26" },
-    (struct large_struct) { .arr = { 27 }, .str = "27" },
-    (struct large_struct) { .arr = { 28 }, .str = "28" },
-    (struct large_struct) { .arr = { 29 }, .str = "29" },
-    (struct large_struct) { .arr = { 30 }, .str = "30" },
-    (struct large_struct) { .arr = { 31 }, .str = "31" },
+    { .arr = { 0 }, .str = "0" },
+    { .arr = { 1 }, .str = "1" },
+    { .arr = { 2 }, .str = "2" },
+    { .arr = { 3 }, .str = "3" },
+    { .arr = { 4 }, .str = "4" },
+    { .arr = { 5 }, .str = "5" },
+    { .arr = { 6 }, .str = "6" },
+    { .arr = { 7 }, .str = "7" },
+    { .arr = { 8 }, .str = "8" },
+    { .arr = { 9 }, .str = "9" },
+    { .arr = { 10 }, .str = "10" },
+    { .arr = { 11 }, .str = "11" },
+    { .arr = { 12 }, .str = "12" },
+    { .arr = { 13 }, .str = "13" },
+    { .arr = { 14 }, .str = "14" },
+    { .arr = { 15 }, .str = "15" },
+    { .arr = { 16 }, .str = "16" },
+    { .arr = { 17 }, .str = "17" },
+    { .arr = { 18 }, .str = "18" },
+    { .arr = { 19 }, .str = "19" },
+    { .arr = { 20 }, .str = "20" },
+    { .arr = { 21 }, .str = "21" },
+    { .arr = { 22 }, .str = "22" },
+    { .arr = { 23 }, .str = "23" },
+    { .arr = { 24 }, .str = "24" },
+    { .arr = { 25 }, .str = "25" },
+    { .arr = { 26 }, .str = "26" },
+    { .arr = { 27 }, .str = "27" },
+    { .arr = { 28 }, .str = "28" },
+    { .arr = { 29 }, .str = "29" },
+    { .arr = { 30 }, .str = "30" },
+    { .arr = { 31 }, .str = "31" },
 };
 
 static const u64 small_items[N_SMALL_ITEMS] = {

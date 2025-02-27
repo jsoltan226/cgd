@@ -75,7 +75,8 @@
     X_(void, gbm_device_destroy, struct gbm_device *gbm)                    \
 
 
-#define X_(return_type, name, ...) return_type(*name)(__VA_ARGS__);
+#define X_(return_type, name, ...) \
+    union { return_type(*name)(__VA_ARGS__); void *_voidp_##name; };
 struct libdrm_functions {
     LIBDRM_FUNCTIONS_LIST
     bool loaded_;

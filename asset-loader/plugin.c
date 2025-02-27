@@ -54,12 +54,12 @@ i32 asset_load_plugin_by_name(char name[ASSET_PLUGIN_MAX_NAME_LEN])
     return ret;
 }
 
-i32 asset_load_all_plugins()
+i32 asset_load_all_plugins(void)
 {
     p_mt_mutex_lock(&plugin_registry_mutex);
 
     u32 n_failed = 0;
-    for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
+    for (u32 i = 0; i < plugin_registry_n_plugins; i++) {
         if (plugin_registry[i].is_loaded)
             continue;
 
@@ -86,13 +86,13 @@ asset_get_plugin_loaded(enum asset_img_type type)
     else return is_loaded;
 }
 
-void asset_unload_all_plugins()
+void asset_unload_all_plugins(void)
 {
     p_mt_mutex_lock(&plugin_registry_mutex);
 #ifndef CGD_BUILDTYPE_RELEASE
     u32 n_unloaded = 0;
 #endif /* CGD_BUILDTYPE_RELEASE */
-    for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
+    for (u32 i = 0; i < plugin_registry_n_plugins; i++) {
         if (plugin_registry[i].is_loaded) {
             unload_plugin(&plugin_registry[i]);
 #ifndef CGD_BUILDTYPE_RELEASE
@@ -136,7 +136,7 @@ static struct asset_plugin * lookup_by_type(enum asset_img_type type)
 
     /* No writes are done, and all reads are done on objects that are constant.
      * No need for mutex locking. */
-    for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
+    for (u32 i = 0; i < plugin_registry_n_plugins; i++) {
         current = &plugin_registry[i];
         if (type == current->handles_type &&
             (match == NULL || current->priority >= match->priority)
@@ -153,7 +153,7 @@ lookup_by_name(char name[ASSET_PLUGIN_MAX_NAME_LEN])
 {
     /* No writes are done, and all reads are done on objects that are constant.
      * No need for mutex locking. */
-    for (u32 i = 0; i < u_arr_size(plugin_registry); i++) {
+    for (u32 i = 0; i < plugin_registry_n_plugins; i++) {
         if (!strncmp(name, plugin_registry[i].name, ASSET_PLUGIN_MAX_NAME_LEN))
             return &plugin_registry[i];
     }

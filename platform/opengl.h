@@ -14,7 +14,8 @@
 
 struct p_opengl_ctx;
 
-#define X_(return_type, name, ...) return_type (*name)(__VA_ARGS__);
+#define X_(return_type, name, ...) \
+    union { return_type (*name)(__VA_ARGS__); void *_voidp_##name; };
 struct p_opengl_functions {
     P_OPENGL_FUNCTIONS_LIST
 };

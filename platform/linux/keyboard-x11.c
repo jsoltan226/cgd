@@ -64,7 +64,7 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb)
 void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
     xcb_keysym_t keysym, enum keyboard_x11_key_event event)
 {
-    enum p_keyboard_keycode p_kb_keycode = -1;
+    enum p_keyboard_keycode p_kb_keycode = P_KEYBOARD_FAIL_;
     if (keysym >= '0' && keysym < '9')
         p_kb_keycode = keysym - '0' + KB_KEYCODE_DIGIT0;
     else if (keysym >= 'a' && keysym <= 'z')
@@ -77,7 +77,7 @@ void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
             }
         }
     }
-    if (p_kb_keycode == -1) return;
+    if (p_kb_keycode == P_KEYBOARD_FAIL_) return;
 
     atomic_store(&kb->key_events[p_kb_keycode], event);
 }

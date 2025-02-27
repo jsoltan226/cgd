@@ -6,6 +6,7 @@
 #include <core/shapes.h>
 #include <platform/window.h>
 #include <stdlib.h>
+#include <limits.h>
 #define R_INTERNAL_GUARD__
 #include "rctx-internal.h"
 #undef R_INTERNAL_GUARD__
@@ -13,74 +14,78 @@
 #include "putpixel-fast.h"
 #undef R_INTERNAL_GUARD__
 
-/* "u_" for "user-provided" */
 void r_draw_rect(struct r_ctx *ctx,
-    const i32 u_x, const i32 u_y,
-    const i32 u_w, const i32 u_h)
+    const i32 x, const i32 y, const i32 w, const i32 h)
 {
-    if (ctx == NULL || u_w < 0 || u_h < 0) return;
+    if (ctx == NULL || w < 0 || h < 0 ||
+        ctx->curr_buf->w > INT_MAX || ctx->curr_buf->h > INT_MAX ||
+        ctx->curr_buf->w == 0 || ctx->curr_buf->h == 0)
+        return;
 
-    const u32 start_x = u_clamp(0, u_x,        ctx->curr_buf->w - 1);
-    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->curr_buf->w - 1);
-    const u32 start_y = u_clamp(0, u_y,        ctx->curr_buf->h - 1);
-    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->curr_buf->h - 1);
+    const i32 start_x = u_clamp(0, x,       (i32)ctx->curr_buf->w - 1);
+    const i32 end_x   = u_clamp(0, x + w,   (i32)ctx->curr_buf->w - 1);
+    const i32 start_y = u_clamp(0, y,       (i32)ctx->curr_buf->h - 1);
+    const i32 end_y   = u_clamp(0, y + h,   (i32)ctx->curr_buf->h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;
 
-    register pixel_t *buf = ctx->curr_buf->buf;
-    register color_RGBA32_t color = ctx->current_color;
-    register u32 x, y;
-    register u32 w = ctx->curr_buf->w;
+    register pixel_t *const buf = ctx->curr_buf->buf;
+    register const color_RGBA32_t color = ctx->current_color;
+    register const u32 stride = ctx->curr_buf->w;
+    register i32 x_, y_;
 
-    if (start_y == u_y) {
-        y = start_y;
-        for (x = start_x; x < end_x; x++)
-            r_putpixel_fast_matching_pixelfmt_(buf, x, y, w, color);
+    if (start_y == y) {
+        y_ = start_y;
+        for (x_ = start_x; x_ < end_x; x_++)
+            r_putpixel_fast_matching_pixelfmt_(buf, x_, y_, stride, color);
     }
 
-    if (end_y == u_y + u_h) {
-        y = end_y;
-        for (u32 x = start_x; x < end_x; x++)
-            r_putpixel_fast_matching_pixelfmt_(buf, x, y, w, color);
+    if (end_y == y + h) {
+        y_ = end_y;
+        for (x_ = start_x; x_ < end_x; x_++)
+            r_putpixel_fast_matching_pixelfmt_(buf, x_, y_, stride, color);
     }
 
-    if (start_x == u_x) {
-        x = start_x;
-        for (y = start_y + 1; y < end_y; y++)
-            r_putpixel_fast_matching_pixelfmt_(buf, x, y, w, color);
+    if (start_x == x) {
+        x_ = start_x;
+        for (y_ = start_y + 1; y_ < end_y; y_++)
+            r_putpixel_fast_matching_pixelfmt_(buf, x_, y_, stride, color);
     }
 
-    if (end_x == u_x + u_w) {
-        x = end_x - 1;
-        for (y = start_y + 1; y < end_y; y++)
-            r_putpixel_fast_matching_pixelfmt_(buf, x, y, w, color);
+    if (end_x == x + w) {
+        x_ = end_x - 1;
+        for (y_ = start_y + 1; y_ < end_y; y_++)
+            r_putpixel_fast_matching_pixelfmt_(buf, x_, y_, stride, color);
     }
 }
 
 /* "u_" for "user-provided" */
 void r_fill_rect(struct r_ctx *ctx,
-    const i32 u_x, const i32 u_y,
-    const i32 u_w, const i32 u_h)
+    const i32 x, const i32 y,
+    const i32 w, const i32 h)
 {
 
-    if (ctx == NULL || u_w < 0 || u_h < 0) return;
+    if (ctx == NULL || w < 0 || h < 0 ||
+        ctx->curr_buf->w > INT_MAX || ctx->curr_buf->h > INT_MAX ||
+        ctx->curr_buf->w == 0 || ctx->curr_buf->h == 0)
+        return;
 
-    const u32 start_x = u_clamp(0, u_x,        ctx->curr_buf->w - 1);
-    const u32 end_x   = u_clamp(0, u_x + u_w,  ctx->curr_buf->w - 1);
-    const u32 start_y = u_clamp(0, u_y,        ctx->curr_buf->h - 1);
-    const u32 end_y   = u_clamp(0, u_y + u_h,  ctx->curr_buf->h - 1);
+    const i32 start_x = u_clamp(x,      0, (i32)ctx->curr_buf->w - 1);
+    const i32 end_x   = u_clamp(x + w,  0, (i32)ctx->curr_buf->w - 1);
+    const i32 start_y = u_clamp(y,      0, (i32)ctx->curr_buf->h - 1);
+    const i32 end_y   = u_clamp(y + h,  0, (i32)ctx->curr_buf->h - 1);
 
     if (start_x == end_x || start_y == end_y)
         return;
 
-    register pixel_t *buf = ctx->curr_buf->buf;
-    register u32 w = ctx->curr_buf->w;
-    register color_RGBA32_t color = ctx->current_color;
+    register pixel_t *const buf = ctx->curr_buf->buf;
+    register const u32 stride = ctx->curr_buf->w;
+    register const color_RGBA32_t color = ctx->current_color;
 
-    for (register u32 y = start_y; y < end_y; y++) {
-        for (register u32 x = start_x; x < end_x; x++) {
-            r_putpixel_fast_matching_pixelfmt_(buf, x, y, w, color);
+    for (register i32 y_ = start_y; y_ < end_y; y_++) {
+        for (register i32 x_ = start_x; x_ < end_x; x_++) {
+            r_putpixel_fast_matching_pixelfmt_(buf, x_, y_, stride, color);
         }
     }
 }
