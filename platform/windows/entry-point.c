@@ -30,6 +30,8 @@ extern int cgd_main(int argc, char **argv);
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPWSTR lpCmdLine, int nShowCmd)
 {
+    (void) hPrevInstance;
+
     /** INITIALIZE GLOBAL VARIABLES **/
     g_instance_handle = hInstance;
     g_n_cmd_show = nShowCmd;
@@ -51,7 +53,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         goto_error("Failed to allocate the argv array. Stop.\n");
 
     /* Allocate, copy and convert each argv string */
-    for (u32 i = 0; i < argc; i++) {
+    for (i32 i = 0; i < argc; i++) {
         /* First just get the size */
         i32 str_size = WideCharToMultiByte(CP_UTF8, 0, argv_w[i],
             -1, NULL, 0, NULL, NULL);
@@ -71,7 +73,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     int ret = cgd_main(argc, argv);
 
     /** CLEANUP **/
-    for (u32 i = 0; i < argc; i++)
+    for (i32 i = 0; i < argc; i++)
         free(argv[i]);
     u_nzfree(argv);
 
@@ -82,7 +84,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 err:
     if (argv != NULL) {
-        for (u32 i = 0; i < argc; i++) {
+        for (i32 i = 0; i < argc; i++) {
             if (argv[i] != NULL) free(argv[i]);
         }
         u_nzfree(argv);

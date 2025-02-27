@@ -11,7 +11,7 @@ static VECTOR(struct p_event) g_event_queue = NULL;
 static p_mt_mutex_t g_event_queue_mutex = P_MT_MUTEX_INITIALIZER;
 
 static void setup_event_queue(bool warn);
-static void destroy_event_queue();
+static void destroy_event_queue(void);
 
 i32 p_event_poll(struct p_event *o)
 {
@@ -28,13 +28,15 @@ i32 p_event_poll(struct p_event *o)
         goto ret;
 
     memcpy(o,
-        vector_end(g_event_queue) - sizeof(struct p_event),
+        (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
         sizeof(struct p_event)
     );
     vector_pop_back(g_event_queue);
 
+#ifndef CGD_BUILDTYPE_RELEASE
     if (o->type == P_EVENT_QUIT)
         s_log_debug("Caught QUIT event");
+#endif /* CGD_BUILDTYPE_RELEASE */
 
 ret:
     p_mt_mutex_unlock(&g_event_queue_mutex);

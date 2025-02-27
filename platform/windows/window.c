@@ -1,9 +1,9 @@
 #include "../window.h"
 #include "../event.h"
 #include "../thread.h"
-#include "core/pixel.h"
 #include <core/log.h>
 #include <core/util.h>
+#include <core/pixel.h>
 #include <core/shapes.h>
 #include <malloc.h>
 #include <stdlib.h>
@@ -40,7 +40,7 @@ static void do_window_cleanup(struct p_window *win);
 static LRESULT CALLBACK
 window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-struct p_window * p_window_open(const unsigned char *title,
+struct p_window * p_window_open(const char *title,
     const rect_t *area, const u32 flags)
 {
     struct p_window *win = calloc(1, sizeof(struct p_window));
@@ -87,8 +87,8 @@ struct p_window * p_window_open(const unsigned char *title,
         goto_error("Window init failed.");
 
     win->initialized = true;
-    s_log_debug("%s() OK; window position: [%u, %u]; window dimensions: %ux%u",
-        __func__, rect_arg_expand(win->client_rect));
+    s_log_debug("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
+        __func__, rect_arg_expand(win->info.client_area));
 
     /* Initialize the event queue */
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_INIT_ });
@@ -104,10 +104,11 @@ void p_window_render(struct p_window *win, struct pixel_flat_data *fb)
 {
     u_check_params(win != NULL && fb != NULL);
 
-    s_assert(win->client_rect.w == fb->w && win->client_rect.h == fb->h,
+    s_assert(win->info.client_area.w == fb->w
+        && win->info.client_area.h == fb->h,
         "Attempt to render a framebuffer of invalid size "
         "(size of provided fb is %ux%u, should be %ux%u)",
-        fb->w, fb->h, win->client_rect.w, win->client_rect.h);
+        fb->w, fb->h, win->info.client_area.w, win->info.client_area.h);
 
     const BITMAPINFO bmi = {
         .bmiHeader = {
@@ -169,18 +170,10 @@ void p_window_close(struct p_window **win_p)
     u_nzfree(win_p);
 }
 
-i32 p_window_get_meta(const struct p_window *win, struct p_window_meta *out)
+void p_window_get_info(const struct p_window *win, struct p_window_info *out)
 {
-    if (win == NULL || out == NULL)
-        return -1;
-
-    out->x = win->client_rect.x;
-    out->y = win->client_rect.y;
-    out->w = win->client_rect.w;
-    out->h = win->client_rect.h;
-    out->color_format = BGRX32;
-
-    return 0;
+    u_check_params(win != NULL && out != NULL);
+    memcpy(out, &win->info, sizeof(struct p_window_info));
 }
 
 static void thread_fn(void *arg)
@@ -221,35 +214,42 @@ static void thread_fn(void *arg)
 static i32 do_window_init(struct p_window *win,
     const char *title, const rect_t *area, const u32 flags)
 {
+    struct p_window_info *const info = &win->info;
+
     /* Get screen resolution */
-    win->screen_w = GetSystemMetrics(SM_CXSCREEN);
-    if (win->screen_w == 0)
+    info->display_rect.w = GetSystemMetrics(SM_CXSCREEN);
+    if (info->display_rect.w == 0)
         goto_error("Failed to get screen width: %s", get_last_error_msg());
 
-    win->screen_h = GetSystemMetrics(SM_CYSCREEN);
-    if (win->screen_h == 0)
+    info->display_rect.h = GetSystemMetrics(SM_CYSCREEN);
+    if (info->display_rect.h == 0)
         goto_error("Failed to get screen height: %s", get_last_error_msg());
 
     /* Handle P_WINDOW_POS_CENTERED flags */
-    win->client_rect.x = area->x;
+    info->client_area.x = area->x;
     if (flags & P_WINDOW_POS_CENTERED_X)
-        win->client_rect.x = (win->screen_w - area->w) / 2;
+        info->client_area.x = (info->display_rect.w - area->w) / 2;
 
-    win->client_rect.y = area->y;
+    info->client_area.y = area->y;
     if (flags & P_WINDOW_POS_CENTERED_Y)
-        win->client_rect.y = (win->screen_h - area->h) / 2;
+        info->client_area.y = (info->display_rect.h - area->h) / 2;
 
-    win->client_rect.w = area->w;
-    win->client_rect.h = area->h;
+    info->client_area.w = area->w;
+    info->client_area.h = area->h;
 
-    /* Normal style, but non-resizeable non-maximizeable */
+    /* Initialize the rest of the info struct */
+    info->display_color_format = BGRX32;
+    info->gpu_acceleration = P_WINDOW_ACCELERATION_NONE;
+    info->vsync_supported = false;
+
+    /* Normal style, but non-resizeable and non-maximizeable */
 #define WINDOW_STYLE (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX)
 
     /* Adjust the client rect to actually be what we want */
-    win->window_rect.left = win->client_rect.x;
-    win->window_rect.top = win->client_rect.y;
-    win->window_rect.right = win->client_rect.x + win->client_rect.w;
-    win->window_rect.bottom = win->client_rect.y + win->client_rect.h;
+    win->window_rect.left = info->client_area.x;
+    win->window_rect.top = info->client_area.y;
+    win->window_rect.right = info->client_area.x + info->client_area.w;
+    win->window_rect.bottom = info->client_area.y + info->client_area.h;
     if (AdjustWindowRect(&win->window_rect, WINDOW_STYLE, false) == 0)
         goto_error("Failed to adjust the window rect: %s", get_last_error_msg());
 

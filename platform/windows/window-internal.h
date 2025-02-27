@@ -3,6 +3,7 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../thread.h"
+#include "../window.h"
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdbool.h>
@@ -21,10 +22,9 @@ struct p_window {
     bool initialized; /* Sanity check to avoid double-frees */
 
     RECT window_rect; /* The posistion and dimensions of the whole window */
-    rect_t client_rect; /* The position and dimensions of the client area */
 
-    /* Screen resolution, used for positioning the window */
-    u32 screen_w, screen_h;
+    /* Contains the client area and the display dimensions */
+    struct p_window_info info;
 
     HDC dc; /* The device context of the window */
 };

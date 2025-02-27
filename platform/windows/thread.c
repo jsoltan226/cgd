@@ -55,8 +55,14 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
 #define STACK_SIZE 0
 #define FLAGS 0
 #define THREAD_ADDR_P NULL
+    const union {
+        p_mt_thread_fn_t p_mt;
+        _beginthreadex_proc_type win32;
+    } thread_fn_bridge = {
+        .p_mt = thread_fn
+    };
     *o = (HANDLE)_beginthreadex(SECURITY_ATTRS, STACK_SIZE,
-        (_beginthreadex_proc_type)thread_fn, arg,
+        thread_fn_bridge.win32, arg,
         FLAGS, THREAD_ADDR_P
     );
 
@@ -68,7 +74,7 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
     return 0;
 }
 
-void noreturn p_mt_thread_exit(void)
+noreturn void p_mt_thread_exit(void)
 {
     _endthreadex(0);
 }

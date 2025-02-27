@@ -145,12 +145,18 @@ void * p_librtld_load_sym(struct p_lib *lib, const char *symname)
     }
 
     /* If nothing's found in the symlist, try to load it from the lib itself */
-    void *sym_handle = GetProcAddress(lib->module_handle, symname);
-    if (sym_handle == NULL) {
+    const union {
+        FARPROC win32;
+        void *p_librtld;
+    } bridge = {
+        .win32 = GetProcAddress(lib->module_handle, symname),
+    };
+    if (bridge.win32 == NULL) {
         s_log_error("Failed to load sym \"%s\" from lib \"%s\": %s",
             symname, lib->dll_name, get_last_error_msg());
         return NULL;
     }
+    void *const sym_handle = bridge.p_librtld;
 
     /* Add the new symbol to the sym list */
     struct sym new_sym = {
