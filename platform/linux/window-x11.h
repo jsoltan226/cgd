@@ -20,6 +20,32 @@
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 
+struct x11_render_software_ctx {
+    bool initialized_;
+    xcb_gcontext_t window_gc;
+
+    bool use_shm;
+    struct x11_render_software_buf {
+        bool initialized_;
+        bool is_shm;
+        union {
+            struct x11_render_software_malloced_buf {
+                xcb_image_t *image;
+            } malloced;
+            struct x11_render_software_shm_buf {
+                xcb_gcontext_t gc;
+                xcb_pixmap_t pixmap;
+                xcb_shm_segment_info_t shm_info;
+                u32 root_depth;
+            } shm;
+        };
+        struct pixel_flat_data user_ret;
+    } buffers[2], *curr_front_buf, *curr_back_buf;
+};
+struct x11_render_egl_ctx {
+    bool initialized_;
+};
+
 struct window_x11 {
     bool exists; /* Sanity check to avoid double-frees */
 
@@ -32,17 +58,18 @@ struct window_x11 {
     xcb_window_t win;
     bool win_created;
 
-    bool shm_attached;
-    xcb_shm_segment_info_t shm_info;
+    struct p_window_info *generic_info_p;
+
+    union window_x11_render_ctx {
+        struct x11_render_software_ctx sw;
+        struct x11_render_egl_ctx egl;
+    } render;
 
     xcb_atom_t UTF8_STRING;
     xcb_atom_t NET_WM_NAME;
     xcb_atom_t NET_WM_STATE_ABOVE;
     xcb_atom_t WM_PROTOCOLS;
     xcb_atom_t WM_DELETE_WINDOW;
-
-    xcb_gcontext_t gc;
-    xcb_image_t *xcb_image;
 
     struct window_x11_listener {
         _Atomic bool running;
@@ -58,21 +85,20 @@ struct window_x11 {
     xcb_input_device_id_t master_mouse_id, master_keyboard_id;
 
     xcb_key_symbols_t *key_symbols;
-
-    enum p_window_acceleration gpu_acceleration;
 };
 
 /* Returns 0 on success and non-zero on failure.
  * Does not clean up if an error happens */
 /* Does not perform any parameter validation! */
-i32 window_X11_open(struct window_x11 *x11,
-    const unsigned char *title, const rect_t *area, const u32 flags);
+i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
+    const char *title, const rect_t *area, const u32 flags);
 
 /* Also unloads libX11 if there are no open windows left */
 void window_X11_close(struct window_x11 *x11);
 
 /* Does not perform any parameter validation! */
-void window_X11_render(struct window_x11 *x11, struct pixel_flat_data *fb);
+struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
+    enum p_window_present_mode present_mode);
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
     struct keyboard_x11 *kb);

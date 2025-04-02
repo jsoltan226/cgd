@@ -3,11 +3,12 @@
 
 #include "img-type.h"
 #include <core/int.h>
+#include <core/util.h>
 #include <core/pixel.h>
 #include <render/surface.h>
 
 struct asset {
-    filepath_t rel_file_path;
+    u_filepath_t rel_file_path;
     enum asset_img_type type;
 
     struct pixel_flat_data pixel_data;
@@ -15,7 +16,7 @@ struct asset {
 };
 
 /* Both return NULL on failure */
-struct asset * asset_load(filepath_t rel_file_path);
+struct asset * asset_load(const u_filepath_t rel_file_path);
 FILE * asset_fopen(const char *rel_file_path, const char *mode);
 
 /* If `rel_file_path` or `img_type` are NULL,

@@ -52,7 +52,7 @@ struct p_window * p_window_open(const char *title,
 
     switch (win->type) {
         case WINDOW_TYPE_X11:
-            if (window_X11_open(&win->x11, (const unsigned char *)title, area, flags))
+            if (window_X11_open(&win->x11, &win->info, title, area, flags))
                 goto_error("Failed to open X11 window");
             win->info.display_color_format = BGRX32;
             win->mouse_ev_offset.x = 0;
@@ -131,7 +131,8 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     const enum p_window_present_mode present_mode)
 {
     switch (win->type) {
-    case WINDOW_TYPE_X11: return NULL;
+    case WINDOW_TYPE_X11:
+        return window_X11_swap_buffers(&win->x11, present_mode);
     case WINDOW_TYPE_DRI:
         return window_dri_swap_buffers(&win->dri, present_mode);
     case WINDOW_TYPE_FBDEV:

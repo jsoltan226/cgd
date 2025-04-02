@@ -60,6 +60,18 @@
         xcb_connection_t *conn, uint8_t propagate, xcb_window_t destination,   \
         uint32_t event_mask, const char *event                                 \
     )                                                                          \
+    X_(xcb_void_cookie_t, xcb_free_gc,                                         \
+        xcb_connection_t *conn, xcb_gcontext_t gc                              \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_free_pixmap_checked,                             \
+        xcb_connection_t *conn, xcb_pixmap_t pixmap                            \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_copy_area,                                       \
+        xcb_connection_t *c, xcb_drawable_t src_drawable,                      \
+        xcb_drawable_t dst_drawable, xcb_gcontext_t gc,                        \
+        int16_t src_x, int16_t src_y, int16_t dst_x, int16_t dst_y,            \
+        uint16_t width, uint16_t height                                        \
+    )                                                                          \
 
 
 #define LIBXCB_IMAGE_SO_NAME "libxcb-image"
@@ -141,6 +153,11 @@
     )                                                                          \
     X_(xcb_void_cookie_t, xcb_shm_detach,                                      \
         xcb_connection_t *c, xcb_shm_seg_t shmseg                              \
+    )                                                                          \
+    X_(xcb_void_cookie_t, xcb_shm_create_pixmap,                               \
+        xcb_connection_t *conn, xcb_pixmap_t pid, xcb_drawable_t drawable,     \
+        uint16_t width, uint16_t height, uint8_t depth,                        \
+        xcb_shm_seg_t shmseg, uint32_t offset                                  \
     )                                                                          \
 
 

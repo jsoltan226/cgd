@@ -11,7 +11,6 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <core/vector.h>
-#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -38,7 +37,7 @@
 
 struct file {
     i32 fd;
-    char path[u_FILEPATH_MAX];
+    u_filepath_t path;
 };
 
 static i32 load_libdrm(struct window_dri *win);
@@ -307,7 +306,7 @@ i32 window_dri_set_acceleration(struct window_dri *win,
         s_log_error("Vulkan acceleration not implemented yet.");
         return 1;
     default: /* Technically not possible */
-        s_log_error("Unsupported acceleration mode: %u", val);
+        s_log_error("Unsupported acceleration mode: %i", val);
         return 1;
     }
 
@@ -399,10 +398,10 @@ static VECTOR(struct file) open_available_devices(void)
     for (i32 i = 0; i < n_dirents; i++) {
         struct file f = { .fd = -1, .path = { 0 } };
 
-        strncpy(f.path, DRI_DEV_DIR "/", u_FILEPATH_MAX - 1);
+        strncpy(f.path, DRI_DEV_DIR "/", u_FILEPATH_MAX);
         strncat(f.path, namelist[i]->d_name,
             u_FILEPATH_MAX - strlen(f.path) - 1);
-        f.path[u_FILEPATH_MAX - 1] = '\0'; /* just in case */
+        f.path[u_FILEPATH_MAX] = '\0'; /* just in case */
 
         f.fd = open(f.path, O_RDWR | O_NONBLOCK | O_CLOEXEC);
         if (f.fd == -1) {

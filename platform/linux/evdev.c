@@ -8,8 +8,6 @@
 #include <core/math.h>
 #include <core/vector.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <dirent.h>
@@ -28,7 +26,8 @@ static i32 dev_input_event_scandir_filter(const struct dirent *dirent);
 static i32 ev_cap_check(i32 fd, const char *path, enum evdev_type type);
 static i32 ev_bit_check(const u64 bits[], u32 n_bits, const i32 *checks);
 
-VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
+VECTOR(struct evdev)
+evdev_find_and_load_devices(enum evdev_type_mask type_mask)
 {
     VECTOR(struct evdev) v = NULL;
     struct dirent **namelist = NULL;
@@ -38,7 +37,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
     v = vector_new(struct evdev);
 
     /* Obtain a directory listing of "/dev/input/event*" */
-    dir_fd = open(DEVINPUT_DIR, O_RDONLY);
+    dir_fd = open(DEVINPUT_DIR, O_RDONLY | O_CLOEXEC);
     if (dir_fd == -1)
         goto_error("Failed to open %s: %s", DEVINPUT_DIR, strerror(errno));
 
@@ -54,7 +53,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
     u32 n_failed = 0;
     for (i32 i = 0; i < n_dirents; i++) {
         struct evdev tmp;
-        i32 r = evdev_load(namelist[i]->d_name, &tmp, type);
+        i32 r = evdev_load(namelist[i]->d_name, &tmp, type_mask);
 
         if (r < 0) { /* Opening failed */
             n_failed++;
@@ -64,7 +63,7 @@ VECTOR(struct evdev) evdev_find_and_load_devices(enum evdev_type type)
         }
 
         s_log_debug("Found %s: %s (%s)",
-            evdev_type_strings[type], tmp.path, tmp.name
+            evdev_type_strings[tmp.type], tmp.path, tmp.name
         );
         vector_push_back(v, tmp);
     }
@@ -111,26 +110,30 @@ err:
     return NULL;
 }
 
-i32 evdev_load(const char *rel_path, struct evdev *out, enum evdev_type type)
+i32 evdev_load(const char *rel_path, struct evdev *out,
+    enum evdev_type_mask type_mask)
 {
     u_check_params(rel_path != NULL && out != NULL);
-    u_check_params(type > 0 && type < EVDEV_N_TYPES);
     memset(out, 0, sizeof(struct evdev));
+    out->initialized_ = true;
+    i32 err_ret = -1;
 
     strncpy(out->path, DEVINPUT_DIR "/", u_FILEPATH_MAX);
     strncat(out->path, rel_path,
-        u_FILEPATH_MAX - strlen(out->path) - 1);
+        u_FILEPATH_SIZE - strlen(out->path) - 1);
 
     /* Open the device */
-    out->fd = open(out->path, O_RDONLY | O_NONBLOCK);
+    out->fd = open(out->path, O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (out->fd == -1) {
         /* Don't spam the user with 'Permission denied' errors
          *
-         * Not having permission to read /dev/input/eventXX is the usual case,
-         * but the user might think something is wrong when they get
-         * a full screen of error messages
+         * Not having permission to read /dev/input/eventXX is the usual
+         * scenario, but the user might think that something is wrong
+         * when they get a full screen of error messages
          */
         if (errno == EACCES || errno == EPERM) {
+            s_log_debug("Could not open device /dev/input/%s: errno %i (%s)",
+                rel_path, errno, strerror(errno));
             goto err;
         }
         goto_error("%s: Failed to open %s: %s",
@@ -142,11 +145,21 @@ i32 evdev_load(const char *rel_path, struct evdev *out, enum evdev_type type)
         s_log_warn("Failed to get name for event device %s: %s",
             out->path, strerror(errno));
     }
-    //s_log_debug("Trying \"%s\" (%s)...", out->name, out->path);
 
-    /* Silently fail if device is of invalid type */
-    if (ev_cap_check(out->fd, out->path, type))
+    /* Silently fail if device type doesn't match */
+    out->type = EVDEV_TYPE_UNKNOWN;
+    for (u32 i = 1; i < EVDEV_N_TYPES; i++) {
+        if ((type_mask & (1 << i)) &&
+            !ev_cap_check(out->fd, out->path, i))
+        {
+            out->type = i;
+            break;
+        }
+    }
+    if (out->type == EVDEV_TYPE_UNKNOWN) {
+        err_ret = 1;
         goto err;
+    }
 
     return 0;
 
@@ -156,7 +169,34 @@ err:
         out->fd = -1;
     }
 
-    return 1;
+    return err_ret;
+}
+
+void evdev_list_destroy(VECTOR(struct evdev) *evdev_list_p)
+{
+    if (evdev_list_p == NULL || *evdev_list_p == NULL)
+        return;
+
+    const u32 n_devs = vector_size(*evdev_list_p);
+    for (u32 i = 0; i < n_devs; i++) {
+        evdev_destroy(&(*evdev_list_p)[i]);
+    }
+    vector_destroy(evdev_list_p);
+    s_log_debug("Destroyed %u device(s)", n_devs);
+}
+
+void evdev_destroy(struct evdev *e)
+{
+    if (e == NULL || !e->initialized_) return;
+
+    if (e->fd < 0) {
+        close(e->fd);
+        e->fd = -1;
+    }
+
+    memset(e->path, 0, u_FILEPATH_SIZE);
+    memset(e->name, 0, MAX_EVDEV_NAME_LEN);
+    e->type = EVDEV_TYPE_UNKNOWN;
 }
 
 static i32 dev_input_event_scandir_filter(const struct dirent *dirent)
@@ -170,7 +210,7 @@ static i32 ev_cap_check(i32 fd, const char *path, enum evdev_type type)
     if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0) {
         s_log_error("Failed to get supported events from %s: %s",
             path, strerror(errno));
-        return false;
+        return 1;
     }
 
     u32 i = 0;
@@ -179,9 +219,9 @@ static i32 ev_cap_check(i32 fd, const char *path, enum evdev_type type)
         const i32 curr_ev_bit = ev_checks[i];
         s_assert(curr_ev_bit > 0 && curr_ev_bit < EV_CNT,
             "Invalid EV_* value (%i)", curr_ev_bit);
-        const u32 curr_max_val = ev_max_vals[i];
+        const u32 curr_max_val = ev_max_vals[curr_ev_bit];
 
-        u64 bits[EV_bits_max_size_u64_];
+        u64 bits[sizeof(union ev_bits_max_size__)];
         if (ioctl(fd, EVIOCGBIT(curr_ev_bit, curr_max_val), bits) < 0) {
             s_log_error("Failed to get event bits from %s: %s",
                 path, strerror(errno));
@@ -210,20 +250,12 @@ static i32 ev_bit_check(const u64 bits[], u32 n_bits, const i32 *checks)
         if (arr_index >= n_bits) continue;
 
         const u64 mask = 1ULL << (u64)(checks[i] % 64);
-
-        if (!(bits[arr_index] & mask)) {
-            //s_log_error("Bit 0x%x not present", checks[i]);
+        if (!(bits[checks[i] / 64] & mask)) {
+            //s_log_error("Bit %#x not present", checks[i]);
             ret++;
         }
 
         i++;
-    }
-
-    if (i >= EV_max_n_checks_ &&
-        checks[EV_max_n_checks_ - 1] != EV_check_end_)
-    {
-        s_log_fatal(MODULE_NAME, __func__,
-            "No terminator at the end of an event check array!");
     }
 
     return ret;

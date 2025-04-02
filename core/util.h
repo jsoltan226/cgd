@@ -10,8 +10,9 @@
 #define u_BUF_SIZE  1024
 #define u_PATH_FROM_BIN_TO_ASSETS "../assets/"
 
-#define u_FILEPATH_MAX 256
-typedef const char filepath_t[u_FILEPATH_MAX];
+#define u_FILEPATH_SIZE 256
+#define u_FILEPATH_MAX (u_FILEPATH_SIZE - 1)
+typedef char u_filepath_t[u_FILEPATH_SIZE];
 
 
 #define goto_error(...) do {    \

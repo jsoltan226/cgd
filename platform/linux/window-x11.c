@@ -34,8 +34,40 @@
 
 #define MODULE_NAME "window-x11"
 
-static i32 init_fb(struct window_x11 *win, u32 fb_w, u32 fb_h);
-static void destroy_fb(struct window_x11 *win);
+static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags);
+
+static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
+    u32 win_w, u32 win_h, u32 root_depth, xcb_window_t win_handle,
+    xcb_connection_t *conn, const struct libxcb *xcb);
+
+/* The two below functions clean up after themselves in case of errors */
+static i32 software_init_buffers_shm(
+    struct x11_render_software_buf buffers_o[2],
+    u32 win_w, u32 win_h, u32 root_depth,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+);
+static i32 software_init_buffers_malloced(
+    struct x11_render_software_buf buffers_o[2],
+    u32 win_w, u32 win_h, u32 root_depth,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+
+static void software_destroy_buffers(
+    struct x11_render_software_buf buffers[2],
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+
+static struct pixel_flat_data * render_present_software(
+    struct x11_render_software_ctx *sw_rctx, xcb_window_t win_handle,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+static void render_destroy_software(struct x11_render_software_ctx *sw_rctx,
+    xcb_connection_t *conn, const struct libxcb *xcb);
+
+static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
+    const struct libxcb *xcb);
+static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
+    const struct libxcb *xcb);
 
 static i32 intern_atom(struct window_x11 *win,
     const char *atom_name, xcb_atom_t *o);
@@ -46,16 +78,17 @@ static i32 get_master_input_devices(
     xcb_input_device_id_t *master_mouse_id,
     xcb_input_device_id_t *master_keyboard_id
 );
-
-static i32 attach_shm(struct window_x11 *win, u32 w, u32 h);
-static void detach_shm(struct window_x11 *win);
+static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
+    xcb_connection_t *conn, const struct libxcb *xcb);
+static void detach_shm(xcb_shm_segment_info_t *shm,
+    xcb_connection_t *conn, const struct libxcb *xcb);
 
 static void send_dummy_event_to_self(struct window_x11 *win);
 
 #define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
 
-i32 window_X11_open(struct window_x11 *win,
-    const unsigned char *title, const rect_t *area, const u32 flags)
+i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
+    const char *title, const rect_t *area, const u32 flags)
 {
     /* Used for error checking */
     xcb_generic_error_t *e = NULL;
@@ -64,6 +97,8 @@ i32 window_X11_open(struct window_x11 *win,
     /* Reset the window struct, just in case */
     memset(win, 0, sizeof(struct window_x11));
     win->exists = true;
+
+    win->generic_info_p = info;
 
     win->registered_keyboard = NULL;
     win->keyboard_deregistration_ack = p_mt_cond_create();
@@ -100,6 +135,20 @@ i32 window_X11_open(struct window_x11 *win,
     if (flags & P_WINDOW_POS_CENTERED_Y)
         y = (win->screen->height_in_pixels - area->h) / 2;
 
+    /* Initialize the generic window parameters */
+    info->client_area.x = x;
+    info->client_area.y = y;
+    info->client_area.w = area->w;
+    info->client_area.h = area->h;
+
+    info->display_rect.x = info->display_rect.y = 0;
+    info->display_rect.w = win->screen->width_in_pixels;
+    info->display_rect.h = win->screen->height_in_pixels;
+    info->display_color_format = BGRX32;
+
+    info->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    info->vsync_supported = false;
+
     /* Create the window */
     u32 value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
     u32 value_list[] = {
@@ -113,10 +162,6 @@ i32 window_X11_open(struct window_x11 *win,
         win->screen->root_visual, value_mask, value_list);
     if (libxcb_error) goto_error("Failed to create the window");
     win->win_created = true;
-
-    /* Create or attach to the window's framebuffer */
-    if (init_fb(win, area->w, area->h))
-        goto_error("Failed to initialize the window's framebuffer");
 
     /* Get the UTF8 string atom */
     if (intern_atom(win, "UTF8_STRING", &win->UTF8_STRING)) goto err;
@@ -171,15 +216,6 @@ i32 window_X11_open(struct window_x11 *win,
     if (libxcb_error) goto_error("Failed to set WM protocols");
 
     /* Initialize the graphics context */
-    win->gc = win->xcb.xcb_generate_id(win->conn);
-
-#define GCV_MASK XCB_GC_FOREGROUND
-    const u32 gcv[] = {
-        win->screen->black_pixel
-    };
-    vc = win->xcb.xcb_create_gc_checked(win->conn, win->gc, win->win,
-        GCV_MASK, gcv);
-    if (libxcb_error) goto_error("Failed to create the Graphics Context");
 
     /* Initialize the XInput2 externsion */
     /* Get the master keyboard and master mouse device IDs */
@@ -216,21 +252,26 @@ i32 window_X11_open(struct window_x11 *win,
     if (libxcb_error)
         goto_error("Failed to enable keyboard input handling with Xi2");
 
+
     vc = win->xcb.xcb_input_xi_select_events_checked(
         win->conn, win->win, 1, &mouse_mask.head
     );
     if (libxcb_error)
         goto_error("Failed to enable mouse input handling with Xi2");
 
-    /* Map the window so that it's visible */
-    vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
-    if (libxcb_error) goto_error("Failed to map (show) the window");
-
     /* Allocate the key symbols struct, used by keyboard-x11
      * to map keycodes received from events to keysyms */
     win->key_symbols = win->xcb.xcb_key_symbols_alloc(win->conn);
     if (win->key_symbols == NULL)
         goto_error("Failed to allocate key symbols");
+
+    /* Initialize the GPU acceleration based on the flags */
+    if (init_acceleration(win, flags))
+        goto_error("Failed to initialize GPU acceleration");
+
+    /* Map the window so that it's visible */
+    vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
+    if (libxcb_error) goto_error("Failed to map (show) the window");
 
     /* Finally, flush all the commands */
     if (win->xcb.xcb_flush(win->conn) <= 0)
@@ -263,6 +304,20 @@ void window_X11_close(struct window_x11 *win)
 
     s_log_debug("Destroying X11 window...");
     if (!win->xcb.failed_) {
+        /* Free acceleration-specific resources */
+        if (win->conn) {
+            switch (win->generic_info_p->gpu_acceleration) {
+                case P_WINDOW_ACCELERATION_NONE:
+                    render_destroy_software(&win->render.sw, win->conn, &win->xcb);
+                    break;
+                case P_WINDOW_ACCELERATION_OPENGL:
+                    render_destroy_egl(&win->render.egl, &win->xcb);
+                    break;
+                case P_WINDOW_ACCELERATION_VULKAN: /* Not implemented yet */
+                default:
+                    break;
+            }
+        }
         if (win->key_symbols) win->xcb.xcb_key_symbols_free(win->key_symbols);
 
         if (atomic_load(&win->listener.running)) {
@@ -281,7 +336,6 @@ void window_X11_close(struct window_x11 *win)
         }
 
         if (win->win_created) win->xcb.xcb_destroy_window(win->conn, win->win);
-        destroy_fb(win);
         if (win->conn) win->xcb.xcb_disconnect(win->conn);
     }
     libxcb_unload(&win->xcb);
@@ -292,42 +346,17 @@ void window_X11_close(struct window_x11 *win)
     memset(win, 0, sizeof(struct window_x11));
 }
 
-void window_X11_render(struct window_x11 *win, struct pixel_flat_data *fb)
+struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
+    enum p_window_present_mode present_mode)
 {
     u_check_params(win != NULL);
 
-    if (win->gpu_acceleration != P_WINDOW_ACCELERATION_NONE)
-        return;
+    if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE)
+        return NULL;
 
-    s_assert(fb != NULL && fb->buf != NULL && fb->w > 0 && fb->h > 0,
-        "No framebuffer provided for software rendering");
-
-    if (win->shm_attached) {
-        memcpy(win->shm_info.shmaddr,
-            fb->buf,
-            fb->w * fb->h * sizeof(pixel_t)
-        );
-#define TOTAL_W fb->w
-#define TOTAL_H fb->h
-#define SRC_X 0
-#define SRC_Y 0
-#define SRC_W fb->w
-#define SRC_H fb->h
-#define DST_X 0
-#define DST_Y 0
-#define SEND_EVENT false
-#define OFFSET 0
-        (void) win->xcb.shm.xcb_shm_put_image(win->conn, win->win, win->gc,
-            TOTAL_W, TOTAL_H, SRC_X, SRC_Y, SRC_W, SRC_H, DST_X, DST_Y,
-            win->screen->root_depth, XCB_IMAGE_FORMAT_Z_PIXMAP, SEND_EVENT,
-            win->shm_info.shmseg, OFFSET);
-
-    } else if (win->xcb_image != NULL) {
-#define LEFT_PAD 0
-        (void) win->xcb.xcb_image_put(win->conn, win->win, win->gc,
-            win->xcb_image, DST_X, DST_Y, LEFT_PAD);
-    }
-    (void) win->xcb.xcb_flush(win->conn);
+    (void) present_mode;
+    return render_present_software(&win->render.sw,
+        win->win, win->conn, &win->xcb);
 }
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
@@ -384,51 +413,362 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
 
     u_check_params(win != NULL &&
         new_val >= 0 && new_val < P_WINDOW_ACCELERATION_MAX_);
-    win->gpu_acceleration = new_val;
+
+    switch (win->generic_info_p->gpu_acceleration) {
+        case P_WINDOW_ACCELERATION_NONE:
+            render_destroy_software(&win->render.sw, win->conn, &win->xcb);
+            break;
+        case P_WINDOW_ACCELERATION_OPENGL:
+            render_destroy_egl(&win->render.egl, &win->xcb);
+            break;
+        case P_WINDOW_ACCELERATION_UNSET_: /* previously unset, do nothing */
+            break;
+        case P_WINDOW_ACCELERATION_VULKAN:
+        default:
+            /* Shouldn't be possible */
+            break;
+    }
+
+    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+
+    switch (new_val) {
+    case P_WINDOW_ACCELERATION_NONE:
+        if (render_init_software(&win->render.sw,
+                win->generic_info_p->client_area.w,
+                win->generic_info_p->client_area.h,
+                win->screen->root_depth, win->win, win->conn, &win->xcb))
+        {
+            s_log_error("Failed to set up the window for software rendering.");
+            return 1;
+        }
+        break;
+    case P_WINDOW_ACCELERATION_OPENGL:
+        if (render_init_egl(&win->render.egl, &win->xcb)) {
+            s_log_error("Failed to set up the window for EGL rendering.");
+            return 1;
+        }
+        break;
+    case P_WINDOW_ACCELERATION_VULKAN:
+        s_log_error("Vulkan acceleration not implemented yet.");
+        return 1;
+    default: /* Technically not possible */
+        s_log_error("Unsupported acceleration mode: %i", new_val);
+        return 1;
+    }
+
+    win->generic_info_p->gpu_acceleration = new_val;
     return 0;
 }
 
-static i32 init_fb(struct window_x11 *win, u32 fb_w, u32 fb_h)
+static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
 {
-    u_check_params(win != NULL);
+    /* Decide which acceleration modes to try
+     * and which are required to succeed */
+    const bool try_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_VULKAN);
+    const bool warn_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
+    const bool require_vulkan = (flags & P_WINDOW_REQUIRE_VULKAN) || 0;
 
-    if (win->xcb.shm.has_shm_extension_) {
-        win->xcb_image = NULL;
-        if (attach_shm(win, fb_w, fb_h))
-            goto shm_attach_fail;
-    } else {
-shm_attach_fail:
-        win->xcb_image = win->xcb.xcb_image_create_native(win->conn,
-            fb_w, fb_h, XCB_IMAGE_FORMAT_Z_PIXMAP, win->screen->root_depth,
-            NULL, fb_w * fb_h * sizeof(pixel_t), NULL);
+    const bool try_opengl = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
+        || (flags & P_WINDOW_REQUIRE_OPENGL);
+    const bool warn_opengl = (flags & P_WINDOW_PREFER_ACCELERATED) || 0;
+    const bool require_opengl = (flags & P_WINDOW_REQUIRE_OPENGL)
+        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
 
-        if (win->xcb_image == NULL) {
-            s_log_error("Failed to create XCB image");
+    const bool try_software = (flags & P_WINDOW_PREFER_ACCELERATED)
+        || (flags & P_WINDOW_NO_ACCELERATION);
+
+    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    if (try_vulkan) {
+        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_VULKAN)) {
+            if (require_vulkan) {
+                s_log_error("Failed to initialize Vulkan.");
+                return 1;
+            } else if (warn_vulkan && try_opengl) {
+                s_log_warn("Failed to initialize Vulkan. "
+                    "Falling back to OpenGL.");
+            } else if (warn_vulkan && try_software) {
+                s_log_warn("Failed to initialize Vulkan. "
+                    "Falling back to software rendering.");
+            } else if (warn_vulkan) {
+                s_log_warn("Failed to initialize Vulkan.");
+            }
+        } else {
+            s_log_debug("OK initializing Vulkan acceleration.");
+            return 0;
+        }
+    }
+
+    if (try_opengl) {
+        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL)) {
+            if (require_opengl) {
+                s_log_error("Failed to initialize OpenGL.");
+                return 1;
+            } else if (warn_opengl && try_software) {
+                s_log_warn("Failed to initialize OpenGL. "
+                    "Falling back to software.");
+            } else if (warn_opengl) {
+                s_log_warn("Failed to initialize OpenGL.");
+            }
+        } else {
+            s_log_debug("OK initializing OpenGL acceleration.");
+            return 0;
+        }
+    }
+
+    if (try_software) {
+        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_NONE)) {
+            s_log_error("Failed to initialize software rendering.");
+            return 1;
+        } else {
+            s_log_debug("OK initializing software rendering.");
+            return 0;
+        }
+    }
+
+    s_log_error("No GPU acceleration mode could be initialized.");
+    return 1;
+}
+
+static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
+    u32 win_w, u32 win_h, u32 root_depth, xcb_window_t win_handle,
+    xcb_connection_t *conn, const struct libxcb *xcb)
+{
+    sw_rctx->initialized_ = true;
+
+    /* Create the window's graphics context (GC) */
+    sw_rctx->window_gc = xcb->xcb_generate_id(conn);
+
+#define GCV_MASK XCB_GC_FOREGROUND
+    const u32 gcv[] = {
+        0 /* black pixel */
+    };
+
+    xcb_generic_error_t *e = NULL;
+    xcb_void_cookie_t vc = xcb->xcb_create_gc_checked(conn,
+        sw_rctx->window_gc, win_handle, GCV_MASK, gcv);
+    if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
+        u_nzfree(&e);
+        s_log_error("Failed to create the graphics context!");
+        sw_rctx->window_gc = XCB_NONE;
+        return 1;
+    }
+
+    sw_rctx->use_shm = xcb->shm.has_shm_extension_;
+    if (sw_rctx->use_shm) {
+        if (software_init_buffers_shm(sw_rctx->buffers,
+                win_w, win_h, root_depth, win_handle, conn, xcb))
+        {
+            s_log_warn("Failed to create window framebuffers with shm, "
+                "falling back to manually malloc'd buffers");
+            sw_rctx->use_shm = false;
+        }
+    }
+    if (!sw_rctx->use_shm) {
+        if (software_init_buffers_malloced(sw_rctx->buffers,
+                win_w, win_h, root_depth, conn, xcb))
+        {
+            s_log_error("Failed to initialize manually allocated buffers");
             return 1;
         }
     }
 
+    sw_rctx->curr_front_buf = &sw_rctx->buffers[0];
+    sw_rctx->curr_back_buf = &sw_rctx->buffers[1];
+
     return 0;
 }
 
-static void destroy_fb(struct window_x11 *win)
+static i32 software_init_buffers_shm(
+    struct x11_render_software_buf buffers_o[2],
+    u32 win_w, u32 win_h, u32 root_depth,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+)
 {
-    if (win == NULL)
-        return;
+    xcb_generic_error_t *e = NULL;
+    for (u32 i = 0; i < 2; i++) {
+        struct x11_render_software_buf *const curr_buf = &buffers_o[i];
+        memset(curr_buf, 0, sizeof(struct x11_render_software_buf));
+        curr_buf->initialized_ = true;
+        curr_buf->is_shm = true;
 
-    if (win->shm_attached) {
-        detach_shm(win);
-    } else {
-        if (win->xcb_image != NULL) {
-            /* Set these to NULL so that `xcb_image_destroy` doesnt
-             * also free our framebuffer */
-            win->xcb_image->base = NULL;
-            win->xcb_image->data = NULL;
+        curr_buf->shm.root_depth = root_depth;
 
-            win->xcb.xcb_image_destroy(win->xcb_image);
-            win->xcb_image = NULL;
+        /* Initialize the shm segment */
+        if (attach_shm(&curr_buf->shm.shm_info,
+                win_w, win_h, conn, xcb))
+            goto_error("Failed to initialize shared memory region.");
+
+        /* Create the pixmap using the shm */
+        curr_buf->shm.pixmap = xcb->xcb_generate_id(conn);
+        /* Never fails */
+        (void) xcb->shm.xcb_shm_create_pixmap(conn, curr_buf->shm.pixmap,
+            win_handle, win_w, win_h, root_depth,
+            curr_buf->shm.shm_info.shmseg, 0);
+
+        /* Create the pixmap's graphics context */
+        curr_buf->shm.gc = xcb->xcb_generate_id(conn);
+#define GCV_MASK XCB_GC_FOREGROUND
+        const u32 gcv[] = {
+            0 /* black pixel */
+        };
+        xcb_void_cookie_t vc = xcb->xcb_create_gc_checked(conn,
+            curr_buf->shm.gc, win_handle, GCV_MASK, gcv);
+        if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
+            curr_buf->shm.gc = XCB_NONE;
+            goto_error("Failed to create the pixmap's graphics context");
+        }
+
+        /* Fill in the pixel data struct */
+        curr_buf->user_ret.w = win_w;
+        curr_buf->user_ret.h = win_h;
+        curr_buf->user_ret.buf = (pixel_t *)curr_buf->shm.shm_info.shmaddr;
+    }
+
+    return 0;
+err:
+    if (e != NULL)
+        u_nzfree(&e);
+    software_destroy_buffers(buffers_o, conn, xcb);
+    return 1;
+}
+
+static i32 software_init_buffers_malloced(
+    struct x11_render_software_buf buffers_o[2],
+    u32 win_w, u32 win_h, u32 root_depth,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    for (u32 i = 0; i < 2; i++) {
+        struct x11_render_software_buf *const curr_buf = &buffers_o[i];
+        memset(curr_buf, 0, sizeof(struct x11_render_software_buf));
+        curr_buf->initialized_ = true;
+        curr_buf->is_shm = false;
+
+        /* Create the image */
+        curr_buf->malloced.image = xcb->xcb_image_create_native(conn,
+            win_w, win_h, XCB_IMAGE_FORMAT_Z_PIXMAP, root_depth,
+            NULL, 0, NULL); /* Let xcb calculate the size */
+        if (curr_buf->malloced.image == NULL)
+            goto_error("Failed to create the XCB image");
+
+        /* Fill in the pixel data struct */
+        curr_buf->user_ret.w = curr_buf->malloced.image->width;
+        curr_buf->user_ret.h = curr_buf->malloced.image->height;
+        curr_buf->user_ret.buf = curr_buf->malloced.image->base;
+
+        /* Reset the memory to avoid uninitialized data */
+        memset(curr_buf->malloced.image->base, 0,
+            curr_buf->malloced.image->size);
+    }
+    return 0;
+err:
+    software_destroy_buffers(buffers_o, conn, xcb);
+    return 1;
+}
+
+static void software_destroy_buffers(
+    struct x11_render_software_buf buffers[2],
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    for (u32 i = 0; i < 2; i++) {
+        struct x11_render_software_buf *const curr_buf = &buffers[i];
+        if (!curr_buf->initialized_) continue;
+
+        if (curr_buf->is_shm) {
+            if (curr_buf->shm.gc != XCB_NONE) {
+                /* Never fails */
+                (void) xcb->xcb_free_gc(conn, curr_buf->shm.gc);
+                curr_buf->shm.gc = XCB_NONE;
+            }
+            if (curr_buf->shm.pixmap != XCB_NONE) {
+                xcb_generic_error_t *e = NULL;
+                xcb_void_cookie_t vc =
+                    xcb->xcb_free_pixmap_checked(conn, curr_buf->shm.pixmap);
+                if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
+                    s_log_error("Failed to free pixmap (invalid handle)");
+                    u_nzfree(&e);
+                }
+                curr_buf->shm.pixmap = XCB_NONE;
+            }
+
+            detach_shm(&curr_buf->shm.shm_info, conn, xcb);
+        } else {
+            if (curr_buf->malloced.image != NULL) {
+                xcb->xcb_image_destroy(curr_buf->malloced.image);
+                curr_buf->malloced.image = NULL;
+            }
         }
     }
+}
+
+static struct pixel_flat_data * render_present_software(
+    struct x11_render_software_ctx *sw_rctx, xcb_window_t win_handle,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    /* Swap the buffers */
+    struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
+    sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
+    sw_rctx->curr_back_buf = tmp;
+
+    struct x11_render_software_buf *const curr_buf = sw_rctx->curr_front_buf;
+    if (sw_rctx->use_shm) {
+        xcb_generic_error_t *e = NULL;
+        xcb_void_cookie_t vc = xcb->xcb_copy_area(conn, curr_buf->shm.pixmap,
+            win_handle, sw_rctx->window_gc, 0, 0, 0, 0,
+            curr_buf->user_ret.w, curr_buf->user_ret.h);
+        if (e = xcb->xcb_request_check(conn, vc), e != NULL)
+            s_log_error("Failed to present pixmap");
+        /*
+        (void) xcb->shm.xcb_shm_put_image(conn, win_handle, sw_rctx->window_gc,
+            TOTAL_W, TOTAL_H, SRC_X, SRC_Y, SRC_W, SRC_H, DST_X, DST_Y,
+            curr_buf->shm.root_depth, XCB_IMAGE_FORMAT_Z_PIXMAP,
+            SHOULD_SEND_EVENT, curr_buf->shm.shm_info.shmseg, OFFSET);
+            */
+    } else {
+        (void) xcb->xcb_image_put(conn, win_handle, sw_rctx->window_gc,
+            curr_buf->malloced.image, 0, 0, 0);
+    }
+
+    (void) xcb->xcb_flush(conn);
+
+    return &sw_rctx->curr_back_buf->user_ret;
+}
+
+static void render_destroy_software(struct x11_render_software_ctx *sw_rctx,
+    xcb_connection_t *conn, const struct libxcb *xcb)
+{
+    if (sw_rctx == NULL || !sw_rctx->initialized_)
+        return;
+
+    software_destroy_buffers(sw_rctx->buffers, conn, xcb);
+
+    if (sw_rctx->window_gc != XCB_NONE) {
+        xcb->xcb_free_gc(conn, sw_rctx->window_gc);
+        sw_rctx->window_gc = XCB_NONE;
+    }
+
+    memset(sw_rctx, 0, sizeof(struct x11_render_software_ctx));
+}
+
+static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
+    const struct libxcb *xcb)
+{
+    (void) xcb;
+    egl_rctx->initialized_ = true;
+    return 0;
+}
+
+static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
+    const struct libxcb *xcb)
+{
+    (void) xcb;
+    egl_rctx->initialized_ = false;
 }
 
 static i32 intern_atom(struct window_x11 *win,
@@ -504,62 +844,58 @@ static i32 get_master_input_devices(
     return found_mouse && found_keyboard ? 0 : 1;
 }
 
-static i32 attach_shm(struct window_x11 *win, u32 w, u32 h)
+static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
+    xcb_connection_t *conn, const struct libxcb *xcb)
 {
-    if (!win->xcb.shm.has_shm_extension_) return -1;
+    if (!xcb->shm.has_shm_extension_) return -1;
 
-    win->shm_info.shmid = -1;
-    win->shm_info.shmaddr = (void *)-1;
-    win->shm_info.shmseg = -1;
+    shm_o->shmaddr = (void *)-1;
+    shm_o->shmseg = -1;
 
-    win->shm_info.shmid = shmget(
+    shm_o->shmid = shmget(
         IPC_PRIVATE,
         w * h * sizeof(pixel_t),
         IPC_CREAT | 0600
     );
-    if ((i32)win->shm_info.shmid == -1)
+    if ((i32)shm_o->shmid == -1)
         goto_error("Failed to create shared memory: %s", strerror(errno));
 
-    win->shm_info.shmaddr = shmat(win->shm_info.shmid, NULL, 0);
-    if (win->shm_info.shmaddr == (void *)-1)
+    shm_o->shmaddr = shmat(shm_o->shmid, NULL, 0);
+    if (shm_o->shmaddr == (void *)-1)
         goto_error("Failed to attach shared memory: %s", strerror(errno));
 
-    win->shm_info.shmseg = win->xcb.xcb_generate_id(win->conn);
-    if ((i32)win->shm_info.shmseg == -1)
-        goto_error("Failed to generate xcb shm segment ID");
+    shm_o->shmseg = xcb->xcb_generate_id(conn);
 
-    xcb_void_cookie_t vc = win->xcb.shm.xcb_shm_attach_checked(
-        win->conn,
-        win->shm_info.shmseg,
-        win->shm_info.shmid,
-        false
-    );
+    xcb_void_cookie_t vc = xcb->shm.xcb_shm_attach_checked( conn,
+        shm_o->shmseg, shm_o->shmid, false);
     xcb_generic_error_t *e = NULL;
-    if (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL) {
+    if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
         u_nzfree(&e);
         goto_error("XCB failed to attach the shm segment");
     }
-    win->shm_attached = true;
+
+    if (shmctl(shm_o->shmid, IPC_RMID, NULL))
+        goto_error("Failed to mark the shm segment to be destroyed "
+            "(after the last process detaches): %s", strerror(errno));
 
     return 0;
 
 err:
-    detach_shm(win);
+    detach_shm(shm_o, conn, xcb);
     return 1;
 }
 
-static void detach_shm(struct window_x11 *win)
+static void detach_shm(xcb_shm_segment_info_t *shm,
+    xcb_connection_t *conn, const struct libxcb *xcb)
 {
-    if (!win->shm_attached) return;
+    (void) xcb->shm.xcb_shm_detach(conn, shm->shmseg); /* Never fails */
 
-    (void) win->xcb.shm.xcb_shm_detach(win->conn, win->shm_info.shmseg);
-
-    if (win->shm_info.shmaddr != (void *)-1) {
-        shmdt(win->shm_info.shmaddr);
-        win->shm_info.shmaddr = (void *)-1;
+    if (shm->shmaddr != (void *)-1 && shm->shmaddr != NULL) {
+        shmdt(shm->shmaddr);
+        shm->shmaddr = (void *)-1;
     }
-    win->shm_info.shmid = -1;
-    win->shm_info.shmseg = -1;
+    shm->shmid = -1;
+    shm->shmseg = -1;
 }
 
 static void send_dummy_event_to_self(struct window_x11 *win)

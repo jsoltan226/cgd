@@ -102,7 +102,7 @@ static const char *const libgbm_symnames[] = {
 
 struct drm_device {
     i32 fd;
-    char path[u_FILEPATH_MAX];
+    u_filepath_t path;
 
     drmModeResPtr res;
     drmModeConnectorPtr conn;

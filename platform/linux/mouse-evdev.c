@@ -32,7 +32,7 @@ i32 mouse_evdev_init(struct mouse_evdev *mouse)
 {
     memset(mouse, 0, sizeof(struct mouse_evdev));
 
-    mouse->mouse_devs = evdev_find_and_load_devices(EVDEV_MOUSE);
+    mouse->mouse_devs = evdev_find_and_load_devices(EVDEV_MASK_MOUSE);
     if (mouse->mouse_devs == NULL)
         goto err;
 

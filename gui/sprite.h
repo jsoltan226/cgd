@@ -1,6 +1,7 @@
 #ifndef SPRITE_H_
 #define SPRITE_H_
 
+#include <core/util.h>
 #include <core/shapes.h>
 #include <render/rctx.h>
 #include <asset-loader/asset.h>
@@ -14,7 +15,7 @@ struct sprite {
 struct sprite_config {
     u8 magic;
     rect_t hitbox, src_rect, dst_rect;
-    filepath_t texture_filepath;
+    u_filepath_t texture_filepath;
 };
 
 struct sprite * sprite_init(const struct sprite_config *cfg);

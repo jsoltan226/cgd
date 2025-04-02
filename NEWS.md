@@ -1,14 +1,12 @@
-## NEWS for 27.02.2025
+## NEWS for 02.04.2025
 
-* Made the whole codebase (except for `platform/windows`) strictly compliant with C11
-    * The most boring change you could think of, just read the diff if you want to lol
-    * Although it's worth noting that I actually caught a couple of bugs with this!
-    * Added some documentation in `platform/keyboard.h`
-    * Removed (the pretty much empty) `platform/linux/wm` as it wasn't being used anyway
-
-* Made `platform/windows` C11 compliant
-    * What the title says
-    * Also began adapting the windows implementation `p_window` to the newer API
-        (e.g. properly implemented `p_window_get_info`)
-    * Obviously the executable can't link due to the missing functions,
-        but at least everything compiles with no warnings
+* Did some work in `platform/window`, merged changes and bug fixes from ps4-controller-input-faker
+    * Merged the new `evdev` interface (from [ps4-controller-input-faker](https://github.com/jsoltan226/ps4-controller-input-faker)):
+        * `evdev_find_and_load_devices` (and `evdev_load`) will now take in an `evdev_mask` as a parameter.
+            This allows it to search for more than one type of device.
+        * Added `evdev_destroy` and `evdev_list_destroy`
+        * Refactored existing code and fixed a couple of small bugs
+    * Started work on implementing the new `platform/window` interface in `platform/linux/window-x11`
+        * Basic support for software rendering is mostly complete
+    * (in `core/util.h`) `filepath_t` was renamed to `u_filepath_t` and it's type was changed to `char [256]` (previously it was `const char [256]`).
+        Also `u_FILEPATH_SIZE` now describes the buffer SIZE while `u_FILEPATH_MAX` is the max STRING LENGTH (w/o the NULL terminator)

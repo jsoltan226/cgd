@@ -58,14 +58,14 @@ i32 window_fbdev_open(struct window_fbdev *win,
         s_log_warn("Acceleration not supported for fbdev windows.");
 
     win->fd = open(FBDEV_PATH, O_RDWR | O_CLOEXEC);
-    if (win->fd == -1) {
-        s_log_warn("Failed to open framebuffer device '%s': %s",
-            FBDEV_PATH, strerror(errno));
-
+    if (win->fd == -1 && errno == ENOENT) { /* No such file or directory */
         win->fd = open(FBDEV_FALLBACK_PATH, O_RDWR | O_CLOEXEC);
         if (win->fd == -1)
             goto_error("Failed to open fallback framebuffer device '%s': %s",
                 FBDEV_FALLBACK_PATH, strerror(errno));
+    } else if (win->fd == -1) {
+        goto_error("Failed to open framebuffer device '%s': %s",
+            FBDEV_PATH, strerror(errno));
     }
 
     /* Make sure the display is on */

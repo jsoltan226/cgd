@@ -106,7 +106,7 @@ void * vector_clone(void *v);
 /* Destroy the vector that `v_p` points to. */
 #define vector_destroy(v_p) do {        \
     vector_free__(&(**v_p));            \
-    *v_p = NULL;                        \
+    *(v_p) = NULL;                      \
 } while (0)
 void vector_free__(void *v);
 

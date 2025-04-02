@@ -89,7 +89,7 @@ int cgd_main(int argc, char **argv)
     if (rctx == NULL)
         goto_error("Failed to initialize the renderer. Stop.");
 
-    static const filepath_t asset_filepath = "tests/surface_test/surface_1.png";
+    static const u_filepath_t asset_filepath = "tests/surface_test/surface_1.png";
     asset = asset_load(asset_filepath);
     if (asset == NULL)
         goto_error("Failed to load surface image (\"%s\"). Stop.",

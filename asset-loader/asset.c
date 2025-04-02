@@ -30,7 +30,7 @@ static _Atomic i32 g_n_active_handles = 0;
 const char * asset_get_assets_dir(void);
 static i32 get_bin_dir(char *buf, u32 buf_size);
 
-struct asset * asset_load(filepath_t rel_file_path)
+struct asset * asset_load(const u_filepath_t rel_file_path)
 {
     u_check_params(rel_file_path != NULL);
 
@@ -41,7 +41,7 @@ struct asset * asset_load(filepath_t rel_file_path)
     struct asset *a = calloc(1, sizeof(struct asset));
     s_assert(a != NULL, "calloc() failed for %s", "struct asset");
 
-    strncpy((char *)a->rel_file_path, rel_file_path, u_FILEPATH_MAX - 1);
+    strncpy(a->rel_file_path, rel_file_path, u_FILEPATH_MAX);
     fp = asset_fopen(rel_file_path, "rb");
     if (fp == NULL)
         goto err;
@@ -183,7 +183,8 @@ static i32 get_bin_dir(char *buf, u32 buf_size)
 
     memset(buf, 0, buf_size);
     if (p_get_exe_path(buf, buf_size)) {
-        s_log_error("%s: Failed to get the path to the executable.\n", __func__);
+        s_log_error("%s: Failed to get the path to the executable.\n",
+            __func__);
         return 1;
     }
 
@@ -198,7 +199,8 @@ static i32 get_bin_dir(char *buf, u32 buf_size)
 #undef MODULE_NAME
 #define MODULE_NAME "assetwr"
 
-i32 asset_write(struct asset *a, const char *rel_file_path, enum asset_img_type img_type)
+i32 asset_write(struct asset *a, const char *rel_file_path,
+    enum asset_img_type img_type)
 {
     u_check_params(a != NULL);
 
@@ -207,7 +209,8 @@ i32 asset_write(struct asset *a, const char *rel_file_path, enum asset_img_type 
     if (img_type == IMG_TYPE_UNKNOWN)
         img_type = a->type;
 
-    s_log_debug("Writing asset \"%s\" to path \"%s\"", a->rel_file_path, rel_file_path);
+    s_log_debug("Writing asset \"%s\" to file \"%s\"",
+        a->rel_file_path, rel_file_path);
 
     FILE *fp = asset_fopen(rel_file_path, "wb");
     if (fp == NULL)
