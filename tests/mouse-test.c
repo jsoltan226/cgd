@@ -11,7 +11,6 @@
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <render/line.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #define MODULE_NAME "mouse-test"
@@ -111,7 +110,7 @@ int cgd_main(int argc, char **argv)
             rect_color.a = rand() & 0xFF;
         }
         if (mouse_state.buttons[P_MOUSE_BUTTON_LEFT].up) {
-            vector_push_back(rects,
+            vector_push_back(&rects,
                 (struct rect_desc) {
                     .rect = { rect_arg_expand(rect) },
                     .color = rect_color,
@@ -121,7 +120,7 @@ int cgd_main(int argc, char **argv)
             mouse_held = false;
         }
         if (mouse_state.buttons[P_MOUSE_BUTTON_MIDDLE].up) {
-            vector_clear(rects);
+            vector_clear(&rects);
         }
 
         if (!mouse_state.buttons[P_MOUSE_BUTTON_LEFT].pressed)

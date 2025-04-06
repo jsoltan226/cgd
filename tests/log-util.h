@@ -20,14 +20,14 @@
 static FILE *log_fp = NULL;
 
 static void test_log_cleanup(void) {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
     if (log_fp != NULL) {
         fprintf(log_fp, "===== END TEST %s =====\n\n", MODULE_NAME);
         fflush(log_fp);
         fclose(log_fp);
         log_fp = NULL;
     }
+    s_close_out_log_fp();
+    s_close_err_log_fp();
 }
 
 static i32 test_log_setup(void)
@@ -36,7 +36,7 @@ static i32 test_log_setup(void)
     if (getenv("CGD_TEST_LOG_FILE"))
         test_log_filepath = getenv("CGD_TEST_LOG_FILE");
 
-    log_fp = fopen(test_log_filepath, "a+b");
+    log_fp = fopen(test_log_filepath, "ab");
     if (log_fp == NULL) {
         fprintf(stderr, "%s: Failed to open the log file (\"%s\"): %s\n",
             __func__, TEST_LOG_FILE, strerror(errno));
@@ -53,8 +53,8 @@ static i32 test_log_setup(void)
 
     fprintf(log_fp, "===== BEGIN TEST %s =====\n", MODULE_NAME);
 
-    s_set_log_out_filep(log_fp);
-    s_set_log_err_filep(log_fp);
+    s_set_log_out_filep(&log_fp);
+    s_set_log_err_filep(&log_fp);
     s_set_log_level(LOG_DEBUG);
 
     return 0;

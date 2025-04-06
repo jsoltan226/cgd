@@ -47,7 +47,7 @@ i32 p_event_poll(struct p_event *o)
         (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
         sizeof(struct p_event)
     );
-    vector_pop_back(g_event_queue);
+    vector_pop_back(&g_event_queue);
 
 #ifndef CGD_BUILDTYPE_RELEASE
     if (o->type == P_EVENT_QUIT)
@@ -83,7 +83,7 @@ void p_event_send(const struct p_event *ev)
             s_log_debug("new event type %u, data %u, time %u.%u",
                 tmp_ev.type, tmp_ev.info, tmp_ev.time.s, tmp_ev.time.ns);
             */
-            vector_push_back(g_event_queue, *ev);
+            vector_push_back(&g_event_queue, *ev);
             break;
     }
 
@@ -123,7 +123,7 @@ static void setup_event_queue(bool warn)
     /* Finally, set the configuration for both SIGTERM and SIGINT  */
     if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) {
         s_log_error("Failed to set signal handler: %s", strerror(errno));
-        s_log_fatal(MODULE_NAME, __func__, "Failed to set up the event queue!");
+        s_log_fatal("Failed to set up the event queue!");
     }
 }
 

@@ -399,6 +399,6 @@ noreturn static void libPNG_error_handler(png_structp png_ptr,
     png_const_charp error_message)
 {
     (void) png_ptr;
-    s_log_fatal(MODULE_NAME, "libPNG",
+    s_abort(MODULE_NAME, "libPNG",
         "libPNG fatal error: %s", error_message);
 }

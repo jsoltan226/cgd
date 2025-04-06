@@ -167,8 +167,7 @@ i32 p_window_set_acceleration(struct p_window *win,
         s_log_error("Vulkan acceleration not implemented yet");
         return 1;
     default:
-        s_log_fatal(MODULE_NAME, __func__,
-            "Invalid parameters (`new_acceleration_mode`: %u)",
+        s_log_fatal("Invalid parameters (`new_acceleration_mode`: %u)",
             new_acceleration_mode);
     }
 

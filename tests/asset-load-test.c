@@ -7,7 +7,6 @@
 #include <asset-loader/asset.h>
 #include <platform/ptime.h>
 #include <platform/window.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

@@ -6,7 +6,6 @@
 #include <render/rctx.h>
 #include <render/surface.h>
 #include <asset-loader/asset.h>
-#include <stdio.h>
 
 #define MODULE_NAME "parallax-bg"
 
@@ -41,7 +40,7 @@ struct parallax_bg * parallax_bg_init(const struct parallax_bg_config *cfg)
         }
 
         /* Get the texture parameters */
-        vector_push_back(bg->layers, (struct parallax_bg_layer){
+        vector_push_back(&bg->layers, (struct parallax_bg_layer){
             .asset = asset,
             .w = asset->surface->data.w,
             .h = asset->surface->data.h,

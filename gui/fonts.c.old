@@ -348,7 +348,7 @@ void font_destroy(struct font *font)
 void font_set_text_color(struct font *font, u8 r, u8 g, u8 b, u8 a)
 {
     if (font == NULL) return;
-    s_log_fatal(MODULE_NAME, __func__, "not implemented yet");
+    s_log_fatal("not implemented yet");
 }
 
 void font_set_line_height(struct font *font, f32 line_height)

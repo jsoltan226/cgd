@@ -66,7 +66,7 @@ struct Menu * menu_init(
         if (new_btn == NULL)
             goto_error("Button init failed!");
 
-        vector_push_back(mn->buttons, new_btn);
+        vector_push_back(&mn->buttons, new_btn);
         i++;
     }
     s_log_debug("(%lu) Initialized %u button(s)", cfg->ID, i);
@@ -102,7 +102,7 @@ struct Menu * menu_init(
         if (evl == NULL)
             goto_error("Event listener init failed!");
 
-        vector_push_back(mn->event_listeners, evl);
+        vector_push_back(&mn->event_listeners, evl);
         i++;
     }
     s_log_debug("(%lu) Initialized %u event listener(s)", cfg->ID, i);
@@ -114,7 +114,7 @@ struct Menu * menu_init(
         if (s == NULL)
             goto_error("Sprite init failed!");
 
-        vector_push_back(mn->sprites, s);
+        vector_push_back(&mn->sprites, s);
         i++;
     }
     s_log_debug("(%lu) Initialized %u sprite(s)", cfg->ID, i);

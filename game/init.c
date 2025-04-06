@@ -88,10 +88,8 @@ void do_platform_cleanup(struct platform_ctx *ctx)
     if (ctx->keyboard != NULL) p_keyboard_destroy(&ctx->keyboard);
     if (ctx->win != NULL) p_window_close(&ctx->win);
 
-    /* These get closed in the calls to `s_close_log_..._file()`
-     * in `cleanup_log`, which runs automatically at program exit */
-    ctx->out_log_file = NULL;
-    ctx->err_log_file = NULL;
+    s_close_out_log_fp();
+    s_close_err_log_fp();
 }
 
 void do_gui_cleanup(struct gui_ctx *gui)
@@ -102,10 +100,10 @@ void do_gui_cleanup(struct gui_ctx *gui)
 
 static i32 setup_log(FILE **out_log_fp_p, FILE **err_log_fp_p)
 {
-    s_set_log_out_filep(stdout);
-    s_set_log_err_filep(stderr);
-    *out_log_fp_p = NULL;
-    *err_log_fp_p = NULL;
+    *out_log_fp_p = stdout;
+    *err_log_fp_p = stderr;
+    s_set_log_out_filep(out_log_fp_p);
+    s_set_log_err_filep(err_log_fp_p);
 
 #if (PLATFORM == PLATFORM_WINDOWS)
 #include <errno.h>
@@ -132,8 +130,8 @@ static i32 setup_log(FILE **out_log_fp_p, FILE **err_log_fp_p)
     *err_log_fp_p = stderr;
 #endif /* PLATFORM */
 
-    s_set_log_out_filep(*out_log_fp_p);
-    s_set_log_err_filep(*err_log_fp_p);
+    s_set_log_out_filep(out_log_fp_p);
+    s_set_log_err_filep(err_log_fp_p);
 
     return 0;
 }

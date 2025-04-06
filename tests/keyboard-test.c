@@ -7,7 +7,6 @@
 #include <platform/keyboard.h>
 #undef P_INTERNAL_GUARD__
 #include <render/rctx.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

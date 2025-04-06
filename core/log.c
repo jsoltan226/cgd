@@ -10,6 +10,7 @@
 #define MODULE_NAME "log"
 
 static FILE *out_log_file = NULL, *err_log_file = NULL;
+static FILE **out_log_filep = &out_log_file, **err_log_filep = &err_log_file;
 static bool user_fault = NO_USER_FAULT;
 static s_log_level current_log_level = LOG_INFO;
 
@@ -18,16 +19,18 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...)
     if (level < current_log_level)
         return;
 
-    if (err_log_file == NULL) {
-        s_set_log_err_filep(stderr);
+    if (err_log_filep == NULL || *err_log_filep == NULL) {
+        err_log_file = stderr;
+        s_set_log_err_filep(&err_log_file);
         s_log_warn("The error log file was unset; setting it to stderr");
     }
-    if (out_log_file == NULL) {
-        s_set_log_out_filep(stdout);
+    if (out_log_filep == NULL || *out_log_filep == NULL) {
+        out_log_file = stdout;
+        s_set_log_out_filep(&out_log_file);
         s_log_warn("The out log file was unset; setting it to stdout");
     }
 
-    FILE *fp = level >= LOG_WARNING ? err_log_file : out_log_file;
+    FILE *fp = level >= LOG_WARNING ? *err_log_filep : *out_log_filep;
 
     if (level == LOG_WARNING) fprintf(fp, "WARNING: ");
     else if (level == LOG_ERROR) fprintf(fp, "ERROR: ");
@@ -41,61 +44,84 @@ void s_log(s_log_level level, const char *module_name, const char *fmt, ...)
     fprintf(fp, "\n");
 }
 
-noreturn void s_log_fatal(const char *module_name, const char *function_name,
+noreturn void s_abort(const char *module_name, const char *function_name,
     const char *fmt, ...)
 {
-    fprintf(err_log_file, "[%s] FATAL ERROR: %s: ", module_name, function_name);
+    fprintf(*err_log_filep, "[%s] FATAL ERROR: %s: ", module_name, function_name);
 
     va_list vArgs;
     va_start(vArgs, fmt);
-    vfprintf(err_log_file, fmt, vArgs);
+    vfprintf(*err_log_filep, fmt, vArgs);
     va_end(vArgs);
-    fprintf(err_log_file, "\nFatal error encountered. Calling abort().\n");
+    fprintf(*err_log_filep, "\nFatal error encountered. Calling abort().\n");
 
     s_close_out_log_fp();
     s_close_err_log_fp();
+
     abort();
 }
 
 i32 s_set_log_out_file(const char *file_path)
 {
-    out_log_file = fopen(file_path, "wb");
-    if (out_log_file == NULL) {
-        s_log_error("Failed to open out log file '%s': %s", file_path, strerror(errno));
+    s_close_out_log_fp();
+    *out_log_filep = fopen(file_path, "ab");
+    if (*out_log_filep == NULL) {
+        s_log_error("Failed to open out log file '%s': %s",
+            file_path, strerror(errno));
         return 1;
     }
 
     return 0;
 }
 
-i32 s_set_log_out_filep(FILE *fp)
+i32 s_set_log_out_filep(FILE **fpp)
 {
-    if (fp == NULL) {
+    if (fpp == NULL || *fpp == NULL) {
         s_log_warn("Not changing out log file to NULL", NULL);
         return 1;
+    } else if (fpp == out_log_filep) {
+        /* The previous and the new file handle pointers are the same
+         * (the function got called twice in a row) */
+        return 0;
     }
-    out_log_file = fp;
+
+    s_close_out_log_fp();
+    if (out_log_filep != NULL)
+        *out_log_filep = NULL; /* Invalidate the previous handle */
+
+    out_log_filep = fpp;
     return 0;
 }
 
 i32 s_set_log_err_file(const char *file_path)
 {
-    err_log_file = fopen(file_path, "wb");
-    if (err_log_file == NULL) {
-        s_log_error("Failed to open error log file '%s': %s", file_path, strerror(errno));
+    s_close_err_log_fp();
+    *err_log_filep = fopen(file_path, "ab");
+    if (*err_log_filep == NULL) {
+        s_log_error("Failed to open error log file '%s': %s",
+            file_path, strerror(errno));
         return 1;
     }
 
     return 0;
 }
 
-i32 s_set_log_err_filep(FILE *fp)
+i32 s_set_log_err_filep(FILE **fpp)
 {
-    if (fp == NULL) {
+    if (fpp == NULL || *fpp == NULL) {
         s_log_warn("Not changing error log file to NULL", NULL);
         return 1;
+    } else if (fpp == err_log_filep) {
+        /* The previous and the new file handles are the same
+         * (the function got called twice in a row) */
+        return 0;
     }
-    err_log_file = fp;
+
+    s_close_err_log_fp();
+    if (err_log_filep != NULL)
+        *err_log_filep = NULL; /* Invalidate the previous handle */
+
+    err_log_filep = fpp;
     return 0;
 }
 
@@ -121,26 +147,32 @@ bool s_get_user_fault(void)
 
 void s_close_out_log_fp(void)
 {
-    if (out_log_file != NULL
-        && out_log_file != stdout
-        && out_log_file != stderr
-        && out_log_file != stdin
-    ) {
-        fflush(out_log_file);
-        fclose(out_log_file);
-        out_log_file = NULL;
+    if (out_log_filep != NULL && *out_log_filep != NULL) {
+        fflush(*out_log_filep);
+        if (*out_log_filep != stdout
+            && *out_log_filep != stderr
+            && *out_log_filep != stdin
+        ) {
+            fclose(*out_log_filep);
+        }
+        *out_log_filep = NULL;
+        out_log_file = stdout;
+        out_log_filep = &out_log_file;
     }
 }
 
 void s_close_err_log_fp(void)
 {
-    if (err_log_file != NULL
-        && err_log_file != stdout
-        && err_log_file != stderr
-        && err_log_file != stdin
-    ) {
-        fflush(err_log_file);
-        fclose(err_log_file);
-        err_log_file = NULL;
+    if (err_log_filep != NULL && *err_log_filep != NULL) {
+        fflush(*err_log_filep);
+        if (*err_log_filep != stdout
+            && *err_log_filep != stderr
+            && *err_log_filep != stdin
+        ) {
+            fclose(*err_log_filep);
+        }
+        *err_log_filep = NULL;
+        err_log_file = stdout;
+        err_log_filep = &err_log_file;
     }
 }

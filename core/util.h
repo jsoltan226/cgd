@@ -3,6 +3,7 @@
 #include "static-tests.h"
 
 #include "log.h"
+#include "int.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -29,6 +30,14 @@ typedef char u_filepath_t[u_FILEPATH_SIZE];
 #define u_strlen(str_literal) (sizeof(str_literal) - 1)
 
 #define u_nbits(x) ((((x) - 1) / (8 * sizeof(u64))) + 1)
+
+#define u_generic64_zero(x) (_Generic((x),              \
+    char: 0, signed char: 0, unsigned char: 0,          \
+    short: 0, int: 0, long: 0, long long: 0,            \
+    unsigned short: 0, unsigned int: 0,                 \
+        unsigned long: 0, unsigned long long: 0,        \
+    float: 0., double: 0., long double: 0.,             \
+    default: (void *)0))
 
 #define u_rgba_swap_b_r(color) do {     \
     register const u8 tmp = color.b;    \

@@ -61,6 +61,15 @@ int cgd_main(int argc, char **argv)
 
 #undef MODULE_NAME
 #define MODULE_NAME "vectortest:test"
+#ifdef goto_error
+#undef goto_error
+#endif /* goto_error */
+#define goto_error(... /* msg */) do {  \
+    s_log_error(__VA_ARGS__);           \
+    ERROR = true;                       \
+    goto err;                           \
+} while (0)
+
 static i32 test(void)
 {
     u64 *vector_small = NULL;
@@ -76,13 +85,27 @@ static i32 test(void)
     if (vector_large == NULL)
         goto_error("Failed to initialize vector_large!");
 
+    s_log_debug("Testing vector_reserve...");
+    vector_reserve(&vector_small, N_SMALL_ITEMS);
+    vector_reserve(&vector_large, 0);
+
     s_log_debug("Testing vector_push_back...");
 
     for (u32 i = 0; i < N_SMALL_ITEMS; i++)
-        vector_push_back(vector_small, small_items[i]);
+        vector_push_back(&vector_small, small_items[i]);
+
+    if (vector_size(vector_small) != N_SMALL_ITEMS)
+        goto_error("vector size after `vector_push_back` invalid "
+            "(expected value: %u, current value: %u",
+            N_SMALL_ITEMS, vector_size(vector_small));
 
     for (u32 i = 0; i < N_LARGE_STRUCTS; i++)
-        vector_push_back(vector_large, large_items[i]);
+        vector_push_back(&vector_large, large_items[i]);
+
+    if (vector_size(vector_large) != N_LARGE_STRUCTS)
+        goto_error("vector size after `vector_push_back` invalid "
+            "(expected value: %u, current value: %u",
+            N_LARGE_STRUCTS, vector_size(vector_large));
 
     if (memcmp(vector_small, small_items, sizeof(small_items)))
         goto_error("`vector_small->items` does not match `small_items`");
@@ -93,7 +116,12 @@ static i32 test(void)
     s_log_debug("Testing vector_pop_back (and vector_back) with %u items...",
         vsmall_n_popped_back);
     for (u32 i = 0; i < vsmall_n_popped_back; i++)
-        vector_pop_back(vector_small);
+        vector_pop_back(&vector_small);
+
+    if (vector_size(vector_small) != N_SMALL_ITEMS - vsmall_n_popped_back)
+        goto_error("vector size after `vector_pop_back` invalid "
+            "(expected value: %u, current value: %u",
+            N_SMALL_ITEMS - vsmall_n_popped_back, vector_size(vector_small));
 
     if (small_items[N_SMALL_ITEMS - vsmall_n_popped_back - 1] != vector_back(vector_small))
         goto_error("`vector_small->items` does not match `small_items`");
@@ -101,14 +129,14 @@ static i32 test(void)
     u32 vlarge_insert_index = random_u32() % (N_LARGE_STRUCTS - 1);
     s_log_debug("Testing vector_insert (index %u, max %u) and vector_erase...",
         vlarge_insert_index, N_LARGE_STRUCTS - 1);
-    vector_insert(vector_large, vlarge_insert_index,
+    vector_insert(&vector_large, vlarge_insert_index,
         (struct large_struct){ .arr = { 0 }, .str = "inserted item" }
     );
     if (strcmp(vector_large[vlarge_insert_index].str, "inserted item"))
         goto_error("vector_insert test failed; index is %u, string is \"%s\"",
             vlarge_insert_index, vector_large[vlarge_insert_index].str);
 
-    vector_erase(vector_large, vlarge_insert_index);
+    vector_erase(&vector_large, vlarge_insert_index);
     if (!strcmp(vector_large[vlarge_insert_index].str, "inserted item"))
         goto_error("vector_erase test failed; string is \"%s\"",
             vector_large[vlarge_insert_index].str);
@@ -129,7 +157,7 @@ static i32 test(void)
     u64 vsmall_pushed_val = (u64)random_u32();
     s_log_debug("vector_end() returned %p -> %lu, pushed value is %lu",
         vsmall_end_val_p, *vsmall_end_val_p, vsmall_pushed_val);
-    vector_push_back(vector_small, vsmall_pushed_val);
+    vector_push_back(&vector_small, vsmall_pushed_val);
     if (vector_back(vector_small) != *vsmall_end_val_p || *vsmall_end_val_p != vsmall_pushed_val)
         goto_error("vector_end test failed, expected value %lu, got %lu",
             vsmall_pushed_val, *vsmall_end_val_p);
@@ -143,21 +171,21 @@ static i32 test(void)
         goto_error("vector_clone test failed; the cloned arrays are not identical");
     }
 
-    vector_clear(vector_cloned);
+    vector_clear(&vector_cloned);
 
     if (vector_empty(vector_small) || !vector_empty(vector_cloned))
         goto_error("vector_empty test failed");
 
     s_log_debug("Testing vector_capacity and vector_shrink_to_fit...");
-    vector_shrink_to_fit(vector_cloned);
-    if (vector_capacity(vector_cloned) != 0)
-        goto_error("vector_shrink_to_fit test failed; expected value 0, got %u",
-            vector_capacity(vector_cloned));
+    vector_shrink_to_fit(&vector_cloned);
+    if (vector_capacity(vector_cloned) != VECTOR_MINIMUM_CAPACITY__)
+        goto_error("vector_shrink_to_fit test failed; expected value %u, got %u",
+            VECTOR_MINIMUM_CAPACITY__, vector_capacity(vector_cloned));
 
     u32 vsmall_new_size = random_u32() % (N_SMALL_ITEMS - vsmall_n_popped_back - 1);
     s_log_debug("Testing vector_resize -> new_size %u and vector_at...",
         vsmall_new_size);
-    vector_resize(vector_small, vsmall_new_size);
+    vector_resize(&vector_small, vsmall_new_size);
     if (vsmall_new_size > 0) {
         if (vector_back(vector_small) != vector_at(vector_small, vsmall_new_size - 1))
             goto_error("vector_resize test failed; expected value %lu, got %lu",
@@ -165,7 +193,7 @@ static i32 test(void)
     } else {
         s_log_debug("Testing vector_push_back when size is 0");
         vsmall_pushed_val = random_u32();
-        vector_push_back(vector_small, vsmall_pushed_val);
+        vector_push_back(&vector_small, vsmall_pushed_val);
         if (vector_size(vector_small) != 1) {
             goto_error("Invalid vector size %u (expected 1)",
                 vector_size(vector_small));

@@ -42,7 +42,7 @@ struct MenuManager * menu_mgr_init(
         if (new_menu == NULL)
             goto_error("menu_init for menu no. %u failed", cfg->menu_info[i].ID);
 
-        vector_push_back(mmgr->full_menu_list, new_menu);
+        vector_push_back(&mmgr->full_menu_list, new_menu);
         i++;
     }
 
@@ -79,7 +79,7 @@ struct MenuManager * menu_mgr_init(
         if (new_evl == NULL)
             goto_error("Global event_listener_init failed!");
 
-        vector_push_back(mmgr->global_event_listeners, new_evl);
+        vector_push_back(&mmgr->global_event_listeners, new_evl);
         i++;
     }
 
@@ -184,6 +184,6 @@ void menu_mgr_push_menu(struct MenuManager *mmgr, u64 switch_target_ID)
     mmgr->curr_menu->switch_target = MENU_ID_NULL;
 
     /* Push the menu to the stack and switch to it */
-    vector_push_back(mmgr->menu_stack, dest_ptr);
+    vector_push_back(&mmgr->menu_stack, dest_ptr);
     mmgr->curr_menu = dest_ptr;
 }

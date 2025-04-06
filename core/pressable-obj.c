@@ -3,12 +3,13 @@
 #include "log.h"
 #include <stdlib.h>
 
+#define MODULE_NAME "pressable-obj"
+
 pressable_obj_t * pressable_obj_create(void)
 {
     pressable_obj_t *po = calloc(1, sizeof(pressable_obj_t));
     if (po == NULL)
-        s_log_fatal("pressable-obj", "pressable_obj_create",
-            "calloc failed for %s", "new pressable obj");
+        s_log_fatal("calloc failed for %s", "new pressable obj");
 
     return po;
 }

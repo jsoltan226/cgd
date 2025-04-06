@@ -34,7 +34,6 @@ LIBS += -lgdi32
 endif
 
 STRIP?=strip
-DEBUGSTRIP?=strip -d
 STRIPFLAGS?=-g -s
 
 # Shell commands
@@ -86,8 +85,6 @@ DEPS = $(patsubst %.o,%.d,$(OBJS))
 _main_obj = $(OBJDIR)/main.c.o
 _entry_point_obj = $(OBJDIR)/entry-point.c.o
 
-STRIP_OBJS = $(OBJDIR)/log.c.o
-
 # Executables
 EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
 TEST_LIB = $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
@@ -102,14 +99,13 @@ all: CFLAGS = -ggdb -O0 -Wall
 all: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
 release: LDFLAGS += -flto
-release: CFLAGS = -O3 -Wall -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
+release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
 release: $(STATIC_TESTS) clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 
 br: all run
 
 # Output executable rules
 $(EXE): $(OBJS)
-	@$(DEBUGSTRIP) $(STRIP_OBJS) 2>/dev/null
 	@$(PRINTF) "CCLD 	%-30s %-30s\n" "$(EXE)" "<= $^"
 	@$(CCLD) $(LDFLAGS) -o $(EXE) $(OBJS) $(LIBS)
 

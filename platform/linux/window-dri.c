@@ -425,7 +425,7 @@ static VECTOR(struct file) open_available_devices(void)
             continue;
         }
 
-        vector_push_back(files, f);
+        vector_push_back(&files, f);
         u_nfree(&namelist[i]);
     }
     u_nfree(&namelist);

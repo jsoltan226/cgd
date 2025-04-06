@@ -16,7 +16,6 @@
 #include <asset-loader/asset.h>
 #include <asset-loader/plugin.h>
 #include <asset-loader/img-type.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -44,7 +43,7 @@
 #define SURFACE_DSTRECT_3 (const rect_t) { 10, 0, 400, 1000 }
 #define SURFACE_DSTRECT_4 (const rect_t) { -50, WINDOW_RECT.h - 100, 200, 150 }
 #define SURFACE_DSTRECT_5 (const rect_t) { 100, 100, 0, 100 }
-#define SURFACE_DSTRECT_6 (const rect_t) { 100, 100, 100, -30 }
+#define SURFACE_DSTRECT_6 (const rect_t) { 100, 100, 100, 30 }
 
 #define SURFACE_SRCRECT_7 (const rect_t) {  \
     0, SURFACE_1_H / 4,                     \

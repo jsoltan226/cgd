@@ -211,9 +211,8 @@ static void add_mutex_to_registry(struct p_mt_mutex *m)
 
     if (!atomic_flag_test_and_set(&registered_atexit_cleanup)) {
         if (atexit(cleanup_global_mutexes)) {
-            s_log_fatal(MODULE_NAME, __func__,
-                "Failed to atexit() the global mutex cleanup function."
-            );
+            s_log_fatal("Failed to atexit() "
+                "the global mutex cleanup function.");
         }
     }
 

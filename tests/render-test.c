@@ -1,4 +1,3 @@
-#include <GL/gl.h>
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -15,33 +14,24 @@
 #include <vulkan/vulkan_core.h>
 
 #define MODULE_NAME "render-test"
+#include "log-util.h"
 
 #define WINDOW_TITLE ("render-test")
 #define WINDOW_AREA (&(const rect_t) { 0, 0, 500, 500 })
 #define WINDOW_FLAGS (P_WINDOW_POS_CENTERED_XY | P_WINDOW_NO_ACCELERATION)
 
-static FILE *log_fp = NULL;
 static struct p_window *win = NULL;
 static struct p_opengl_ctx *gl_ctx = NULL;
 
 static i32 opengl_test(void);
 static i32 software_test(void);
 
-static void cleanup_log(void);
-
 int cgd_main(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
-    //log_fp = fopen("log.txt", "wb");
-    log_fp = stdout;
-    if (log_fp == NULL)
+    if (test_log_setup())
         return EXIT_FAILURE;
-
-    if (atexit(cleanup_log))
-        return EXIT_FAILURE;
-
-    s_configure_log(LOG_DEBUG, log_fp, log_fp);
 
     win = p_window_open(WINDOW_TITLE, WINDOW_AREA, WINDOW_FLAGS);
     if (win == NULL)
@@ -192,14 +182,4 @@ static i32 software_test(void)
 
 err:
     return 1;
-}
-
-static void cleanup_log(void)
-{
-    if (log_fp != NULL) {
-        s_set_log_out_filep(stdout);
-        s_set_log_err_filep(stderr);
-        fclose(log_fp);
-        log_fp = NULL;
-    }
 }

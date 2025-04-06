@@ -423,6 +423,9 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
 #undef X_
 
     s_log_debug("Successfully loaded %u OpenGL function(s).", n_loaded);
+#ifdef CGD_BUILDTYPE_RELEASE
+    (void) n_loaded;
+#endif /* CGD_BUILDTYPE_RELEASE */
 
     return 0;
 }

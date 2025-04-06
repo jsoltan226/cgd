@@ -299,8 +299,7 @@ err:
 
 void window_X11_close(struct window_x11 *win)
 {
-    if (!win->exists)
-        s_log_fatal(MODULE_NAME, __func__, "Attempt to double-free window");
+    s_assert(win->exists, "Attempt to double-free window");
 
     s_log_debug("Destroying X11 window...");
     if (!win->xcb.failed_) {

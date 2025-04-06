@@ -88,8 +88,7 @@ void r_surface_blit(struct r_surface *dst, const struct r_surface *src,
     u_check_params(src != NULL && dst != NULL);
     if (src->color_format == RGB24 || src->color_format == BGR24 ||
         dst->color_format == RGB24 || dst->color_format == BGR24)
-        s_log_fatal(MODULE_NAME, __func__,
-            "24-bit surfaces are not yet supported!");
+        s_log_fatal("24-bit surfaces are not yet supported!");
 
     /* Handle src_rect and dst_rect being NULL */
     rect_t final_src_rect, final_dst_rect;

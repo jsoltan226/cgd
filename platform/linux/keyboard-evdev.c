@@ -34,15 +34,15 @@ static void read_keyevents_from_evdev(i32 fd,
 i32 evdev_keyboard_init(struct keyboard_evdev *kb)
 {
     memset(kb, 0, sizeof(struct keyboard_evdev));
-    kb->kbdevs = evdev_find_and_load_devices(EVDEV_KEYBOARD);
+    kb->kbdevs = evdev_find_and_load_devices(EVDEV_MASK_KEYBOARD);
     if (kb->kbdevs == NULL)
         goto err;
 
     kb->poll_fds = vector_new(struct pollfd);
-    vector_reserve(kb->poll_fds, vector_size(kb->kbdevs));
+    vector_reserve(&kb->poll_fds, vector_size(kb->kbdevs));
 
     for (u32 i = 0; i < vector_size(kb->kbdevs); i++) {
-        vector_push_back(kb->poll_fds, (struct pollfd) {
+        vector_push_back(&kb->poll_fds, (struct pollfd) {
             .fd = kb->kbdevs[i].fd,
             .events = POLLIN,
             .revents = 0
@@ -124,8 +124,7 @@ static void read_keyevents_from_evdev(i32 fd,
         if (n_bytes_read <= 0) { /* Either no data was read or some other error */
             return;
         } else if (n_bytes_read != sizeof(struct input_event)) {
-            s_log_fatal(MODULE_NAME, __func__,
-                    "Read %i bytes from event device, expected size is %i. "
+            s_log_fatal("Read %i bytes from event device, expected size is %i. "
                     "The linux input driver is probably broken...",
                     n_bytes_read, sizeof(struct input_event));
         }

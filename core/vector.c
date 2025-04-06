@@ -7,92 +7,79 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct vector_metadata__ vector_meta_t;
+typedef struct vector_metadata__ {
+    u32 n_items;
+    u32 item_size;
+    u32 capacity;
+    u32 is_const;
+} vector_meta_t;
+
+static_assert(sizeof(struct vector_metadata__) == VECTOR_METADATA_SIZE__,
+    "The size of struct vector_metadata must be equal to "
+    "VECTOR_METADATA_SIZE__ (16 bytes)");
 
 #define MODULE_NAME "vector"
-
-#define VECTOR_DEFAULT_CAPACITY 8
 
 #define get_metadata_ptr(v) \
     ((vector_meta_t *)(((u8 *)v) - sizeof(vector_meta_t)))
 
 #define element_at(v, at) (((u8 *)v) + (at * get_metadata_ptr(v)->item_size))
 
+static void * vector_realloc(void *v, u32 new_capacity);
+static void vector_increase_size(void **v_p);
+static void vector_memmove(void *v, u32 src_index, u32 dst_index, u32 nmemb);
+
 void * vector_init(u32 item_size)
 {
-    void *v = malloc(sizeof(vector_meta_t) + (item_size * VECTOR_DEFAULT_CAPACITY));
+    const u32 total_size = sizeof(vector_meta_t) +
+        (item_size * VECTOR_MINIMUM_CAPACITY__);
+    void *v = malloc(total_size);
     s_assert(v != NULL, "malloc() failed for vector");
-    memset(v, 0, sizeof(vector_meta_t) + (item_size * VECTOR_DEFAULT_CAPACITY));
+    memset(v, 0, total_size);
 
     vector_meta_t *metadata_ptr = (vector_meta_t *)v;
-    *(u32*)(&metadata_ptr->item_size) = item_size; /* Cast away `const` */
+    metadata_ptr->item_size = item_size;
     metadata_ptr->n_items = 0;
-    metadata_ptr->capacity = VECTOR_DEFAULT_CAPACITY;
+    metadata_ptr->capacity = VECTOR_MINIMUM_CAPACITY__;
 
     u8 *const vector_base = ((u8 *)v) + sizeof(vector_meta_t);
     return vector_base;
 }
 
-void * vector_increase_size__(void *v)
+void vector_push_back_prepare__(void **v_p)
 {
-    if (v == NULL) return NULL;
+    u_check_params(v_p != NULL && *v_p != NULL);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
-
-    if (meta->n_items >= meta->capacity) {
-        u32 new_cap = meta->capacity;
-        if (new_cap > 0)
-            new_cap *= 2;
-        else
-            new_cap++;
-
-        v = vector_realloc__(v, new_cap);
-
-        /* `meta` might have been moved by `realloc()` */
-        meta = get_metadata_ptr(v);
-        meta->capacity = new_cap;
-    }
-
-    meta->n_items++;
-    return v;
+    /* Allocate memory for the new item */
+    vector_increase_size(v_p);
 }
 
-void * vector_pop_back__(void *v)
+void vector_pop_back__(void **v_p)
 {
-    if (v == NULL) return NULL;
+    u_check_params(v_p != NULL && *v_p != NULL);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
-    /* Do nothing if the vector is empty */
-    if (meta->n_items == 0) return v;
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
 
     meta->n_items--;
-    memset(element_at(v, meta->n_items), 0, meta->item_size);
+    memset(element_at(*v_p, meta->n_items), 0, meta->item_size);
 
-    if (meta->n_items <= (meta->capacity / 2)) {
-        v = vector_realloc__(v, meta->capacity / 2);
-        meta = get_metadata_ptr(v);
+    if (meta->n_items <= (meta->capacity / 2) &&
+        meta->n_items >= VECTOR_MINIMUM_CAPACITY__) {
+        *v_p = vector_realloc(*v_p, meta->capacity / 2);
     }
-
-    return v;
 }
 
-void vector_memmove__(void *v, u32 src_index, u32 dst_index, u32 nmemb)
+void * vector_insert_prepare__(void **v_p, u32 at)
 {
-    u_check_params(v != NULL);
+    u_check_params(v_p != NULL && *v_p != NULL && at < vector_size(*v_p));
 
-    if (src_index == dst_index || nmemb == 0)
-        return;
+    /* Expand the vector by one */
+    vector_increase_size(v_p);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
-    /* Don't do anything of the vector doesn't have enough spare capacity */
-    if (src_index + nmemb > meta->n_items || dst_index + nmemb > meta->capacity)
-        return;
+    /* Move everything after and including `at` one spot to the right */
+    vector_memmove(*v_p, at, at + 1, vector_size(v_p) - at);
 
-    memmove(
-        element_at(v, dst_index),
-        element_at(v, src_index),
-        nmemb * meta->item_size
-    );
+    return *v_p;
 }
 
 bool vector_empty(void *v)
@@ -105,57 +92,115 @@ u32 vector_capacity(void *v)
     return v == NULL ? 0 : get_metadata_ptr(v)->capacity;
 }
 
-void * vector_end(void * v)
+void * vector_end(void *v)
 {
     if (v == NULL) return NULL;
     vector_meta_t *meta = get_metadata_ptr(v);
     return ((u8 *)v) + (meta->n_items * meta->item_size);
 }
 
-void * vector_shrink_to_fit__(void *v)
+void vector_shrink_to_fit__(void **v_p)
 {
-    if (v == NULL) return NULL;
+    u_check_params(v_p != NULL && *v_p != NULL);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
-    v = vector_realloc__(v, meta->n_items);
-
-    meta = get_metadata_ptr(v);
-    meta->capacity = meta->n_items;
-
-    return v;
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
+    *v_p = vector_realloc(*v_p, meta->n_items);
 }
 
-void vector_clear(void *v)
+void vector_clear__(void **v_p)
 {
-    if (v == NULL) return;
+    u_check_params(v_p != NULL && *v_p != NULL);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
 
-    memset(v, 0, meta->n_items * meta->item_size);
+    memset(*v_p, 0, meta->n_items * meta->item_size);
     meta->n_items = 0;
 }
 
-void * vector_erase__(void *v, u32 index)
+void vector_erase__(void **v_p, u32 index)
+{
+    u_check_params(v_p != NULL && *v_p != NULL);
+
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
+
+    s_assert(index < meta->n_items,
+        "Attempt to erase element outside of array bounds "
+        "(index: %u, n_items: %u", index, meta->n_items);
+
+    /* Move all memory after `index` one spot to the left,
+     * and then deallocate the last (now unused) spot */
+    vector_memmove(*v_p, index + 1, index, meta->n_items - index - 1);
+    vector_pop_back__(v_p);
+}
+
+void vector_reserve__(void **v_p, u32 count)
+{
+    u_check_params(v_p != NULL && *v_p != NULL);
+
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
+    if (meta->capacity < count)
+        *v_p = vector_realloc(*v_p, count);
+}
+
+void vector_resize__(void **v_p, u32 new_size)
+{
+    u_check_params(v_p != NULL && *v_p != NULL);
+
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
+
+    /* Clean up the items that are to be cut off */
+    if (new_size < meta->capacity) {
+        memset(element_at(*v_p, new_size), 0,
+            (meta->capacity - new_size) * meta->item_size
+        );
+    }
+
+    *v_p = vector_realloc(*v_p, new_size);
+    meta = get_metadata_ptr(*v_p);
+    meta->n_items = u_min(new_size, meta->n_items);
+}
+
+void * vector_clone(void *v)
 {
     u_check_params(v != NULL);
 
-    vector_meta_t *meta = get_metadata_ptr(v);
+    vector_meta_t *meta_p = get_metadata_ptr(v);
 
-    if (index >= meta->n_items) return v;
+    void *new_v = vector_init(meta_p->item_size);
 
-    /* Move all memory right of `index` one spot to the left, and delete the last spot */
-    vector_memmove__(v, index + 1, index, meta->n_items - index - 1);
-    return vector_pop_back__(v);
+    new_v = vector_realloc(new_v, meta_p->capacity);
+
+    memcpy(get_metadata_ptr(new_v), meta_p,
+        (meta_p->capacity * meta_p->item_size) + sizeof(vector_meta_t)
+    );
+
+    return new_v;
 }
 
-void * vector_realloc__(void *v, u32 new_cap)
+void vector_destroy__(void **v_p)
+{
+    if (v_p == NULL || *v_p == NULL) return;
+
+    vector_meta_t *meta_ptr = get_metadata_ptr(*v_p);
+
+    /* Reset the entire vector, including the metadata */
+    memset(meta_ptr, 0, sizeof(vector_meta_t) + meta_ptr->capacity);
+    free(meta_ptr);
+
+    *v_p = NULL;
+}
+
+static void * vector_realloc(void *v, u32 new_cap)
 {
     /* Unfortunately if `v` is NULL we do not know the element size,
-     * and so we cannot make it work like realloc(NULL, size) would
-     */
+     * and so we cannot make it work like realloc(NULL, size) would */
     if (v == NULL) return NULL;
 
     void *new_v = NULL;
+
+    /* Never shrink the vector beyond the minimal capacity */
+    if (new_cap < VECTOR_MINIMUM_CAPACITY__)
+        new_cap = VECTOR_MINIMUM_CAPACITY__;
 
     vector_meta_t *meta_p = get_metadata_ptr(v);
     new_v = realloc(meta_p,
@@ -169,53 +214,46 @@ void * vector_realloc__(void *v, u32 new_cap)
     return ((u8 *)new_v) + sizeof(vector_meta_t);
 }
 
-void * vector_resize__(void *v, u32 new_size)
+static void vector_increase_size(void **v_p)
+{
+    u_check_params(v_p != NULL && *v_p != NULL);
+
+    vector_meta_t *meta = get_metadata_ptr(*v_p);
+
+    if (meta->n_items >= meta->capacity) {
+        u32 new_cap = meta->capacity;
+        if (new_cap > 0)
+            new_cap *= 2;
+        else
+            new_cap++;
+
+        *v_p = vector_realloc(*v_p, new_cap);
+
+        /* `meta` might have been moved by `realloc()` */
+        meta = get_metadata_ptr(*v_p);
+        meta->capacity = new_cap;
+    }
+
+    meta->n_items++;
+}
+
+static void vector_memmove(void *v, u32 src_index, u32 dst_index, u32 nmemb)
 {
     u_check_params(v != NULL);
 
+    if (src_index == dst_index || nmemb == 0)
+        return;
+
     vector_meta_t *meta = get_metadata_ptr(v);
 
-    /* Clean up the items that are to be cut off */
-    if (new_size < meta->capacity)
-        memset(element_at(v, new_size), 0,
-            (meta->capacity - new_size) * meta->item_size
-        );
+    s_assert(src_index + nmemb <= meta->n_items,
+        "Attempt to read from memory beyond the vector bounds");
+    s_assert(dst_index + nmemb <= meta->capacity,
+        "Attempt to write to memory beyond the vector bounds");
 
-    v = vector_realloc__(v, new_size);
-    if (v == NULL)
-        return NULL;
-
-    meta = get_metadata_ptr(v);
-    meta->n_items = u_min(new_size, meta->n_items);
-
-    return v;
-}
-
-void * vector_clone(void *v)
-{
-    if (v == NULL) return NULL;
-
-    vector_meta_t *meta_p = get_metadata_ptr(v);
-
-    void *new_v = vector_init(meta_p->item_size);
-    if (new_v == NULL) return NULL;
-
-    new_v = vector_realloc__(new_v, meta_p->capacity);
-
-    memcpy(get_metadata_ptr(new_v), meta_p,
-        (meta_p->capacity * meta_p->item_size) + sizeof(vector_meta_t)
+    memmove(
+        element_at(v, dst_index),
+        element_at(v, src_index),
+        nmemb * meta->item_size
     );
-
-    return new_v;
-}
-
-void vector_free__(void *v)
-{
-    if (v == NULL) return;
-
-    vector_meta_t *meta_ptr = get_metadata_ptr(v);
-
-    /* Reset the entire vector, including the metadata */
-    memset(meta_ptr, 0, sizeof(vector_meta_t) + meta_ptr->capacity);
-    free(meta_ptr);
 }

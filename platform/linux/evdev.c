@@ -65,7 +65,7 @@ evdev_find_and_load_devices(enum evdev_type_mask type_mask)
         s_log_debug("Found %s: %s (%s)",
             evdev_type_strings[tmp.type], tmp.path, tmp.name
         );
-        vector_push_back(v, tmp);
+        vector_push_back(&v, tmp);
     }
 
     const u32 fail_threshhold = n_dirents * MINIMAL_SUCCESSFUL_EVDEVS_LOADED;

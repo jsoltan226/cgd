@@ -200,8 +200,7 @@ static void thread_fn(void *arg)
     MSG msg = { 0 };
     while (msg.message != CGD_LOCAL_QUIT_INTERRUPT_EVENT) {
         if (GetMessage(&msg, NULL, 0, 0) < 0) {
-            s_log_fatal(MODULE_NAME, __func__,
-                "GetMessage() failed: %s", get_last_error_msg());
+            s_log_fatal("GetMessage() failed: %s", get_last_error_msg());
         }
         DispatchMessage(&msg);
     }
