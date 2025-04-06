@@ -1,5 +1,4 @@
 #include "init.h"
-#include "config.h"
 #include "core/util.h"
 #include "gui/menu-mgr.h"
 #include "render/rctx.h"
@@ -11,6 +10,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define CGD_GAME_CONFIG__
+#include "config.h"
+#undef CGD_GAME_CONFIG__
 
 #define MODULE_NAME "init"
 

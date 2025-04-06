@@ -1,6 +1,5 @@
 #include "main-loop.h"
 #include "init.h"
-#include "config.h"
 #include <core/shapes.h>
 #include <platform/event.h>
 #include <platform/mouse.h>
@@ -8,6 +7,9 @@
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <gui/menu-mgr.h>
+#define CGD_GAME_CONFIG__
+#include "config.h"
+#undef CGD_GAME_CONFIG__
 
 #define MODULE_NAME "main"
 

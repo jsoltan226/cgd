@@ -44,3 +44,16 @@
     * Removed the `STRIP_OBJS`, `DEBUGSTRIP` and everything related to it from the `Makefile`
     * Fixed missing `MODULE_NAME` in `core/pressable-obj.c`
     * Updated the `.gitignore`
+
+* Refactored all of `gui/*` and decreased executable binary size by 99.6 %
+    * Refactored much of the old code in `gui/`, ensuring everything fits within 80 columns,
+        deleting any traces of camelCase slop and generally updating the naming conventions
+    * Finally added documentation in the `gui/*` header files
+    * Added separation between flags for tinting the button when it's held vs just hovered on
+    * As per the suggestion of [@Bartek0x00](https://github.com/Bartek0x00),
+        the large fixed-size arrays of large `static const` structs were changed to flexible (small) arrays of said structs.
+        As it turned out, the `static const` (placed directly in the binary's data section) `gui` config was using up an extraordinary amount of space. 
+
+        Optimizing that away (`struct config[MAX_SIZE]` -> null terminated `struct config *`) reduced the executable size by a whopping 99.6 %
+        (96M to 148K - that's almost 3 orders of magnitude)! So yeah, in the future, I'll pay more attention to how and why I use `static const` lol
+

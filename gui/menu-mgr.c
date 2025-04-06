@@ -1,6 +1,8 @@
+#define GUI_MENU_INTERNAL_GUARD__
+#include "menu.h"
+#undef GUI_MENU_INTERNAL_GUARD__
 #include "menu-mgr.h"
 #include "core/util.h"
-#include "menu.h"
 #include "event-listener.h"
 #include <core/log.h>
 #include <core/int.h>
@@ -28,19 +30,23 @@ struct MenuManager * menu_mgr_init(
     mmgr->keyboard = keyboard;
     mmgr->mouse = mouse;
 
-    if (cfg->magic != MENU_CONFIG_MAGIC)
-        goto_error("menu_mgr_init: The config struct is invalid");
-
     mmgr->full_menu_list = vector_new(struct Menu *);
     mmgr->menu_stack = vector_new(struct Menu *);
     mmgr->global_event_listeners = vector_new(struct event_listener *);
 
+    if (cfg->magic != MENU_CONFIG_MAGIC)
+        goto_error("%s: missing magic value in config struct", __func__);
+
     /* Initialize the menus */
     u32 i = 0;
-    while (cfg->menu_info[i].magic == MENU_CONFIG_MAGIC && i < MENUMGR_MAX_MENU_COUNT) {
+    while (cfg->menu_info[i].magic == MENU_CONFIG_MAGIC &&
+        i < MENUMGR_MAX_MENU_COUNT)
+    {
         struct Menu *new_menu = menu_init(&cfg->menu_info[i], keyboard, mouse);
-        if (new_menu == NULL)
-            goto_error("menu_init for menu no. %u failed", cfg->menu_info[i].ID);
+        if (new_menu == NULL) {
+            goto_error("menu_init for menu no. %u failed",
+                cfg->menu_info[i].ID);
+        }
 
         vector_push_back(&mmgr->full_menu_list, new_menu);
         i++;
@@ -54,11 +60,12 @@ struct MenuManager * menu_mgr_init(
         memcpy(&tmp_cfg, &cfg->global_event_listener_info[i].event_listener_cfg,
             sizeof(struct event_listener_config));
 
-        switch(cfg->global_event_listener_info[i].event_listener_cfg.type) {
+        switch (cfg->global_event_listener_info[i].event_listener_cfg.type) {
             case EVL_EVENT_KEYBOARD_KEYUP:
             case EVL_EVENT_KEYBOARD_KEYDOWN:
             case EVL_EVENT_KEYBOARD_KEYPRESS:
-                tmp_cfg.target_obj.keyboard_p = (const struct p_keyboard **)&keyboard;
+                tmp_cfg.target_obj.keyboard_p =
+                    (const struct p_keyboard **)&keyboard;
                 break;
             case EVL_EVENT_MOUSE_BUTTONUP:
             case EVL_EVENT_MOUSE_BUTTONDOWN:
@@ -93,7 +100,6 @@ err:
     return NULL;
 }
 
-
 void menu_mgr_update(struct MenuManager *mmgr, bool paused)
 {
     if (mmgr == NULL) return;
@@ -109,7 +115,7 @@ void menu_mgr_update(struct MenuManager *mmgr, bool paused)
     menu_update(mmgr->curr_menu, mmgr->mouse);
 
     /* Check the current menu's flags */
-    if(mmgr->curr_menu->flags & MENU_STATUS_SWITCH &&
+    if (mmgr->curr_menu->flags & MENU_STATUS_SWITCH &&
         mmgr->curr_menu->switch_target != MENU_ID_NULL)
     {
         mmgr->curr_menu->flags ^= MENU_STATUS_SWITCH;
@@ -117,7 +123,7 @@ void menu_mgr_update(struct MenuManager *mmgr, bool paused)
         p_mouse_reset(mmgr->mouse, P_MOUSE_EVERYBUTTONMASK);
     }
 
-    if(mmgr->curr_menu->flags & MENU_STATUS_GOBACK){
+    if (mmgr->curr_menu->flags & MENU_STATUS_GOBACK) {
         mmgr->curr_menu->flags ^= MENU_STATUS_GOBACK;
         menu_mgr_pop_menu(mmgr);
         p_mouse_reset(mmgr->mouse, P_MOUSE_EVERYBUTTONMASK);
@@ -126,7 +132,7 @@ void menu_mgr_update(struct MenuManager *mmgr, bool paused)
 
 void menu_mgr_draw(struct MenuManager *mmgr, struct r_ctx *rctx)
 {
-    if (mmgr == NULL || rctx == NULL) return;
+    u_check_params(mmgr != NULL && rctx != NULL);
 
     menu_draw(mmgr->curr_menu, rctx);
 }
@@ -154,26 +160,30 @@ void menu_mgr_destroy(struct MenuManager **mmgr_p)
 
 void menu_mgr_pop_menu(struct MenuManager *mmgr)
 {
-    if (mmgr == NULL || mmgr->menu_stack == NULL || mmgr->menu_stack[0] == NULL)
+    u_check_params(mmgr != NULL);
+    if (vector_size(mmgr->menu_stack) == 0) {
+        s_log_warn("%s: empty menu stack", __func__);
         return;
+    }
 
     mmgr->curr_menu = vector_back(mmgr->menu_stack);
 }
 
 void menu_mgr_push_menu(struct MenuManager *mmgr, u64 switch_target_ID)
 {
-    if (mmgr == NULL || switch_target_ID == MENU_ID_NULL) return;
+    u_check_params(mmgr != NULL && switch_target_ID != MENU_ID_NULL);
+
     /* Check if a menu with the given ID exists in the menu list.
      * If it doesn't, don't do anything. */
     struct Menu *dest_ptr = NULL;
     for (u32 i = 0; i < vector_size(mmgr->full_menu_list); i++){
-        if(mmgr->full_menu_list[i]->ID == switch_target_ID){
+        if (mmgr->full_menu_list[i]->ID == switch_target_ID) {
             dest_ptr = mmgr->full_menu_list[i];
             break;
         }
     }
     if (dest_ptr == NULL) {
-        s_log_warn("Cannot switch to menu with ID %u: No such menu",
+        s_log_warn("Cannot switch to menu with ID %lu: No such menu",
             switch_target_ID);
         return;
     }

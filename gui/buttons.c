@@ -11,39 +11,36 @@
 #include <render/rect.h>
 #include <render/surface.h>
 #include <platform/mouse.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MODULE_NAME "button"
 
-struct button *button_init(const struct sprite_config *sprite_cfg,
-    const struct on_event_obj *on_click,
-    u32 flags)
+struct button * button_init(const struct button_config *cfg)
 {
-    u_check_params(sprite_cfg != NULL && on_click != NULL);
+    u_check_params(cfg != NULL);
 
     struct button *btn = calloc(1, sizeof(struct button));
     s_assert(btn != NULL, "calloc() failed for struct button!");
 
-    btn->sprite = sprite_init(sprite_cfg);
+    btn->sprite = sprite_init(&cfg->sprite_cfg);
     if (btn->sprite == NULL) {
         s_log_error("Failed to initialize the sprite!");
         free(btn);
         return NULL;
     }
 
-    btn->on_click.fn = on_click->fn;
-    memcpy(btn->on_click.argv_buf, on_click->argv_buf, ONEVENT_OBJ_ARGV_SIZE);
+    btn->on_click.fn = cfg->on_click.fn;
+    memcpy(btn->on_click.arg, cfg->on_click.arg, ONEVENT_OBJ_ARG_SIZE);
 
-    btn->flags = flags;
+    btn->flags = cfg->flags;
 
     return btn;
 }
 
 void button_update(struct button *btn, const struct p_mouse *mouse)
 {
-    if (btn == NULL || mouse == NULL) return;
+    u_check_params(btn != NULL && mouse != NULL);
 
     struct p_mouse_state mouse_state;
     p_mouse_get_state(mouse, &mouse_state);
@@ -53,11 +50,16 @@ void button_update(struct button *btn, const struct p_mouse *mouse)
         &btn->sprite->hitbox
     );
 
-    const pressable_obj_t *mouse_button = &mouse_state.buttons[P_MOUSE_BUTTON_LEFT];
+    const pressable_obj_t *mouse_button =
+        &mouse_state.buttons[P_MOUSE_BUTTON_LEFT];
 
     if (btn->held && (mouse_button->up || mouse_button->force_released)) {
         btn->held = false;
-        if (btn->hovering) on_event_execute(btn->on_click);
+
+        /* Only register the click if the mouse was released
+         * while inside the button hitbox */
+        if (btn->hovering)
+            on_event_execute(btn->on_click);
     } else if (mouse_button->down && btn->hovering) {
         btn->held = true;
     }
@@ -67,32 +69,28 @@ void button_update(struct button *btn, const struct p_mouse *mouse)
 
 void button_draw(struct button *btn, struct r_ctx *rctx)
 {
-    if (btn == NULL || rctx == NULL) return;
+    u_check_params(btn != NULL && rctx != NULL);
 
-    /* Draw the sprite */
+    /* Draw the sprite below all the decorations */
     sprite_draw(btn->sprite, rctx);
 
-    /* Draw the hitbox outline */
-    if(btn->flags & BTN_DISPLAY_HITBOX_OUTLINE){
-        static const color_RGBA32_t outline_normal = { 255, 0, 0, 255 };
-        static const color_RGBA32_t outline_pressed = { 0, 255, 0, 255 };
+    if (btn->held && btn->flags & BTN_DISPLAY_HELD_TINT) {
+        r_ctx_set_color(rctx, BTN_DISPLAY_HELD_TINT_COLOR);
+        r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
+    }
+    if (btn->hovering && btn->flags & BTN_DISPLAY_HOVER_TINT) {
+        r_ctx_set_color(rctx, BTN_DISPLAY_HOVER_TINT_COLOR);
+        r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
+    }
 
-        color_RGBA32_t outline_color = btn->held ? outline_pressed : outline_normal;
+    /* The outline should be on top of everyting */
+    if (btn->flags & BTN_DISPLAY_HITBOX_OUTLINE){
+        const color_RGBA32_t outline_color = btn->held ?
+            BTN_DISPLAY_HITBOX_OUTLINE_CLICKED_COLOR :
+            BTN_DISPLAY_HITBOX_OUTLINE_NORMAL_COLOR;
 
         r_ctx_set_color(rctx, outline_color);
         r_draw_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
-    }
-    if (btn->flags & BTN_DISPLAY_HOVER_TINT) {
-        static const color_RGBA32_t hover_tint = { 30, 30, 30, 100 };
-        static const color_RGBA32_t click_tint = { 20, 20, 20, 128 };
-
-        if (btn->held) {
-            r_ctx_set_color(rctx, click_tint);
-            r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
-        } else if (btn->hovering) {
-            r_ctx_set_color(rctx, hover_tint);
-            r_fill_rect(rctx, rect_arg_expand(btn->sprite->hitbox));
-        }
     }
 }
 

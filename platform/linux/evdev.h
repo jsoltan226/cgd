@@ -42,7 +42,7 @@ static_assert(sizeof(enum evdev_type_mask) <= sizeof(u32),
     "The size of the evdev mask enum must be within the size of a u32.");
 
 #define EV_check_end_ (-1)
-#define EV_max_n_checks_ 256
+#define EV_max_n_checks_ 64
 
 #ifdef P_INTERNAL_GUARD__
 static const i32
