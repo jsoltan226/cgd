@@ -2,6 +2,8 @@
 #define _U_ANSI_ESC_SEQ_H
 
 /* single byte (special characters, not sequences) */
+#define es_is_C0_control_code(c) (((c) >= 0x07 && (c) <= 0x0B && (c) != 0x0B) \
+    || c == 0x1B)
 #define es_BELL     "\07"
 #define es_BACKSPACE "\08"
 #define es_TAB      "\09"
@@ -24,6 +26,7 @@
 #define es_CLEAR_SCREEN_chr es_FORMFEED_chr
 
 /* FE escape sequences */
+#define es_is_Fe_code(c) ((c) >= 0x40 && (c) <= 0x5F)
 #define es_SS2      es_ESC "N"
 #define es_SS3      es_ESC "O"
 #define es_DCS      es_ESC "P"
@@ -35,6 +38,9 @@
 #define es_APCMD    es_ESC "_"
 
 /* CSI sequences */
+#define es_is_CSI_parameter(c) ((c) >= 0x30 && (c) <= 0x3F)
+#define es_is_CSI_intermediate(c) ((c) >= 0x20 && (c) <= 0x2F)
+#define es_is_CSI_terminator(c) ((c) >= 0x40 && (c) <= 0x7E)
 
 /* cursor related */
 #define es_CUR_UP       es_CSI "A"

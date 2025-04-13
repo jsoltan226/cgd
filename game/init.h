@@ -16,8 +16,6 @@ struct platform_ctx {
     struct p_mouse *mouse;
 
     bool running;
-
-    FILE *out_log_file, *err_log_file;
 };
 
 struct gui_ctx {

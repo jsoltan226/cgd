@@ -6,7 +6,6 @@ CompileFlags:
     - "-I/usr/include/libdrm"
     - "-isystem"
     - "/usr/include"
-    - "-xc"
     - "-std=c11"
     - "-Wall"
     - "-Wpedantic"

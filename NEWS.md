@@ -1,59 +1,21 @@
 ## NEWS for 02.04.2025
 
-* Did some work in `platform/window`, merged changes and bug fixes from ps4-controller-input-faker
-    * Merged the new `evdev` interface (from [ps4-controller-input-faker](https://github.com/jsoltan226/ps4-controller-input-faker)):
-        * `evdev_find_and_load_devices` (and `evdev_load`) will now take in an `evdev_mask` as a parameter.
-            This allows it to search for more than one type of device.
-        * Added `evdev_destroy` and `evdev_list_destroy`
-        * Refactored existing code and fixed a couple of small bugs
-    * Started work on implementing the new `platform/window` interface in `platform/linux/window-x11`
-        * Basic support for software rendering is mostly complete
-    * (in `core/util.h`) `filepath_t` was renamed to `u_filepath_t` and it's type was changed to `char [256]` (previously it was `const char [256]`).
-        Also `u_FILEPATH_SIZE` now describes the buffer SIZE while `u_FILEPATH_MAX` is the max STRING LENGTH (w/o the NULL terminator)
-
-## NEWS for 06.04.2025
-
-* Fixed design flaws in `core/vector` and `core/log` (and also a couple of small bugs)
-    * Changes in `core/log`:
-        * `s_log_fatal` (the function) was renamed to `s_abort`
-        * `s_log_fatal` is now a macro that wraps around the new `s_abort`, ending the existence of these: `s_log_fatal(MODULE_NAME, __func__, ...)`
-        * *Fixed a flaw that often lead to use-after-free conditions:* 
-            **`s_set_log_out_filep` and `s_set_log_err_filep` now take a pointer to a file handle**
-            so that when another function closes or resets the log file,
-            the handle in the original caller to `s_set_log_*_filep` gets properly invalidated
-        * Adapted the whole codebase to these changes
-    * Changes in `core/vector`:
-        * The vectors now have a minimum capacity of 8, meaning that they will never shrink to 0
-        * Since I now know how the pointer arithmetic slop works,
-            the definition of `struct vector_metadata__` was moved back to `core/vector.c` Making the Vector Opaque Again
-            (`vector_size` still works by offsetting `VECTOR_METADATA_SIZE__` (defined in `core/vector.h`) behind the vector
-        * *Fixed a flaw that often lead to use-after-free conditions:*
-            **All functions that write to the vector in any form now take a vector pointer (`void **`) as an argument**
-            in case `realloc` moves the pointer resulting in a use-after-free
-        * Moved all code (except the direct value `__VA_ARGS__` assignments in `vector_push_back` and `vector_insert`) to the source `core/vector.c`
-        * Since `vector_realloc`, `vector_increase_size` and `vector_memmove` are no longer needed in the header `core/vector.h`,
-            they were moved to the source `core/vector.c` and declared `static`
-        * Added checks that ensure that the the pointer to the vector (`void **`) is passed to the relevant functions,
-            and it actually works!! (well, except for vectors of pointers, but that's still something)
-        * Added bounds checking to most of the vector functions
-        * Added more tests in `tests/vector-test`
-        * Fixed the use of the default `goto_error` in `tests/vector-test` causing errors to not be reported
-        * Adapted the whole codebase to these changes
-    * Fixed the unused variable error in release builds in `platform/linux/opengl` (`load_opengl_functions`)
-    * Removed some redundant `stdio.h` includes
-    * Removed the `STRIP_OBJS`, `DEBUGSTRIP` and everything related to it from the `Makefile`
-    * Fixed missing `MODULE_NAME` in `core/pressable-obj.c`
-    * Updated the `.gitignore`
-
-* Refactored all of `gui/*` and decreased executable binary size by 99.6 %
-    * Refactored much of the old code in `gui/`, ensuring everything fits within 80 columns,
-        deleting any traces of camelCase slop and generally updating the naming conventions
-    * Finally added documentation in the `gui/*` header files
-    * Added separation between flags for tinting the button when it's held vs just hovered on
-    * As per the suggestion of [@Bartek0x00](https://github.com/Bartek0x00),
-        the large fixed-size arrays of large `static const` structs were changed to flexible (small) arrays of said structs.
-        As it turned out, the `static const` (placed directly in the binary's data section) `gui` config was using up an extraordinary amount of space. 
-
-        Optimizing that away (`struct config[MAX_SIZE]` -> null terminated `struct config *`) reduced the executable size by a whopping 99.6 %
-        (96M to 148K - that's almost 3 orders of magnitude)! So yeah, in the future, I'll pay more attention to how and why I use `static const` lol
-
+* Rewrote the entire `core/log` module
+    * Renamed the log levels `LOG_*` to `S_LOG_*`
+    * Split `S_LOG_DEBUG` into `S_LOG_TRACE`, `S_LOG_DEBUG` and `S_LOG_VERBOSE`, where `S_LOG_VERBOSE` stays enabled in release builds
+    * Each log level now has a separate configurable output, which means that e.g. `S_LOG_WARN` can go to a different file than `S_LOG_ERROR`
+    * Added output stream types:
+        * `S_LOG_OUTPUT_FILE` (user-managed `FILE *`),
+        * `S_LOG_OUTPUT_FILEPATH` (`FILE *` automatically managed by `s_log_*`)
+        * `S_LOG_OUTPUT_MEMBUF` (an in-memory <kinda> ring-buffer that's meant to be used for very early logs)
+        * `S_LOG_OUTPUT_NONE` (level disabled)
+    * `S_LOG_OUTPUT_FILEPATH` can be configured to open the file in append mode (instead of truncating the file and deleting it's previous content)
+    * When switching the output from `S_LOG_OUTPUT_MEMBUF`, it's possible to set a flag to copy all the logs from the membuf to the new output
+        (for example, after the early init when the proper log file is opened, it might be useful to also put the early logs there)
+    * There's also an "extra" log level `S_LOG_DISABLE` to disable all logging entirely
+    * Each log level also has a separate, configurable prefix string (previously that would be e.g. "WARNING: " for `LOG_WARN`)
+    * The whole API is thread-safe (hopefully)
+    * Added a helper function to clean up all log levels (`s_log_cleanup_all()`)
+    * Added `core/spinlock`, a very simple wrapper around `atomic_flag`
+    * Added some more helper macros in `core/ansi-esc-sequences.h`
+    * Adapted the changes in `game/init` to make the code compile and (at last for now) everything works! Yay!

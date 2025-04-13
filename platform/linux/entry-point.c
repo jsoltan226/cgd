@@ -1,3 +1,5 @@
+#include <core/log.h>
+
 extern int cgd_main(int argc, char **argv);
 
 int main(int argc, char **argv)

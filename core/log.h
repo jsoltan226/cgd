@@ -1,5 +1,5 @@
-#ifndef LOG_H_
-#define LOG_H_
+#ifndef S_LOG_H_
+#define S_LOG_H_
 #include "static-tests.h"
 
 #include <stdbool.h>
@@ -7,27 +7,59 @@
 #include <stdnoreturn.h>
 #include "int.h"
 
-typedef enum {
-    LOG_DEBUG,
-    LOG_INFO,
-    LOG_WARNING,
-    LOG_ERROR,
-    LOG_FATAL_ERROR,
-} s_log_level;
+#define S_LOG_LEVEL_LIST    \
+    X_(S_LOG_TRACE)         \
+    X_(S_LOG_DEBUG)         \
+    X_(S_LOG_VERBOSE)       \
+    X_(S_LOG_INFO)          \
+    X_(S_LOG_WARNING)       \
+    X_(S_LOG_ERROR)         \
+    X_(S_LOG_FATAL_ERROR)   \
 
-void s_log(s_log_level level, const char *module_name, const char *fmt, ...);
+#define X_(name) name,
+enum s_log_level {
+    S_LOG_DISABLED = -1,
+    S_LOG_LEVEL_LIST
+    S_LOG_N_LEVELS_
+};
+#undef X_
 
-#ifndef NDEBUG
-#define s_log_debug(...) s_log(LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
+#define X_(name) name##_MASK = 1 << name,
+enum s_log_level_mask {
+    S_LOG_LEVEL_LIST
+};
+#undef X_
+static_assert(sizeof(enum s_log_level_mask) <= sizeof(u32),
+    "The size of the log level mask enum must be within the size of a u32.");
+
+#define S_LOG_STDOUT_MASKS (S_LOG_TRACE_MASK | S_LOG_DEBUG_MASK \
+        | S_LOG_VERBOSE_MASK | S_LOG_INFO_MASK)
+#define S_LOG_STDERR_MASKS (S_LOG_WARNING_MASK | S_LOG_ERROR_MASK \
+        | S_LOG_FATAL_ERROR_MASK)
+#define S_LOG_ALL_MASKS (S_LOG_STDOUT_MASKS | S_LOG_STDERR_MASKS)
+
+#ifndef S_LOG_LEVEL_LIST_DEF__
+#undef S_LOG_LEVEL_LIST
+#endif /* S_LOG_LEVEL_LIST_DEF__ */
+
+void s_log(enum s_log_level level, const char *module_name,
+    const char *fmt, ...);
+
+#ifndef CGD_BUILDTYPE_RELEASE
+#define s_log_trace(...) s_log(S_LOG_TRACE, MODULE_NAME, __VA_ARGS__)
+#define s_log_debug(...) s_log(S_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #else
+#define s_log_trace(...)
 #define s_log_debug(...)
 #endif /* NDEBUG */
 
-#define s_log_info(...) s_log(LOG_INFO, MODULE_NAME, __VA_ARGS__)
+#define s_log_verbose(...) s_log(S_LOG_VERBOSE, MODULE_NAME, __VA_ARGS__)
 
-#define s_log_warn(...) s_log(LOG_WARNING, MODULE_NAME, __VA_ARGS__)
+#define s_log_info(...) s_log(S_LOG_INFO, MODULE_NAME, __VA_ARGS__)
 
-#define s_log_error(...) s_log(LOG_ERROR, MODULE_NAME, __VA_ARGS__)
+#define s_log_warn(...) s_log(S_LOG_WARNING, MODULE_NAME, __VA_ARGS__)
+
+#define s_log_error(...) s_log(S_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
 noreturn void s_abort(const char *module_name, const char *function_name,
     const char *error_msg_fmt, ...);
@@ -42,35 +74,43 @@ noreturn void s_abort(const char *module_name, const char *function_name,
     s_log_fatal(__VA_ARGS__);                                               \
 } while (0))
 
-void s_set_log_level(s_log_level new_log_level);
-s_log_level s_get_log_level(void);
+void s_configure_log_level(enum s_log_level new_log_level);
+enum s_log_level s_get_log_level(void);
 
-i32 s_set_log_out_file(const char *file_path);
-i32 s_set_log_out_filep(FILE **fpp);
-#define s_set_log_file s_set_log_out_file
-#define s_set_log_filep s_set_log_out_filep
+struct s_log_output_cfg {
+    enum s_log_output_type {
+        S_LOG_OUTPUT_FILE,
+        S_LOG_OUTPUT_FILEPATH,
+        S_LOG_OUTPUT_MEMORYBUF,
+        S_LOG_OUTPUT_NONE,
+    } type;
+    union {
+        FILE *file;
+        const char *filepath;
 
-i32 s_set_log_err_file(const char *file_path);
-i32 s_set_log_err_filep(FILE **fpp);
+        struct s_log_output_memorybuf {
+#define S_LOG_DEFAULT_MEMBUF_SIZE 4096
+#define S_LOG_MINIMAL_MEMBUF_SIZE 16
+            char *buf;
+            u64 buf_size;
+        } membuf;
+    } out;
 
-void s_close_out_log_fp(void);
-void s_close_err_log_fp(void);
+    bool flag_append;
+    bool flag_copy;
+};
+i32 s_configure_log_output(enum s_log_level level,
+    const struct s_log_output_cfg *in_new_cfg,
+    struct s_log_output_cfg *out_old_cfg);
 
-/* This is used in the error handling system to determine
- * whether the error was the user's fault
- * (e.g a non-existent file was given as input)
- * to decide if usage should be printed after the error message
- */
-#define YES_USER_FAULT  true
-#define NO_USER_FAULT   false
-void s_set_user_fault(bool is_user_fault);
-bool s_get_user_fault(void);
+i32 s_configure_log_outputs(u32 level_mask, const struct s_log_output_cfg *cfg);
 
-/* A shortcut for configuring logging, especially in tests */
-#define s_configure_log(level, outfilep, errfilep) do { \
-    s_set_log_level(level);                             \
-    s_set_log_out_filep(outfilep);                      \
-    s_set_log_err_filep(errfilep);                      \
-} while (0);
+#define S_LOG_PREFIX_SIZE 32
+void s_configure_log_prefix(enum s_log_level level,
+    char in_new_prefix[S_LOG_PREFIX_SIZE], /* Must not be local-scope */
+    char out_old_prefix[S_LOG_PREFIX_SIZE],
+    bool strip_esc_sequences);
 
-#endif /* LOG_H_ */
+void s_log_cleanup_all(void);
+
+#endif /* S_LOG_H_ */

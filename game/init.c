@@ -7,8 +7,6 @@
 #include <platform/window.h>
 #include <platform/keyboard.h>
 #include <platform/platform.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #define CGD_GAME_CONFIG__
 #include "config.h"
@@ -16,8 +14,7 @@
 
 #define MODULE_NAME "init"
 
-static i32 setup_log(FILE **out_log_fp_p, FILE **err_log_fp_p);
-static void cleanup_log(void);
+static i32 setup_log(void);
 
 i32 do_platform_init(i32 argc, const char *const *argv,
     struct platform_ctx *ctx)
@@ -25,14 +22,14 @@ i32 do_platform_init(i32 argc, const char *const *argv,
     (void) argc;
 
     /* Set up logging */
-    if (setup_log(&ctx->out_log_file, &ctx->err_log_file))
+    if (setup_log())
         goto err;
 
     s_log_info("Log setup OK. Starting platform init...");
 
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
-        s_set_log_level(LOG_DEBUG);
+        s_configure_log_level(S_LOG_DEBUG);
 #else
     (void) argv;
 #endif /* CGD_BUILDTYPE_RELEASE */
@@ -90,8 +87,7 @@ void do_platform_cleanup(struct platform_ctx *ctx)
     if (ctx->keyboard != NULL) p_keyboard_destroy(&ctx->keyboard);
     if (ctx->win != NULL) p_window_close(&ctx->win);
 
-    s_close_out_log_fp();
-    s_close_err_log_fp();
+    s_log_cleanup_all();
 }
 
 void do_gui_cleanup(struct gui_ctx *gui)
@@ -100,46 +96,47 @@ void do_gui_cleanup(struct gui_ctx *gui)
     if (gui->r != NULL) r_ctx_destroy(&gui->r);
 }
 
-static i32 setup_log(FILE **out_log_fp_p, FILE **err_log_fp_p)
+static i32 setup_log(void)
 {
-    *out_log_fp_p = stdout;
-    *err_log_fp_p = stderr;
-    s_set_log_out_filep(out_log_fp_p);
-    s_set_log_err_filep(err_log_fp_p);
-
 #if (PLATFORM == PLATFORM_WINDOWS)
 #include <errno.h>
 
-    FILE *tmp_log_fp = fopen(LOG_FILEPATH, "wb");
-    if (tmp_log_fp == NULL) {
-        s_log_error("Failed to open log file \"%s\": %s",
-            LOG_FILEPATH, strerror(errno));
+    const struct s_log_output_cfg log_cfg = {
+        .type = S_LOG_OUTPUT_FILEPATH,
+        .out = { .filepath = LOG_FILEPATH },
+        .flag_copy = true,
+        .flag_append = true,
+    };
+    if (s_configure_log_outputs(S_LOG_ALL_MASKS, &log_cfg)) {
+        s_log_error("Failed to set the log configs to file \"%s\"",
+            LOG_FILEPATH);
         return 1;
     }
 
-    if (atexit(cleanup_log)) {
-        s_log_error("Failed to atexit() the log cleanup function: %s",
-            strerror(errno));
-        fclose(tmp_log_fp);
-        return 1;
-    }
-
-    *out_log_fp_p = tmp_log_fp;
-    *err_log_fp_p = tmp_log_fp;
 #else
-    (void) cleanup_log; /* Make compiler happy */
-    *out_log_fp_p = stdout;
-    *err_log_fp_p = stderr;
+    struct s_log_output_cfg log_cfg = {
+        .type = S_LOG_OUTPUT_FILE,
+        .out = { .file = stdout },
+        .flag_copy = true,
+    };
+    if (s_configure_log_output(S_LOG_VERBOSE, &log_cfg, NULL)) {
+        s_log_error("Failed to set verbose log config");
+        return 1;
+    }
+    log_cfg.flag_copy = false;
+    if (s_configure_log_outputs(S_LOG_STDOUT_MASKS & ~(S_LOG_VERBOSE_MASK),
+            &log_cfg))
+    {
+        s_log_error("Failed to set out log configs");
+        return 1;
+    }
+
+    log_cfg.out.file = stderr;
+    if (s_configure_log_outputs(S_LOG_STDERR_MASKS, &log_cfg)) {
+        s_log_error("Failed to set error log configs");
+        return 1;
+    }
 #endif /* PLATFORM */
 
-    s_set_log_out_filep(out_log_fp_p);
-    s_set_log_err_filep(err_log_fp_p);
-
     return 0;
-}
-
-static void cleanup_log(void)
-{
-    s_close_out_log_fp();
-    s_close_err_log_fp();
 }

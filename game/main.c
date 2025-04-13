@@ -13,12 +13,14 @@ int cgd_main(int argc, char **argv)
     struct platform_ctx platform_ctx = { 0 };
     struct gui_ctx gui_ctx = { 0 };
 
+    s_log_verbose("Starting platform init...");
     if (do_platform_init(argc, (const char *const *)argv, &platform_ctx)) {
         s_log_error("Platform init failed. Stop.");
         do_platform_cleanup(&platform_ctx);
         return EXIT_FAILURE;
     }
 
+    s_log_verbose("Starting GUI init...");
     if (do_gui_init(&gui_ctx, &platform_ctx)) {
         s_log_error("GUI init failed. Stop.");
         do_gui_cleanup(&gui_ctx);
