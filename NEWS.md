@@ -41,3 +41,6 @@
         * Fixed a missing argument to `s_log_error` in `asset-loader/asset.c`
         * Fixed an invalid use of `vector_size` (`v_p` instead of `*v_p`) in `vector_insert_prepare__`
     * Replaced any `#warning`s with `#error`, since `#warning` is not a C11 standard feature
+
+* Documented the logging API (`core/log.h`)
+    * Exactly what the title says lol
