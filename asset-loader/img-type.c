@@ -21,6 +21,6 @@ enum asset_img_type asset_get_img_type(FILE *fp)
     /* Move the file pointer back to the start of the file */
     fseek(fp, 0, SEEK_SET);
 
-    s_log_debug("Image type is PNG");
+    s_log_trace("Image type is PNG");
     return IMG_TYPE_PNG;
 }

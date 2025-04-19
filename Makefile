@@ -107,6 +107,7 @@ trace: LDFLAGS += -fsanitize=address
 trace: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
 release: LDFLAGS += -flto
+release: SO_LDFLAGS += -flto
 release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
 release: $(STATIC_TESTS) clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
 

@@ -33,7 +33,7 @@ int cgd_main(int argc, char **argv)
     if (test_log_setup())
         return EXIT_FAILURE;
 
-    s_log_debug("Creating hashmap...");
+    s_log_verbose("Creating hashmap...");
 
     map = hashmap_create(MAP_SIZE);
     if (map == NULL) {
@@ -41,7 +41,7 @@ int cgd_main(int argc, char **argv)
         goto err;
     }
     for (u32 i = 0; i < MAP_SIZE; i++) {
-        s_log_debug("hashmap_insert(map, \"%s\", \"%s\")",
+        s_log_verbose("hashmap_insert(map, \"%s\", \"%s\")",
             key_value_pairs[i][0], key_value_pairs[i][1]
         );
         if (hashmap_insert(map, key_value_pairs[i][0], key_value_pairs[i][1])) {
@@ -62,7 +62,7 @@ int cgd_main(int argc, char **argv)
         );
     }
 
-    s_log_debug("Destroying hashmap...");
+    s_log_verbose("Destroying hashmap...");
     hashmap_destroy(&map);
 
     s_log_info("Test result is OK");

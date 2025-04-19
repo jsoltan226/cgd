@@ -255,7 +255,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
             egl->surface, egl->surface, egl->ctx) == 0)
         goto_error("eglMakeCurrent failed (%s)", egl_get_last_error(egl));
 
-    s_log_debug("Initialized EGL (version %i.%i)",
+    s_log_verbose("Initialized EGL (version %i.%i)",
         egl->ver_major, egl->ver_minor);
     return 0;
 
@@ -422,7 +422,7 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
 
 #undef X_
 
-    s_log_debug("Successfully loaded %u OpenGL function(s).", n_loaded);
+    s_log_verbose("Successfully loaded %u OpenGL function(s).", n_loaded);
 #ifdef CGD_BUILDTYPE_RELEASE
     (void) n_loaded;
 #endif /* CGD_BUILDTYPE_RELEASE */

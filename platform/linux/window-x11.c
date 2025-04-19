@@ -6,7 +6,6 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
 #include <fcntl.h>
@@ -301,7 +300,7 @@ void window_X11_close(struct window_x11 *win)
 {
     s_assert(win->exists, "Attempt to double-free window");
 
-    s_log_debug("Destroying X11 window...");
+    s_log_verbose("Destroying X11 window...");
     if (!win->xcb.failed_) {
         /* Free acceleration-specific resources */
         if (win->conn) {
@@ -496,7 +495,7 @@ static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
                 s_log_warn("Failed to initialize Vulkan.");
             }
         } else {
-            s_log_debug("OK initializing Vulkan acceleration.");
+            s_log_verbose("OK initializing Vulkan acceleration.");
             return 0;
         }
     }
@@ -513,7 +512,7 @@ static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
                 s_log_warn("Failed to initialize OpenGL.");
             }
         } else {
-            s_log_debug("OK initializing OpenGL acceleration.");
+            s_log_verbose("OK initializing OpenGL acceleration.");
             return 0;
         }
     }
@@ -523,7 +522,7 @@ static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
             s_log_error("Failed to initialize software rendering.");
             return 1;
         } else {
-            s_log_debug("OK initializing software rendering.");
+            s_log_verbose("OK initializing software rendering.");
             return 0;
         }
     }

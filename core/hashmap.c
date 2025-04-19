@@ -4,7 +4,6 @@
 #include "util.h"
 #include "linked-list.h"
 #include <string.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 

@@ -693,7 +693,7 @@ static i32 initialize_acceleration(struct window_dri *win,
                 s_log_warn("Failed to initialize Vulkan.");
             }
         } else {
-            s_log_debug("OK initializing Vulkan acceleration.");
+            s_log_verbose("OK initializing Vulkan acceleration.");
             return 0;
         }
     }
@@ -710,7 +710,7 @@ static i32 initialize_acceleration(struct window_dri *win,
                 s_log_warn("Failed to initialize OpenGL.");
             }
         } else {
-            s_log_debug("OK initializing OpenGL acceleration.");
+            s_log_verbose("OK initializing OpenGL acceleration.");
             return 0;
         }
     }
@@ -720,7 +720,7 @@ static i32 initialize_acceleration(struct window_dri *win,
             s_log_error("Failed to initialize software rendering.");
             return 1;
         } else {
-            s_log_debug("OK initializing software rendering.");
+            s_log_verbose("OK initializing software rendering.");
             return 0;
         }
     }
@@ -1037,7 +1037,7 @@ static void render_present_frame(struct window_dri *win, u32 fb_handle,
         return;
     }
 
-    //s_log_debug("Scheduled page flip for next VBlank");
+    //s_log_trace("Scheduled page flip for next VBlank");
 }
 
 static void render_finish_frame(struct window_dri_listener_thread *listener,
@@ -1148,9 +1148,9 @@ static void * window_dri_listener_fn(void *arg)
             render_finish_frame(listener, NOT_OK);
         } else if (ret == -1) {
             if (errno == EINTR) { /* Interrupted by signal */
-                s_log_debug("%s: poll() interrupted by signal", __func__);
+                s_log_trace("%s: poll() interrupted by signal", __func__);
                 if (atomic_load(&listener->page_flip_pending)) {
-                    s_log_debug("Dropping current frame due to interruption.");
+                    s_log_trace("Dropping current frame due to interruption.");
                     render_finish_frame(listener, NOT_OK);
                 }
                 continue;

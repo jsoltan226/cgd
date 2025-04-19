@@ -34,7 +34,7 @@ struct asset * asset_load(const u_filepath_t rel_file_path)
 {
     u_check_params(rel_file_path != NULL);
 
-    s_log_debug("Loading asset \"%s\"...", rel_file_path);
+    s_log_verbose("Loading asset \"%s\"...", rel_file_path);
 
     FILE *fp = NULL;
 
@@ -210,7 +210,7 @@ i32 asset_write(struct asset *a, const char *rel_file_path,
     if (img_type == IMG_TYPE_UNKNOWN)
         img_type = a->type;
 
-    s_log_debug("Writing asset \"%s\" to file \"%s\"",
+    s_log_verbose("Writing asset \"%s\" to file \"%s\"",
         a->rel_file_path, rel_file_path);
 
     FILE *fp = asset_fopen(rel_file_path, "wb");

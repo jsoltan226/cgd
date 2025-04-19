@@ -39,7 +39,7 @@ struct p_lib * p_librtld_load(const char *libname, const char *const *symnames)
         i++;
     }
 
-    s_log_debug("Successfully loaded %u symbols from \"%s\"",
+    s_log_verbose("Successfully loaded %u symbols from \"%s\"",
         vector_size(lib->syms), lib->so_name);
 
     return lib;

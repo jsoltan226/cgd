@@ -54,16 +54,16 @@ int cgd_main(int argc, char **argv)
         p_keyboard_update(kb);
         for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
             if (p_keyboard_get_key(kb, i)->up)
-                s_log_debug("Released key %s", p_keyboard_keycode_strings[i]);
+                s_log_trace("Released key %s", p_keyboard_keycode_strings[i]);
         }
 
         p_time_usleep(1000000 / FPS);
     }
 
     if (ev.type == P_EVENT_QUIT)
-        s_log_debug("Received QUIT event. Exiting...");
+        s_log_verbose("Received QUIT event. Exiting...");
     else
-        s_log_debug("Key 'Q' Pressed. Exiting...");
+        s_log_verbose("Key 'Q' Pressed. Exiting...");
 
     p_keyboard_destroy(&kb);
     r_ctx_destroy(&rctx);

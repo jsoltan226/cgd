@@ -66,7 +66,7 @@ i32 asset_load_all_plugins(void)
         n_failed += 0x1 & load_plugin(&plugin_registry[i]);
     }
 
-    s_log_debug("Loaded all plugins, %u failed", n_failed);
+    s_log_verbose("Loaded all plugins, %u failed", n_failed);
     p_mt_mutex_unlock(&plugin_registry_mutex);
 
     return n_failed;
@@ -89,19 +89,15 @@ asset_get_plugin_loaded(enum asset_img_type type)
 void asset_unload_all_plugins(void)
 {
     p_mt_mutex_lock(&plugin_registry_mutex);
-#ifndef CGD_BUILDTYPE_RELEASE
     u32 n_unloaded = 0;
-#endif /* CGD_BUILDTYPE_RELEASE */
     for (u32 i = 0; i < plugin_registry_n_plugins; i++) {
         if (plugin_registry[i].is_loaded) {
             unload_plugin(&plugin_registry[i]);
-#ifndef CGD_BUILDTYPE_RELEASE
             n_unloaded++;
-#endif /* CGD_BUILDTYPE_RELEASE */
         }
     }
     p_mt_mutex_unlock(&plugin_registry_mutex);
-    s_log_debug("Unloaded all (%u) plugins", n_unloaded);
+    s_log_verbose("Unloaded all (%u) plugins", n_unloaded);
 }
 
 static i32 load_plugin(struct asset_plugin *p)

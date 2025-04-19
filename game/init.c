@@ -22,6 +22,7 @@ i32 do_platform_init(i32 argc, const char *const *argv,
     (void) argc;
 
     /* Set up logging */
+    s_log_verbose("Initializing log output...");
     if (setup_log())
         goto err;
 
@@ -34,17 +35,17 @@ i32 do_platform_init(i32 argc, const char *const *argv,
     (void) argv;
 #endif /* CGD_BUILDTYPE_RELEASE */
 
-    s_log_debug("Creating the window...");
+    s_log_verbose("Creating the window...");
     ctx->win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
     if (ctx->win == NULL)
         goto_error("p_window_open() failed");
 
-    s_log_debug("Initializing the keyboard...");
+    s_log_verbose("Initializing the keyboard...");
     ctx->keyboard = p_keyboard_init(ctx->win);
     if (ctx->keyboard == NULL)
         goto_error("Failed to initialize the keyboard");
 
-    s_log_debug("Initializing the mouse...");
+    s_log_verbose("Initializing the mouse...");
     ctx->mouse = p_mouse_init(ctx->win);
     if (ctx->mouse == NULL)
         goto_error("Failed to initialize the mouse");
@@ -62,7 +63,7 @@ i32 do_gui_init(struct gui_ctx *gui, const struct platform_ctx *p)
 {
     s_log_info("Starting GUI init...");
 
-    s_log_debug("Creating the renderer...");
+    s_log_verbose("Creating the renderer...");
     gui->r = r_ctx_init(p->win, R_TYPE_SOFTWARE, 0);
     if (gui->r == NULL)
         goto_error("Failed to initialize the renderer");
@@ -98,6 +99,8 @@ void do_gui_cleanup(struct gui_ctx *gui)
 
 static i32 setup_log(void)
 {
+    s_configure_log_level(S_LOG_INFO);
+
 #if (PLATFORM == PLATFORM_WINDOWS)
 #include <errno.h>
 
@@ -119,14 +122,7 @@ static i32 setup_log(void)
         .out = { .file = stdout },
         .flag_copy = true,
     };
-    if (s_configure_log_output(S_LOG_VERBOSE, &log_cfg, NULL)) {
-        s_log_error("Failed to set verbose log config");
-        return 1;
-    }
-    log_cfg.flag_copy = false;
-    if (s_configure_log_outputs(S_LOG_STDOUT_MASKS & ~(S_LOG_VERBOSE_MASK),
-            &log_cfg))
-    {
+    if (s_configure_log_outputs(S_LOG_STDOUT_MASKS, &log_cfg)) {
         s_log_error("Failed to set out log configs");
         return 1;
     }

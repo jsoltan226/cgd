@@ -39,13 +39,13 @@ struct Menu * menu_init(
 {
     u_check_params(cfg != NULL && keyboard != NULL && mouse != NULL);
 
-    s_log_debug("Initializing menu with ID %lu", cfg->ID);
+    s_log_verbose("Initializing menu with ID %lu", cfg->ID);
     struct Menu *mn = NULL;
 
     if (cfg->ID == MENU_ID_NULL)
         goto_error("Config struct is invalid");
 
-    s_log_debug("(%lu) OK Verifying config struct", cfg->ID);
+    s_log_trace("(%lu) OK Verifying config struct", cfg->ID);
 
     mn = calloc(1, sizeof(struct Menu));
     s_assert(mn != NULL, "calloc() failed for struct menu");
@@ -143,7 +143,7 @@ struct Menu * menu_init(
     mn->ID = cfg->ID;
     mn->flags = MENU_STATUS_NONE;
 
-    s_log_debug("OK Initalizing menu with ID %lu", cfg->ID);
+    s_log_verbose("OK Initalizing menu with ID %lu", cfg->ID);
     return mn;
 
 err:

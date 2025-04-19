@@ -5,9 +5,7 @@
 #include <core/util.h>
 #include <core/pressable-obj.h>
 #include <core/vector.h>
-#include <stdio.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -154,7 +152,7 @@ static void read_keyevents_from_evdev(i32 fd,
         updated_keys[p_kb_keycode] = true;
 
         /*
-         * s_log_debug("Key event %i for keycode %s",
+         * s_log_trace("Key event %i for keycode %s",
          * ev.value, p_keyboard_keycode_strings[p_kb_keycode]);
          */
     }

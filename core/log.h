@@ -151,6 +151,7 @@ void s_log(enum s_log_level level, const char *module_name,
 #define s_log_debug(...) s_log(S_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 
 #else
+#define s_log_trace(...)
 #define s_log_debug(...)
 #endif /* CGD_BUILDTYPE_RELEASE */
 

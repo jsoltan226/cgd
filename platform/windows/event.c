@@ -31,12 +31,10 @@ i32 p_event_poll(struct p_event *o)
         (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
         sizeof(struct p_event)
     );
-    vector_pop_back(g_event_queue);
+    vector_pop_back(&g_event_queue);
 
-#ifndef CGD_BUILDTYPE_RELEASE
     if (o->type == P_EVENT_QUIT)
-        s_log_debug("Caught QUIT event");
-#endif /* CGD_BUILDTYPE_RELEASE */
+        s_log_verbose("Caught QUIT event");
 
 ret:
     p_mt_mutex_unlock(&g_event_queue_mutex);
@@ -59,7 +57,7 @@ void p_event_send(const struct p_event *ev)
         default:
             if (g_event_queue == NULL)
                 setup_event_queue(true);
-            vector_push_back(g_event_queue, *ev);
+            vector_push_back(&g_event_queue, *ev);
             break;
     }
 
@@ -78,13 +76,13 @@ static void setup_event_queue(bool warn)
     g_event_queue = vector_new(struct p_event);
 }
 
-static void destroy_event_queue()
+static void destroy_event_queue(void)
 {
     if (g_event_queue == NULL) {
         s_log_warn("%s: Event queue already destroyed!", __func__);
         return;
     }
-    s_log_debug("Destroying event queue...");
+    s_log_verbose("Destroying event queue...");
 
     vector_destroy(&g_event_queue);
     g_event_queue = NULL;

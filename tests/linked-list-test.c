@@ -21,14 +21,14 @@ int cgd_main(int argc, char **argv)
     if (test_log_setup())
         return EXIT_FAILURE;
 
-    s_log_debug("Creating linked list...");
+    s_log_verbose("Creating linked list...");
     ll = linked_list_create("item0");
     if (ll == NULL) {
         s_log_error("linked_list_create() failed! Stop.");
         goto err;
     }
 
-    s_log_debug("Populating list...");
+    s_log_verbose("Populating list...");
     struct ll_node *curr_node = ll->head;
     for (u32 i = 1; i < LIST_LENGTH; i++) {
         char *curr_str = &item_str_table[i * ITEM_STR_LEN];
@@ -41,7 +41,7 @@ int cgd_main(int argc, char **argv)
         }
     }
 
-    s_log_debug("Dumping list...");
+    s_log_verbose("Dumping list...");
     curr_node = ll->head;
 #define BUF_SIZE 512
     char buf[BUF_SIZE] = { 0 };
@@ -55,7 +55,7 @@ int cgd_main(int argc, char **argv)
 
     s_log_info("list: %s", buf);
 
-    s_log_debug("OK, Cleaning up...");
+    s_log_verbose("OK, Cleaning up...");
     linked_list_destroy(&ll, false);
 
     s_log_info("Test result is OK");

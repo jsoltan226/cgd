@@ -87,7 +87,7 @@ struct p_window * p_window_open(const char *title,
         goto_error("Window init failed.");
 
     win->initialized = true;
-    s_log_debug("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
+    s_log_verbose("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
         __func__, rect_arg_expand(win->info.client_area));
 
     /* Initialize the event queue */
@@ -138,7 +138,7 @@ void p_window_close(struct p_window **win_p)
     if (win_p == NULL || *win_p == NULL) return;
     struct p_window *win = *win_p;
 
-    s_log_debug("Destroying window...");
+    s_log_verbose("Destroying window...");
 
     const DWORD thread_id = GetThreadId(win->thread);
 

@@ -160,7 +160,7 @@ static void read_mouse_events_from_evdev(i32 fd,
         updated_buttons[button] = true;
 
         /*
-         * s_log_debug("Key event %i for keycode %s",
+         * s_log_trace("Key event %i for keycode %s",
          * ev.value, p_keyboard_keycode_strings[p_kb_keycode]);
          */
     }

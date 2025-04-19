@@ -56,7 +56,7 @@ int cgd_main(int argc, char **argv)
         ntested++;
         i++;
     }
-    s_log_debug("Test result is OK");
+    s_log_info("Test result is OK");
     s_log_info("[PROFILING]: Total n iterations: %u", ntested);
     s_log_info("[PROFILING]: Time (s): %lf",
         (f64)p_time_delta_us(&start_time) / 1000000.f

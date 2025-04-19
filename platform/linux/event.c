@@ -7,7 +7,6 @@
 #include <core/util.h>
 #include <core/vector.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdatomic.h>
@@ -49,10 +48,8 @@ i32 p_event_poll(struct p_event *o)
     );
     vector_pop_back(&g_event_queue);
 
-#ifndef CGD_BUILDTYPE_RELEASE
     if (o->type == P_EVENT_QUIT)
-        s_log_debug("Caught QUIT event");
-#endif /* CGD_BUILDTYPE_RELEASE */
+        s_log_verbose("Caught QUIT event");
 
 ret:
     p_mt_mutex_unlock(&g_event_queue_mutex);
@@ -80,7 +77,7 @@ void p_event_send(const struct p_event *ev)
             memcpy(&tmp_ev, ev, sizeof(struct p_event));
             p_time(&tmp_ev.time);
             /*
-            s_log_debug("new event type %u, data %u, time %u.%u",
+            s_log_trace("new event type %u, data %u, time %u.%u",
                 tmp_ev.type, tmp_ev.info, tmp_ev.time.s, tmp_ev.time.ns);
             */
             vector_push_back(&g_event_queue, *ev);
@@ -98,7 +95,7 @@ static void setup_event_queue(bool warn)
     } else if (warn) {
         s_log_warn("Event queue does not exist, initializing...");
     } else if (!warn) {
-        s_log_debug("Initializing the event queue...");
+        s_log_verbose("Initializing the event queue...");
     }
 
     g_event_queue = vector_new(struct p_event);
@@ -133,7 +130,7 @@ static void destroy_event_queue(void)
         s_log_warn("%s: Event queue already destroyed!", __func__);
         return;
     }
-    s_log_debug("Destroying event queue...");
+    s_log_verbose("Destroying event queue...");
 
     atomic_flag_test_and_set(&g_signal_handler_running);
 

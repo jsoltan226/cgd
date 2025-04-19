@@ -6,7 +6,6 @@
 #include <platform/opengl.h>
 #include <platform/window.h>
 #include <platform/librtld.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
@@ -73,7 +72,7 @@ static i32 opengl_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -86,7 +85,7 @@ static i32 opengl_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -99,7 +98,7 @@ static i32 opengl_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -132,7 +131,7 @@ static i32 software_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -145,7 +144,7 @@ static i32 software_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -159,7 +158,7 @@ static i32 software_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }
@@ -173,7 +172,7 @@ static i32 software_test(void)
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
-            s_log_debug("Received page flip event, status: %u",
+            s_log_verbose("Received page flip event, status: %u",
                 ev.info.page_flip_status);
         }
     }

@@ -55,3 +55,9 @@
     * Fixed `vector_begin` and `vector_end` tests in `tests/vector-test.c`
     * Made all lines in `tests/vector-test.c` be <= 80 columns
     * Fixed `S_LOG_DISABLED` not doing anything, and added the missing documentation for it
+
+* Made proper use of the new log levels (`S_LOG_TRACE` and `S_LOG_VERBOSE`) and fixed a build error
+    * Replaced `s_log_debug` with `s_log_verbose` or `s_log_trace` where it was appropriate to do so
+    * Fixed linker error when building `tests/libmain_test.so` in `release` with `CC=clang`, caused by missing `-flto` flags
+    * Removed some redundant `stdio.h` and `stdlib.h` includes
+    * Added missing `s_log_trace` definition after `#ifndef CGD_BUILDTYPE_RELEASE` in `core/log.h`
