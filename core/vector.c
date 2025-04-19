@@ -77,7 +77,7 @@ void * vector_insert_prepare__(void **v_p, u32 at)
     vector_increase_size(v_p);
 
     /* Move everything after and including `at` one spot to the right */
-    vector_memmove(*v_p, at, at + 1, vector_size(v_p) - at);
+    vector_memmove(*v_p, at, at + 1, vector_size(*v_p) - at);
 
     return *v_p;
 }
@@ -194,7 +194,7 @@ static void * vector_realloc(void *v, u32 new_cap)
 {
     /* Unfortunately if `v` is NULL we do not know the element size,
      * and so we cannot make it work like realloc(NULL, size) would */
-    if (v == NULL) return NULL;
+    u_check_params(v != NULL);
 
     void *new_v = NULL;
 

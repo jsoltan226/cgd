@@ -42,16 +42,25 @@ static_assert(sizeof(enum s_log_level_mask) <= sizeof(u32),
 #undef S_LOG_LEVEL_LIST
 #endif /* S_LOG_LEVEL_LIST_DEF__ */
 
+/* Messages (after format conversion!) longer than this are not guaranteed to be logged properly */
+#define S_LOG_MAX_SIZE 4096
+
 void s_log(enum s_log_level level, const char *module_name,
     const char *fmt, ...);
 
 #ifndef CGD_BUILDTYPE_RELEASE
+
+#ifdef CGD_ENABLE_TRACE
 #define s_log_trace(...) s_log(S_LOG_TRACE, MODULE_NAME, __VA_ARGS__)
-#define s_log_debug(...) s_log(S_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #else
-#define s_log_trace(...)
+#define s_log_trace
+#endif /* CGD_ENABLE_TRACE */
+
+#define s_log_debug(...) s_log(S_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
+
+#else
 #define s_log_debug(...)
-#endif /* NDEBUG */
+#endif /* CGD_BUILDTYPE_RELEASE */
 
 #define s_log_verbose(...) s_log(S_LOG_VERBOSE, MODULE_NAME, __VA_ARGS__)
 
@@ -98,6 +107,7 @@ struct s_log_output_cfg {
 
     bool flag_append;
     bool flag_copy;
+    bool flag_strip_esc_sequences;
 };
 i32 s_configure_log_output(enum s_log_level level,
     const struct s_log_output_cfg *in_new_cfg,
@@ -105,11 +115,10 @@ i32 s_configure_log_output(enum s_log_level level,
 
 i32 s_configure_log_outputs(u32 level_mask, const struct s_log_output_cfg *cfg);
 
-#define S_LOG_PREFIX_SIZE 32
-void s_configure_log_prefix(enum s_log_level level,
-    char in_new_prefix[S_LOG_PREFIX_SIZE], /* Must not be local-scope */
-    char out_old_prefix[S_LOG_PREFIX_SIZE],
-    bool strip_esc_sequences);
+#define S_LOG_LINEFMT_MAX_SIZE 64
+#define S_LOG_LINE_SHORTFMT_MAX_SIZE 128
+void s_configure_log_line(enum s_log_level level,
+    const char *in_new_line, const char **out_old_line);
 
 void s_log_cleanup_all(void);
 

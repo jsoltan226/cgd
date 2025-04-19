@@ -15,3 +15,4 @@ CompileFlags:
     - "-Wpedantic"
     - "-Wextra"
     - "-Wno-unused-function"
+    - "-DCGD_ENABLE_TRACE"

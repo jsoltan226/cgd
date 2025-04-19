@@ -8,7 +8,7 @@
 #define MODULE_NAME "hashmaptest"
 #include "log-util.h"
 
-static void dump_hashmap(struct hashmap *map, s_log_level log_level);
+static void dump_hashmap(struct hashmap *map, enum s_log_level log_level);
 
 #define MAP_SIZE 10
 static struct hashmap *map = NULL;
@@ -53,7 +53,7 @@ int cgd_main(int argc, char **argv)
         }
     }
 
-    dump_hashmap(map, LOG_INFO);
+    dump_hashmap(map, S_LOG_INFO);
 
     for (u32 i = 0; i < MAP_SIZE; i++) {
         s_log_info("hashmap_lookup_record(\"%s\") -> \"%s\"",
@@ -74,7 +74,7 @@ err:
     return EXIT_FAILURE;
 }
 
-void dump_hashmap(struct hashmap *map, s_log_level log_level)
+void dump_hashmap(struct hashmap *map, enum s_log_level log_level)
 {
     if (map == NULL) return;
 

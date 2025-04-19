@@ -15,12 +15,22 @@
 #define MODULE_NAME "log"
 
 static void write_msg_to_file(FILE *fp,
-    const char line_string[S_LOG_PREFIX_SIZE], const char *module_name,
-    const char *fmt, va_list vlist);
+    const char *linefmt, const char *module_name,
+    const char *fmt, va_list vlist, bool strip_escape_sequences);
 static void write_msg_to_membuf(
-    char *buf, u64 buf_size, _Atomic u64 *write_index,
-    const char line_string[S_LOG_PREFIX_SIZE], const char *module_name,
-    const char *fmt, va_list vlist);
+    char *buf, u64 buf_size, _Atomic u64 *write_index_p,
+    const char *linefmt, const char *module_name,
+    const char *fmt, va_list vlist, bool strip_escape_sequences);
+
+static enum linefmt_ret {
+    LINEFMT_END,
+    LINEFMT_SHORT,
+    LINEFMT_MODULE_NAME,
+    LINEFMT_MESSAGE,
+} linefmt_next_token(const char *linefmt, u64 *linefmt_index_p,
+    char *short_buf, u64 short_buf_size);
+static void membuf_write_string(char *buf, u64 buf_size,
+    _Atomic u64 *write_index, const char *string);
 
 static noreturn void do_abort_v(const char *module_name,
     const char *function_name, const char *fmt, va_list vlist);
@@ -30,11 +40,19 @@ static void read_output_config(struct s_log_output_cfg *o,
 static i32 try_set_output_config(const struct s_log_output_cfg *i,
     enum s_log_level level, bool force);
 
+/* Only used in `try_set_output_config` */
+struct tmp_output_data;
+struct output;
+static i32 try_init_new_output(enum s_log_level level,
+    const struct s_log_output_cfg *i, struct tmp_output_data *o);
+static void destroy_old_output(struct output *o);
+static void store_new_output(struct output *o,
+    const struct s_log_output_cfg *i, const struct tmp_output_data *i_tmp_data);
+
 static void copy_old_data(FILE *new_fp, char *new_buf, u64 new_buf_size,
     enum s_log_output_type new_type, enum s_log_level level);
 
-static void strip_escape_sequences(char out[S_LOG_PREFIX_SIZE],
-    const char in[S_LOG_PREFIX_SIZE]);
+static void strip_escape_sequences(char *out, u32 out_size, const char *in);
 
 #define X_(name) [name] = #name,
 static const char *const log_level_strings[S_LOG_N_LEVELS_] = {
@@ -42,27 +60,48 @@ static const char *const log_level_strings[S_LOG_N_LEVELS_] = {
 };
 #undef X_
 
-/** Global configuration **/
+/*** GLOBAL CONFIGURATION ***/
 
 static _Atomic enum s_log_level g_log_level = ATOMIC_VAR_INIT(S_LOG_TRACE);
 
-static const char g_default_log_prefixes[S_LOG_N_LEVELS_][S_LOG_PREFIX_SIZE] = {
-    [S_LOG_TRACE] = es_GRAY es_DIM "T " es_COLOR_RESET,
-    [S_LOG_DEBUG] = es_GRAY "D " es_COLOR_RESET,
-    [S_LOG_VERBOSE] =  "V ",
-    [S_LOG_INFO] = es_BOLD "I " es_COLOR_RESET,
-    [S_LOG_WARNING] = es_BOLD es_FG_YELLOW  "W " es_COLOR_RESET,
-    [S_LOG_ERROR] = es_UNDERLINE es_BOLD es_FG_RED "E " es_COLOR_RESET,
-    [S_LOG_FATAL_ERROR] = "",
+/** LOG LINE STRINGS **/
+#define LINE_STRING_LIST                                                    \
+    init_line_string(S_LOG_TRACE, es_DIM "T [%m] %s" es_COLOR_RESET "\n")   \
+    init_line_string(S_LOG_DEBUG, es_GRAY "D " es_COLOR_RESET "[%m] %s\n")  \
+    init_line_string(S_LOG_VERBOSE, "V [%m] %s\n")                          \
+    init_line_string(S_LOG_INFO, es_BOLD "I " es_COLOR_RESET "[%m] %s\n")   \
+    init_line_string(S_LOG_WARNING, \
+            es_BOLD es_FG_YELLOW  "W " es_COLOR_RESET "[%m] %s\n")          \
+    init_line_string(S_LOG_ERROR,   \
+            es_UNDERLINE es_BOLD es_FG_RED "E " es_COLOR_RESET \
+            es_UNDERLINE "[%m] %s" es_COLOR_RESET "\n")                     \
+    init_line_string(S_LOG_FATAL_ERROR, "[%m] %s\n")                        \
+
+/* Ensure that all the default level strings are <= S_LOG_LINEFMT_MAX_SIZE */
+#define init_line_string(level, str)                                        \
+    static_assert(sizeof(str) <= S_LOG_LINEFMT_MAX_SIZE,                    \
+        "Default line format string for log level \"" #level "\" too long");
+LINE_STRING_LIST
+#undef init_line_string
+
+/* Actually define the default level strings */
+#define init_line_string(level, str) [level] = str,
+static const char *const g_default_log_lines[S_LOG_N_LEVELS_] = {
+    LINE_STRING_LIST
 };
-#define X_(name) [name] = ATOMIC_VAR_INIT(g_default_log_prefixes[name]),
-static const char *_Atomic g_log_prefixes[S_LOG_PREFIX_SIZE] = {
+#undef init_line_string
+
+#undef LINE_STRING_LIST
+
+/* The actual configuration variable that's read from and written to */
+#define X_(name) [name] = ATOMIC_VAR_INIT(g_default_log_lines[name]),
+static const char *_Atomic g_log_lines[S_LOG_N_LEVELS_] = {
     S_LOG_LEVEL_LIST
 };
 #undef X_
+/** END LOG LINE STRINGS **/
 
-static char g_default_out_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
-static char g_default_err_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+/** LOG OUTPUT **/
 
 struct output {
         enum s_log_output_type type;
@@ -75,7 +114,17 @@ struct output {
         u64 membuf_size;
         _Atomic u64 membuf_write_index;
         bool membuf_locally_allocated;
-} g_output_cfgs[S_LOG_N_LEVELS_] = {
+
+        bool strip_esc_sequences;
+};
+
+/* The default output configuration
+ * (All levels use the `MEMBUF` output type,
+ * where `TRACE`, `DEBUG`, `VERBOSE` and `INFO` share the `out` buffer,
+ * while `WARNING`, `ERROR` and `FATAL_ERROR` use the `err` buffer. */
+static char g_default_out_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+static char g_default_err_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+static const struct output g_default_output_cfgs[S_LOG_N_LEVELS_] = {
 #define default_output_config_template(out_membuf)                          \
     {                                                                       \
         .cfg_lock = SPINLOCK_INIT,                                          \
@@ -96,6 +145,13 @@ struct output {
 
 #undef default_output_config_template
 };
+
+/* The actual configuration variable that's read from and written to */
+#define X_(name) [name] = g_default_output_cfgs[name],
+static struct output g_output_cfgs[S_LOG_N_LEVELS_] = {
+    S_LOG_LEVEL_LIST
+};
+#undef X_
 
 #undef S_LOG_LEVEL_LIST
 
@@ -123,19 +179,21 @@ void s_log(enum s_log_level level, const char *module_name,
         do_abort_v(module_name, "(unknown)", fmt, fmt_list);
 
     struct output *const output = &g_output_cfgs[level];
-    const char *line_string = atomic_load(&g_log_prefixes[level]);
+    const char *linefmt_string = atomic_load(&g_log_lines[level]);
 
     switch (output->type) {
     case S_LOG_OUTPUT_FILE:
     case S_LOG_OUTPUT_FILEPATH:
         write_msg_to_file(output->fp,
-            line_string, module_name, fmt, fmt_list);
+            linefmt_string, module_name, fmt, fmt_list,
+            output->strip_esc_sequences);
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
         write_msg_to_membuf(output->membuf,
             output->membuf_size,
             &output->membuf_write_index,
-            line_string, module_name, fmt, fmt_list);
+            linefmt_string, module_name, fmt, fmt_list,
+            output->strip_esc_sequences);
         break;
     case S_LOG_OUTPUT_NONE:
         break;
@@ -196,36 +254,25 @@ i32 s_configure_log_outputs(u32 level_mask, const struct s_log_output_cfg *cfg)
     return n_failed;
 }
 
-#define S_LOG_PREFIX_SIZE 32
-void s_configure_log_prefix(enum s_log_level level,
-    char in_new_prefix[S_LOG_PREFIX_SIZE],
-    char out_old_prefix[S_LOG_PREFIX_SIZE],
-    bool strip_esc_sequences)
+void s_configure_log_line(enum s_log_level level,
+    const char *in_new_line, const char **out_old_line)
 {
     if (!(level >= 0 && level < S_LOG_N_LEVELS_))
         s_log_fatal("Invalid parameters: `level` (%d) "
             "not in range <0, S_LOG_N_LEVELS_ (%d)>",
             level, S_LOG_N_LEVELS_);
 
-    if (out_old_prefix != NULL) {
-        if (strip_esc_sequences) {
-            char tmp[S_LOG_PREFIX_SIZE] = { 0 };
-            memcpy(tmp, atomic_load(&g_log_prefixes[level]),
-                S_LOG_PREFIX_SIZE);
-            strip_escape_sequences(out_old_prefix, tmp);
-        } else {
-            memcpy(out_old_prefix, atomic_load(&g_log_prefixes[level]),
-                S_LOG_PREFIX_SIZE);
-        }
-    }
+    if (out_old_line != NULL)
+        *out_old_line = atomic_load(&g_log_lines[level]);
 
-    if (in_new_prefix != NULL) {
-        if (strip_esc_sequences) {
-            char tmp[S_LOG_PREFIX_SIZE] = { 0 };
-            strip_escape_sequences(tmp, in_new_prefix);
-            memcpy(in_new_prefix, tmp, S_LOG_PREFIX_SIZE);
+    if (in_new_line != NULL) {
+        u64 new_line_size = strlen(in_new_line) + 1;
+        if (new_line_size > S_LOG_LINEFMT_MAX_SIZE) {
+            s_log_fatal("Invalid parameters: `in_new_line` is too long "
+                "(%lu - max is %u)", new_line_size, S_LOG_LINEFMT_MAX_SIZE);
         }
-        atomic_store(&g_log_prefixes[level], in_new_prefix);
+
+        atomic_store(&g_log_lines[level], in_new_line);
     }
 }
 
@@ -238,70 +285,178 @@ void s_log_cleanup_all(void)
 }
 
 static void write_msg_to_file(FILE *fp,
-    const char line_string[S_LOG_PREFIX_SIZE], const char *module_name,
-    const char *fmt, va_list vlist)
+    const char *linefmt, const char *module_name,
+    const char *fmt, va_list vlist, bool strip_esc_sequences)
 {
-    fprintf(fp, "%s [%s] ", line_string, module_name);
-    vfprintf(fp, fmt, vlist);
-    fputc('\n', fp);
+    char tmp_linefmt[S_LOG_LINEFMT_MAX_SIZE] = { 0 };
+    if (strip_esc_sequences) {
+        strip_escape_sequences(tmp_linefmt, sizeof(tmp_linefmt), linefmt);
+    } else {
+        (void) strncpy(tmp_linefmt, linefmt, sizeof(tmp_linefmt));
+        tmp_linefmt[S_LOG_LINEFMT_MAX_SIZE - 1] = '\0';
+    }
+
+    char short_token_buf[S_LOG_LINE_SHORTFMT_MAX_SIZE] = { 0 };
+    u64 tmp_linefmt_index = 0;
+    enum linefmt_ret token_ret = linefmt_next_token(tmp_linefmt,
+            &tmp_linefmt_index, short_token_buf, sizeof(short_token_buf));
+
+    while (token_ret != LINEFMT_END) {
+        switch (token_ret) {
+        case LINEFMT_SHORT:
+            fputs(short_token_buf, fp);
+            break;
+        case LINEFMT_MODULE_NAME:
+            fputs(module_name, fp);
+            break;
+        case LINEFMT_MESSAGE:
+            vfprintf(fp, fmt, vlist);
+            break;
+        default:
+        case LINEFMT_END:
+            s_log_fatal("Impossible outcome "
+                "(invalid return value of `linefmt_next_token`)");
+        }
+
+        token_ret = linefmt_next_token(tmp_linefmt,
+            &tmp_linefmt_index, short_token_buf, sizeof(short_token_buf));
+    }
 }
 
 static void write_msg_to_membuf(
-    char *buf, u64 buf_size, _Atomic u64 *write_index,
-    const char line_string[S_LOG_PREFIX_SIZE], const char *module_name,
-    const char *fmt, va_list vlist)
+    char *buf, u64 buf_size, _Atomic u64 *write_index_p,
+    const char *linefmt, const char *module_name,
+    const char *fmt, va_list vlist, bool strip_esc_sequences)
 {
     if (buf_size < S_LOG_MINIMAL_MEMBUF_SIZE) {
         s_log_fatal("membuf size %lu is too small (the minimum is %lu",
             buf_size, S_LOG_MINIMAL_MEMBUF_SIZE);
     }
-
-    /* Determine the length of the string */
-    i32 premsg_len = snprintf(NULL, 0, "%s [%s] ",
-        line_string, module_name);
-    if (premsg_len < 0) {
-        /* Failure, skip */
-        premsg_len = 0;
-    }
-
-    /* Write the string to the buffer and update the write index */
-    u64 write_index_value = atomic_load(write_index);
-    if (write_index_value + premsg_len + 1/*'\0'*/ > buf_size) {
-        atomic_store(write_index, 0);
+    char tmp_linefmt[S_LOG_LINEFMT_MAX_SIZE] = { 0 };
+    if (strip_esc_sequences) {
+        strip_escape_sequences(tmp_linefmt, sizeof(tmp_linefmt), linefmt);
     } else {
-        atomic_store(write_index, write_index_value + premsg_len);
+        (void) strncpy(tmp_linefmt, linefmt, sizeof(tmp_linefmt));
+        tmp_linefmt[S_LOG_LINEFMT_MAX_SIZE - 1] = '\0';
     }
-    (void) snprintf(buf + write_index_value, buf_size - write_index_value,
-        "%s [%s] ", line_string, module_name);
 
+    char short_token_buf[S_LOG_LINE_SHORTFMT_MAX_SIZE] = { 0 };
+    u64 tmp_linefmt_index = 0;
+    enum linefmt_ret token_ret = linefmt_next_token(tmp_linefmt,
+            &tmp_linefmt_index, short_token_buf, sizeof(short_token_buf));
 
-    /* va_lists can't be used more than once,
-     * but we need one for the string length checking
-     * and also one for the actual write */
+    char message_buf[S_LOG_MAX_SIZE] = { 0 };
     va_list vcopy;
-    va_copy(vcopy, vlist);
 
-    /* Determine the length of the string */
-    i32 msg_len = vsnprintf(NULL, 0, fmt, vlist);
-    if (msg_len < 0) {
-        /* Failure, skip */
-        msg_len = 0;
-    } else {
-        msg_len++; /* The newline char */
+    while (token_ret != LINEFMT_END) {
+        switch (token_ret) {
+        case LINEFMT_SHORT:
+            membuf_write_string(buf, buf_size, write_index_p, short_token_buf);
+            break;
+        case LINEFMT_MODULE_NAME:
+            membuf_write_string(buf, buf_size, write_index_p, module_name);
+            break;
+        case LINEFMT_MESSAGE:
+            va_copy(vcopy, vlist);
+            (void) vsnprintf(message_buf, S_LOG_MAX_SIZE, fmt, vcopy);
+            va_end(vcopy);
+            message_buf[S_LOG_MAX_SIZE - 1] = '\0';
+            membuf_write_string(buf, buf_size, write_index_p, message_buf);
+            break;
+        default:
+        case LINEFMT_END:
+            s_log_fatal("Impossible outcome "
+                "(invalid return value of `linefmt_next_token`)");
+        }
+
+        token_ret = linefmt_next_token(tmp_linefmt,
+            &tmp_linefmt_index, short_token_buf, sizeof(short_token_buf));
+    }
+}
+
+static enum linefmt_ret linefmt_next_token(const char *linefmt,
+    u64 *linefmt_index_p, char *short_buf, u64 short_buf_size)
+{
+    if (short_buf == NULL || short_buf_size <= 4)
+        return LINEFMT_END;
+
+    u64 i = *linefmt_index_p;
+
+    if (linefmt[i] == '\0') {
+        return LINEFMT_END;
+    } else if (linefmt[i] != '%') {
+        u64 j = 0;
+        while (linefmt[i] != '%' && linefmt[i] != '\0'
+                && i < short_buf_size - 1)
+        {
+            short_buf[j++] = linefmt[i++];
+        }
+        short_buf[j] = '\0';
+        *linefmt_index_p = i;
+        return LINEFMT_SHORT;
+    } else if (linefmt[i] == '%') {
+        const char c = linefmt[i + 1];
+
+        /* Handle the special case where a the string ends
+         * immidiately after the '%' character */
+        if (c == '\0') {
+            short_buf[0] = '%';
+            short_buf[1] = '\0';
+            *linefmt_index_p += 1;
+            return LINEFMT_SHORT;
+        }
+
+        /* Advance by 2 chars - '%', '<c>' */
+        *linefmt_index_p += 2;
+
+        switch (c) {
+        case 'm': return LINEFMT_MODULE_NAME;
+        case 's': return LINEFMT_MESSAGE;
+        default: case '%':
+            short_buf[0] = '%';
+            short_buf[1] = c;
+            short_buf[2] = '\0';
+            return LINEFMT_SHORT;
+        }
     }
 
-    /* Write the string to the buffer and update the write index */
-    write_index_value = atomic_load(write_index);
-    if (write_index_value + msg_len + 1/*'\0'*/ > buf_size) {
-        atomic_store(write_index, 0);
-    } else {
-        atomic_store(write_index, write_index_value + msg_len);
-    }
-    (void) vsnprintf(buf + write_index_value, buf_size - write_index_value,
-        fmt, vcopy);
-    buf[write_index_value + msg_len - 1] = '\n';
+    return LINEFMT_END;
+}
 
-    va_end(vcopy);
+static void membuf_write_string(char *buf, u64 buf_size,
+    _Atomic u64 *write_index_p, const char *string)
+{
+    if (buf_size <= 1) return;
+
+    /* Keep space for a NULL terminator at the end of the membuf
+     * if someone decides to print it out like a normal string */
+    const u64 usable_buf_size = buf_size - 1;
+    buf[buf_size - 1] = '\0';
+
+    u64 chars_to_write = strlen(string) + 1;
+
+    /* If the message is so long that it will loop over itself,
+     * we might as well skip the chars that will be overwritten anyway */
+    if (chars_to_write > usable_buf_size) {
+        string += (chars_to_write - usable_buf_size);
+        chars_to_write = usable_buf_size;
+    }
+
+
+    /* If the message is too long, write the part that would fit
+     * and then set the write index back to the beginning of the buffer */
+    u64 write_index_value = atomic_load(write_index_p);
+    if (chars_to_write + write_index_value > usable_buf_size) {
+        atomic_store(write_index_p, 0);
+        memcpy(buf + write_index_value, string,
+            usable_buf_size - write_index_value);
+        chars_to_write -= usable_buf_size - write_index_value;
+    }
+    write_index_value = atomic_load(write_index_p);
+
+    /* Place the write index *ON* the NULL terminator, not after it */
+    atomic_store(write_index_p, write_index_value + chars_to_write);
+    memcpy(buf + write_index_value, string, chars_to_write);
 }
 
 static noreturn void do_abort_v(const char *module_name,
@@ -352,9 +507,15 @@ static void read_output_config(struct s_log_output_cfg *o,
             break;
     }
 
-    o->flag_copy = o->flag_append = false;
+    o->flag_copy = o->flag_append = o->flag_strip_esc_sequences = false;
 }
 
+struct tmp_output_data {
+    FILE *new_fp;
+
+    char *new_buf;
+    bool new_buf_locally_allocated;
+};
 static i32 try_set_output_config(const struct s_log_output_cfg *i,
     enum s_log_level level, bool force)
 {
@@ -362,33 +523,56 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
     if (!force)
         spinlock_acquire(&cfg->cfg_lock);
 
-    FILE *new_fp = NULL;
-    char *new_buf = NULL;
-    bool new_buf_locally_allocated = false;
-
     /* Initialize the new output */
+    struct tmp_output_data tmp_new_output = { 0 };
+    if (try_init_new_output(level, i, &tmp_new_output)) {
+        if (!force)
+            spinlock_release(&cfg->cfg_lock);
+        return 1;
+    }
+
+    /* Handle the "copy" flag */
+    if (cfg->type == S_LOG_OUTPUT_MEMORYBUF && i->flag_copy) {
+        copy_old_data(tmp_new_output.new_fp, tmp_new_output.new_buf,
+                i->out.membuf.buf_size, i->type, level);
+    }
+
+    /* Destroy the old output */
+    destroy_old_output(cfg);
+
+    /* Switch to the new output */
+    store_new_output(cfg, i, &tmp_new_output);
+
+    if (!force)
+        spinlock_release(&cfg->cfg_lock);
+    return 0;
+}
+
+static i32 try_init_new_output(enum s_log_level level,
+    const struct s_log_output_cfg *i, struct tmp_output_data *o)
+{
     switch (i->type) {
     case S_LOG_OUTPUT_FILE:
         if (i->out.file == NULL) {
             s_log_error("Invalid parameters: new log file handle "
                 "(for level %s) is NULL", log_level_strings[level]);
-            goto err;
+            return 1;
         }
-        new_fp = i->out.file;
+        o->new_fp = i->out.file;
         break;
     case S_LOG_OUTPUT_FILEPATH:
         if (i->out.filepath == NULL) {
             s_log_error("Invalid parameters: new log file path "
                 "(for level %s) is NULL", log_level_strings[level]);
-            goto err;
+            return 1;
         }
-        new_fp = fopen(i->out.filepath, i->flag_append ? "ab" : "wb");
-        if (new_fp == NULL) {
+        o->new_fp = fopen(i->out.filepath, i->flag_append ? "ab" : "wb");
+        if (o->new_fp == NULL) {
             s_log_error("Failed to open new log file \"%s\" "
                 "(for level %s): %s",
                 log_level_strings[level], strerror(errno)
             );
-            goto err;
+            return 1;
         }
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
@@ -398,86 +582,80 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
                 log_level_strings[level],
                 i->out.membuf.buf_size, S_LOG_MINIMAL_MEMBUF_SIZE
             );
-            goto err;
+            return 1;
         }
         if (i->out.membuf.buf == NULL) {
-            new_buf = calloc(i->out.membuf.buf_size, 1);
-            if (new_buf == NULL) {
+            o->new_buf = calloc(i->out.membuf.buf_size, 1);
+            if (o->new_buf == NULL) {
                 s_log_error("Failed to allocate new log buffer of size %lu "
                     "(for level %s)", i->out.membuf.buf_size,
                     log_level_strings[level]);
-                goto err;
+                return 1;
             }
-            new_buf_locally_allocated = true;
+            o->new_buf_locally_allocated = true;
         } else {
-            new_buf = i->out.membuf.buf;
+            o->new_buf = i->out.membuf.buf;
         }
         break;
     case S_LOG_OUTPUT_NONE:
         break;
     }
 
-    /* Close the old output */
-    switch (cfg->type) {
+    return 0;
+}
+
+static void destroy_old_output(struct output *o)
+{
+    switch (o->type) {
     case S_LOG_OUTPUT_FILEPATH:
-        fclose(cfg->fp);
+        fclose(o->fp);
         break;
     case S_LOG_OUTPUT_FILE:
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
-        /* Handle the "copy" flag */
-        if (i->flag_copy) {
-            copy_old_data(new_fp, new_buf, i->out.membuf.buf_size,
-                i->type, level);
-        }
-
-        if (cfg->membuf_locally_allocated)
-            free(cfg->membuf);
+        if (o->membuf_locally_allocated)
+            free(o->membuf);
         break;
     case S_LOG_OUTPUT_NONE:
         break;
     }
-    cfg->filepath = NULL;
-    cfg->fp = NULL;
-    cfg->membuf = NULL;
-    cfg->membuf_size = 0;
-    cfg->membuf_write_index = 0;
+    o->filepath = NULL;
+    o->fp = NULL;
+    o->membuf = NULL;
+    o->membuf_size = 0;
+    o->membuf_write_index = 0;
+    o->strip_esc_sequences = false;
+}
 
-    /* Store the new output */
+static void store_new_output(struct output *o,
+    const struct s_log_output_cfg *i, const struct tmp_output_data *i_tmp_data)
+{
     switch (i->type) {
     case S_LOG_OUTPUT_FILE:
-        cfg->fp = i->out.file;
+        o->fp = i->out.file;
         break;
     case S_LOG_OUTPUT_FILEPATH:
-        cfg->filepath = i->out.filepath;
-        cfg->fp = new_fp;
+        o->filepath = i->out.filepath;
+        o->fp = i_tmp_data->new_fp;
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
-        cfg->membuf = new_buf;
-        cfg->membuf_locally_allocated = new_buf_locally_allocated;
-        cfg->membuf_size = i->out.membuf.buf_size;
-        cfg->membuf_write_index = 0;
+        o->membuf = i_tmp_data->new_buf;
+        o->membuf_locally_allocated = i_tmp_data->new_buf_locally_allocated;
+        o->membuf_size = i->out.membuf.buf_size;
+        o->membuf_write_index = 0;
         break;
     case S_LOG_OUTPUT_NONE:
         break;
     }
-    cfg->type = i->type;
-
-    if (!force)
-        spinlock_release(&cfg->cfg_lock);
-    return 0;
-
-err:
-    if (!force)
-        spinlock_release(&cfg->cfg_lock);
-    return 1;
+    o->strip_esc_sequences = i->flag_strip_esc_sequences;
+    o->type = i->type;
 }
 
 static void copy_old_data(FILE *new_fp, char *new_buf, u64 new_buf_size,
     enum s_log_output_type new_type, enum s_log_level level)
 {
     struct output *const cfg = &g_output_cfgs[level];
-    char *const c_p = memchr(cfg->membuf,
+    const char *const c_p = memchr(cfg->membuf,
         '\0', cfg->membuf_size);
     const u64 n_bytes = c_p ?
         (u64)(c_p - cfg->membuf) :
@@ -511,19 +689,20 @@ static void copy_old_data(FILE *new_fp, char *new_buf, u64 new_buf_size,
     }
 }
 
-static void strip_escape_sequences(char out[S_LOG_PREFIX_SIZE],
-    const char in[S_LOG_PREFIX_SIZE])
+static void strip_escape_sequences(char *out, u32 out_size, const char *in)
 {
-    memset(out, 0, S_LOG_PREFIX_SIZE);
+    memset(out, 0, out_size);
 
     bool esc = false, csi = false, csi_done_parameter = false;
-    u32 j = 0;
-    for (u32 i = 0; i < S_LOG_PREFIX_SIZE - 1; i++) {
+    u32 i = 0, j = 0;
+    do {
         /* C0 control codes */
         if (in[i] == es_ESC_chr) {
             esc = true;
             continue;
-        } else if (es_is_C0_control_code(in[i])) {
+        } else if (es_is_C0_control_code(in[i]) &&
+                in[i] != '\n' && in[i] != '\r') /* Keep the newlines */
+        {
             esc = false;
             continue;
         }
@@ -561,5 +740,5 @@ static void strip_escape_sequences(char out[S_LOG_PREFIX_SIZE],
         }
 
         out[j++] = in[i];
-    }
+    } while (j < out_size && in[++i]);
 }

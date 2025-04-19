@@ -104,7 +104,8 @@ FILE * asset_fopen(const char *rel_file_path, const char *mode)
 
     FILE *ret = fopen(full_path_buf, mode);
     if (ret == NULL) {
-        s_log_error("Failed to open file \"%s\": %s", strerror(errno));
+        s_log_error("Failed to open file \"%s\": %s",
+            full_path_buf, strerror(errno));
     }
 
     return ret;

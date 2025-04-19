@@ -16,7 +16,7 @@ ifeq ($(PLATFORM), linux)
 INCLUDES += -I$(PREFIX)/include/libdrm
 endif
 
-COMMON_CFLAGS = -std=c11 -Wall -Wpedantic -Wextra -I. -pipe -fPIC -pthread $(INCLUDES)
+COMMON_CFLAGS = -std=c11 -Wall -Wpedantic -Wextra -I. -pipe -fPIC $(INCLUDES)
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie
@@ -31,6 +31,9 @@ LIBS += $(PREFIX)/lib/libandroid-shmem.a -llog
 endif
 ifeq ($(PLATFORM), windows)
 LIBS += -lgdi32
+endif
+ifeq ($(PLATFORM), linux)
+LIBS += -pthread
 endif
 
 STRIP?=strip
@@ -91,12 +94,17 @@ TEST_LIB = $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
 TEST_LIB_OBJS = $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
 EXEARGS =
 
-.PHONY: all release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
-.NOTPARALLEL: all release br bdr build-tests
+.PHONY: all trace release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
+.NOTPARALLEL: all trace release br bdr build-tests
 
 # Build targets
-all: CFLAGS = -ggdb -O0 -Wall
+all: CFLAGS = -ggdb -O0 -Wall -fsanitize=address
+all: LDFLAGS += -fsanitize=address
 all: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
+
+trace: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
+trace: LDFLAGS += -fsanitize=address
+trace: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
 release: LDFLAGS += -flto
 release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
@@ -151,7 +159,7 @@ asset-load-test-hook:
 # Test execution targets
 run-tests: tests
 
-tests: CFLAGS = -ggdb -O0 -Wall
+tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE
 tests: build-tests test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
@@ -174,14 +182,17 @@ tests: build-tests test-hooks
 
 
 # Test compilation targets
-build-tests: CFLAGS = -ggdb -O0 -Wall
+build-tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
+build-tests: LDFLAGS += -fsanitize=address
 build-tests: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
 
-compile-tests: CFLAGS = -ggdb -O0 -Wall
+compile-tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
+compile-tests: LDFLAGS += -fsanitize=address
 compile-tests: $(TEST_EXES)
 
-$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall
-$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): LDFLAGS += -fsanitize=address
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile tests/log-util.h
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
 

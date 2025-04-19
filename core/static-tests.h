@@ -5,12 +5,12 @@
 #endif /* __STDC__ */
 
 #if (__STDC_VERSION__ != 201112L)
-#error Please use a C11 compiler
+#error Please use a C11 compiler (-std=c11)
 #endif /* __STDC_VERSION__ */
 
 #ifndef __STDC_HOSTED__
-#warning The C standard library implementation may be incomplete; \
-expect problems!
+#error The C standard library implementation may be incomplete. \
+    If you are sure that that's not the case, define `__STDC_HOSTED__` in your CFLAGS
 #endif /* __STDC_HOSTED__ */
 
 static_assert(sizeof(float) == 4, "Sizeof float32 must be 4 bytes (32 bits)");

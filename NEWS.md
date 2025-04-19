@@ -19,3 +19,25 @@
     * Added `core/spinlock`, a very simple wrapper around `atomic_flag`
     * Added some more helper macros in `core/ansi-esc-sequences.h`
     * Adapted the changes in `game/init` to make the code compile and (at last for now) everything works! Yay!
+
+## NEWS for 19.04.2025
+
+* Further improved `core/log` and fixed a couple of bugs
+    * Changes to `core/log`:
+        * Made the `S_LOG_OUTPUT_MEMBUF` log output be an actual ring buffer
+        * Replaced `s_configure_log_prefix` with `s_configure_log_line`, allowing for a highly flexible configuration of log messages
+        * The log line is now configured by using a format string, where `%m` represents the module name and `%s` - the actual message.
+        * Due to this, logs are now written token-by-token (`linefmt_next_token`), where a token can be one of: "short string" (Anything inbetween the module name/message), the module name, the message itself.
+        * Split `try_set_output_config` into `try_init_new_output`, `destroy_old_output` and `store_new_output` to improve readability (previously `try_set_output_config` was >100 lines long)
+        * Set the maximum log message length (in `core/log.h`: `#define S_LOG_MAX_SIZE 4096`)
+        * Fixed a logic error in `strip_esape_sequences`
+    * Adapted everything in `tests/` to the new logging API
+    * Added a small test for `core/log` (`tests/log-test.c`)
+    * Changes to `Makefile`:
+        * Added a `trace` target that enables `S_LOG_TRACE` during compilation
+        * Made the `pthread` library be linked in only when targeting `linux`
+        * Enable asan in the `all` (debug) and `trace` targets
+    * Bug fixes:
+        * Fixed a missing argument to `s_log_error` in `asset-loader/asset.c`
+        * Fixed an invalid use of `vector_size` (`v_p` instead of `*v_p`) in `vector_insert_prepare__`
+    * Replaced any `#warning`s with `#error`, since `#warning` is not a C11 standard feature

@@ -13,21 +13,23 @@
 #endif /* TEST_LOG_FILE */
 
 #ifndef MODULE_NAME
-#define MODULE_NAME "unknown test"
-#warning MODULE_NAME not defined; defaulting to "unknown test"
+#error MODULE_NAME not defined
 #endif /* MODULE_NAME */
 
 static FILE *log_fp = NULL;
+#define MEMBUF_SIZE 4096
 
 static void test_log_cleanup(void) {
+    const char *old_line = NULL;
+    s_configure_log_line(S_LOG_INFO, "%s\n\n", &old_line);
+    s_log_info("===== END TEST %s =====", MODULE_NAME);
+    s_configure_log_line(S_LOG_INFO, old_line, NULL);
+
     if (log_fp != NULL) {
-        fprintf(log_fp, "===== END TEST %s =====\n\n", MODULE_NAME);
         fflush(log_fp);
         fclose(log_fp);
         log_fp = NULL;
     }
-    s_close_out_log_fp();
-    s_close_err_log_fp();
 }
 
 static i32 test_log_setup(void)
@@ -51,11 +53,25 @@ static i32 test_log_setup(void)
         return 1;
     }
 
-    fprintf(log_fp, "===== BEGIN TEST %s =====\n", MODULE_NAME);
+    const struct s_log_output_cfg out_cfg = {
+        .type = S_LOG_OUTPUT_FILE,
+        .out = {
+            .file = log_fp,
+        },
+        .flag_append = true,
+        .flag_copy = true,
+        .flag_strip_esc_sequences = false,
+    };
+    if (s_configure_log_outputs(S_LOG_ALL_MASKS, &out_cfg)) {
+        fprintf(stderr, "Failed to configure log output. Stop.\n");
+        return 1;
+    }
+    s_configure_log_level(S_LOG_TRACE);
 
-    s_set_log_out_filep(&log_fp);
-    s_set_log_err_filep(&log_fp);
-    s_set_log_level(LOG_DEBUG);
+    const char *old_line = NULL;
+    s_configure_log_line(S_LOG_INFO, "%s\n", &old_line);
+    s_log_info("===== BEGIN TEST %s =====", MODULE_NAME);
+    s_configure_log_line(S_LOG_INFO, old_line, NULL);
 
     return 0;
 }
