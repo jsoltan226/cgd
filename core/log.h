@@ -109,6 +109,9 @@
  *  `S_LOG_VERBOSE`, `S_LOG_DEBUG` and `S_LOG_TRACE` messages
  *  will be ignored).
  *
+ * To disable all logging entirely, call
+ * `s_configure_log_level(S_LOG_DISABLED)`.
+ *
  * Use `s_configure_log_level` and `s_get_log_level`
  * to manage the current log level.
  *
@@ -116,9 +119,9 @@
  * for more detailed explanations of each level.
  */
 enum s_log_level {
-    S_LOG_DISABLED = -1,
     S_LOG_LEVEL_LIST
-    S_LOG_N_LEVELS_
+    S_LOG_N_LEVELS_,
+    S_LOG_DISABLED,
 };
 #undef X_
 

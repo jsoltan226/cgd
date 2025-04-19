@@ -44,3 +44,14 @@
 
 * Documented the logging API (`core/log.h`)
     * Exactly what the title says lol
+
+* Minor bug fixes
+    * Fixed yet another logic error in `membuf_write_string` in `core/log.c`
+    * Fixed log messages being repeated when switching from a membuf to an output shared by multiple levels
+    * Removed `-DCGD_ENABLE_TRACE` from both `.clangd`s
+    * Fixed missing `void` in function prototypes in `asset-loader/plugin.h`
+    * `core/vector.c`: Renamed the useless `is_const` member from `vector_meta_t` to `dummy_`
+    * Added bounds checking to `vector_begin`
+    * Fixed `vector_begin` and `vector_end` tests in `tests/vector-test.c`
+    * Made all lines in `tests/vector-test.c` be <= 80 columns
+    * Fixed `S_LOG_DISABLED` not doing anything, and added the missing documentation for it

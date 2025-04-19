@@ -107,9 +107,13 @@ struct output {
         enum s_log_output_type type;
         spinlock_t cfg_lock;
 
+        /* Used by `S_LOG_OUTPUT_FILE` and `S_LOG_OUTPUT_FILEPATH` */
         FILE *fp;
+
+        /* Used only by `S_LOG_OUTPUT_FILEPATH` */
         const char *filepath;
 
+        /* Only used by `S_LOG_OUTPUT_MEMORYBUF` */
         char *membuf;
         u64 membuf_size;
         _Atomic u64 membuf_write_index;
@@ -433,7 +437,7 @@ static void membuf_write_string(char *buf, u64 buf_size,
     const u64 usable_buf_size = buf_size - 1;
     buf[buf_size - 1] = '\0';
 
-    u64 chars_to_write = strlen(string) + 1;
+    u64 chars_to_write = strlen(string);
 
     /* If the message is so long that it will loop over itself,
      * we might as well skip the chars that will be overwritten anyway */
@@ -451,10 +455,12 @@ static void membuf_write_string(char *buf, u64 buf_size,
         memcpy(buf + write_index_value, string,
             usable_buf_size - write_index_value);
         chars_to_write -= usable_buf_size - write_index_value;
+
+        write_index_value = atomic_load(write_index_p);
     }
-    write_index_value = atomic_load(write_index_p);
 
     /* Place the write index *ON* the NULL terminator, not after it */
+    buf[write_index_value + chars_to_write] = '\0';
     atomic_store(write_index_p, write_index_value + chars_to_write);
     memcpy(buf + write_index_value, string, chars_to_write);
 }
@@ -535,6 +541,10 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
     if (cfg->type == S_LOG_OUTPUT_MEMORYBUF && i->flag_copy) {
         copy_old_data(tmp_new_output.new_fp, tmp_new_output.new_buf,
                 i->out.membuf.buf_size, i->type, level);
+        /* Clear the buffer after copying data,
+         * to prevent duplication of messages when switching
+         * to an output shared by multiple levels */
+        memset(cfg->membuf, 0, cfg->membuf_size);
     }
 
     /* Destroy the old output */

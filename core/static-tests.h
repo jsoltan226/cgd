@@ -10,7 +10,7 @@
 
 #ifndef __STDC_HOSTED__
 #error The C standard library implementation may be incomplete. \
-    If you are sure that that's not the case, define `__STDC_HOSTED__` in your CFLAGS
+    If you are sure that this is not the case, define `__STDC_HOSTED__` in your CFLAGS
 #endif /* __STDC_HOSTED__ */
 
 static_assert(sizeof(float) == 4, "Sizeof float32 must be 4 bytes (32 bits)");

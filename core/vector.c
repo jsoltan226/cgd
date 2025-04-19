@@ -11,7 +11,7 @@ typedef struct vector_metadata__ {
     u32 n_items;
     u32 item_size;
     u32 capacity;
-    u32 is_const;
+    u32 dummy_;
 } vector_meta_t;
 
 static_assert(sizeof(struct vector_metadata__) == VECTOR_METADATA_SIZE__,

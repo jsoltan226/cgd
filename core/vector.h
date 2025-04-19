@@ -49,7 +49,7 @@ void * vector_insert_prepare__(void **v_p, u32 at);
 void vector_erase__(void **v_p, u32 at);
 
 /* Return the pointer to the first element of `v` */
-#define vector_begin(v) (v)
+#define vector_begin(v) (vector_size(v) > 0 ? v : NULL)
 
 /* Return the first element of `v` */
 #define vector_front(v) vector_at((v), 0)
@@ -58,15 +58,15 @@ void vector_erase__(void **v_p, u32 at);
 void * vector_end(void *v);
 
 /* Return the last element */
-#define vector_back(v) (vector_at((v), vector_size((v)) - 1))
+#define vector_back(v) (vector_at((v), vector_size((v)) - 1U))
 
 /* Check whether `v` is empty */
 bool vector_empty(void *v);
 
 /* Return the size of `v` (number of elements) */
-#define vector_size(v) (*((u32 *)(                                          \
+#define vector_size(v) ((u32)(*((u32 *)(                                    \
     ((u8 *)(v)) - VECTOR_METADATA_SIZE__ + VECTOR_METADATA_N_ITEMS_OFFSET__)\
-))
+)))
 
 /* Return the allocated capacity of `v` */
 u32 vector_capacity(void *v);
