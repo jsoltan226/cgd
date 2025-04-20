@@ -61,3 +61,22 @@
     * Fixed linker error when building `tests/libmain_test.so` in `release` with `CC=clang`, caused by missing `-flto` flags
     * Removed some redundant `stdio.h` and `stdlib.h` includes
     * Added missing `s_log_trace` definition after `#ifndef CGD_BUILDTYPE_RELEASE` in `core/log.h`
+
+## NEWS for 20.04.2024
+* Refactored the `S_LOG_OUTPUT_MEMBUF` implementation, creating `core/ringbuffer` in the process
+    * `membuf_write_string` was moved to a new module - `core/ringbuffer`.
+        This separates the generic ringbuffer funcionality from `core/log`, while also making
+        everything cleaner and safer.
+    * Fixed the (hopefully) last logic errors in `ringbuffer_write_string` (previously `membuf_write_string`)
+    * Each level, instead of tracking it's own write index, has a pointer to a `struct ringbuffer`.
+        This fixes the partially overwritten messages when using `S_LOG_OUTPUT_MEMBUF`,
+        caused by each level sharing the same buffer, but having separate write indexes
+        (so e.g. when `S_LOG_DEBUG` would write a message of 16 chars, it's write index would be
+        updated properly, but now when `S_LOG_INFO` writes something to the same buffer,
+        it does so according to it's own write index, which is 0, causing it to overwrite the previous
+        `S_LOG_DEBUG`'s message.
+    * The above change has also greatly simplified a lot of the code in `core/log.c`, making it cleaner and easier to maintain
+    * Due to the changes to `struct s_log_output_cfg`, passing in `NULL` as the membuf base pointer
+        to have `s_configure_log_output` manage the buffer for you is no longer possible,
+        hence it got removed.
+    * Improved the `log-test` a bit

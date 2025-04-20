@@ -3,6 +3,7 @@
 #undef S_LOG_LEVEL_LIST_DEF__
 #include "math.h"
 #include "spinlock.h"
+#include "ringbuffer.h"
 #include "ansi-esc-sequences.h"
 #include <errno.h>
 #include <stdio.h>
@@ -17,8 +18,7 @@
 static void write_msg_to_file(FILE *fp,
     const char *linefmt, const char *module_name,
     const char *fmt, va_list vlist, bool strip_escape_sequences);
-static void write_msg_to_membuf(
-    char *buf, u64 buf_size, _Atomic u64 *write_index_p,
+static void write_msg_to_membuf(struct ringbuffer *membuf,
     const char *linefmt, const char *module_name,
     const char *fmt, va_list vlist, bool strip_escape_sequences);
 
@@ -29,8 +29,6 @@ static enum linefmt_ret {
     LINEFMT_MESSAGE,
 } linefmt_next_token(const char *linefmt, u64 *linefmt_index_p,
     char *short_buf, u64 short_buf_size);
-static void membuf_write_string(char *buf, u64 buf_size,
-    _Atomic u64 *write_index, const char *string);
 
 static noreturn void do_abort_v(const char *module_name,
     const char *function_name, const char *fmt, va_list vlist);
@@ -41,15 +39,15 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
     enum s_log_level level, bool force);
 
 /* Only used in `try_set_output_config` */
-struct tmp_output_data;
+union tmp_output_data;
 struct output;
 static i32 try_init_new_output(enum s_log_level level,
-    const struct s_log_output_cfg *i, struct tmp_output_data *o);
+    const struct s_log_output_cfg *i, union tmp_output_data *o);
 static void destroy_old_output(struct output *o);
 static void store_new_output(struct output *o,
-    const struct s_log_output_cfg *i, const struct tmp_output_data *i_tmp_data);
+    const struct s_log_output_cfg *i, const union tmp_output_data *i_tmp_data);
 
-static void copy_old_data(FILE *new_fp, char *new_buf, u64 new_buf_size,
+static void copy_old_data(union tmp_output_data *new_output,
     enum s_log_output_type new_type, enum s_log_level level);
 
 static void strip_escape_sequences(char *out, u32 out_size, const char *in);
@@ -114,10 +112,7 @@ struct output {
         const char *filepath;
 
         /* Only used by `S_LOG_OUTPUT_MEMORYBUF` */
-        char *membuf;
-        u64 membuf_size;
-        _Atomic u64 membuf_write_index;
-        bool membuf_locally_allocated;
+        struct ringbuffer *membuf;
 
         bool strip_esc_sequences;
 };
@@ -126,16 +121,27 @@ struct output {
  * (All levels use the `MEMBUF` output type,
  * where `TRACE`, `DEBUG`, `VERBOSE` and `INFO` share the `out` buffer,
  * while `WARNING`, `ERROR` and `FATAL_ERROR` use the `err` buffer. */
-static char g_default_out_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
-static char g_default_err_membuf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+
+/* The size of the `static` membufs used for initial logging */
+#define S_LOG_DEFAULT_MEMBUF_SIZE 4096
+static char g_default_out_membuf_buf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+static struct ringbuffer g_default_out_membuf = {
+    .buf = g_default_out_membuf_buf,
+    .buf_size = S_LOG_DEFAULT_MEMBUF_SIZE,
+    .write_index = ATOMIC_VAR_INIT(0),
+};
+static char g_default_err_membuf_buf[S_LOG_DEFAULT_MEMBUF_SIZE] = { 0 };
+static struct ringbuffer g_default_err_membuf = {
+    .buf = g_default_err_membuf_buf,
+    .buf_size = S_LOG_DEFAULT_MEMBUF_SIZE,
+    .write_index = ATOMIC_VAR_INIT(0),
+};
 static const struct output g_default_output_cfgs[S_LOG_N_LEVELS_] = {
 #define default_output_config_template(out_membuf)                          \
     {                                                                       \
         .cfg_lock = SPINLOCK_INIT,                                          \
         .type = S_LOG_OUTPUT_MEMORYBUF,                                     \
-        .membuf = out_membuf,                                               \
-        .membuf_size = S_LOG_DEFAULT_MEMBUF_SIZE,                           \
-        .membuf_write_index = ATOMIC_VAR_INIT(0),                           \
+        .membuf = &out_membuf,                                              \
     }
 
     [S_LOG_TRACE] = default_output_config_template(g_default_out_membuf),
@@ -194,8 +200,6 @@ void s_log(enum s_log_level level, const char *module_name,
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
         write_msg_to_membuf(output->membuf,
-            output->membuf_size,
-            &output->membuf_write_index,
             linefmt_string, module_name, fmt, fmt_list,
             output->strip_esc_sequences);
         break;
@@ -327,14 +331,13 @@ static void write_msg_to_file(FILE *fp,
     }
 }
 
-static void write_msg_to_membuf(
-    char *buf, u64 buf_size, _Atomic u64 *write_index_p,
+static void write_msg_to_membuf(struct ringbuffer *membuf,
     const char *linefmt, const char *module_name,
     const char *fmt, va_list vlist, bool strip_esc_sequences)
 {
-    if (buf_size < S_LOG_MINIMAL_MEMBUF_SIZE) {
+    if (membuf->buf_size < S_LOG_MINIMAL_MEMBUF_SIZE) {
         s_log_fatal("membuf size %lu is too small (the minimum is %lu",
-            buf_size, S_LOG_MINIMAL_MEMBUF_SIZE);
+            membuf->buf_size, S_LOG_MINIMAL_MEMBUF_SIZE);
     }
     char tmp_linefmt[S_LOG_LINEFMT_MAX_SIZE] = { 0 };
     if (strip_esc_sequences) {
@@ -355,17 +358,17 @@ static void write_msg_to_membuf(
     while (token_ret != LINEFMT_END) {
         switch (token_ret) {
         case LINEFMT_SHORT:
-            membuf_write_string(buf, buf_size, write_index_p, short_token_buf);
+            ringbuffer_write_string(membuf, short_token_buf);
             break;
         case LINEFMT_MODULE_NAME:
-            membuf_write_string(buf, buf_size, write_index_p, module_name);
+            ringbuffer_write_string(membuf, module_name);
             break;
         case LINEFMT_MESSAGE:
             va_copy(vcopy, vlist);
             (void) vsnprintf(message_buf, S_LOG_MAX_SIZE, fmt, vcopy);
             va_end(vcopy);
             message_buf[S_LOG_MAX_SIZE - 1] = '\0';
-            membuf_write_string(buf, buf_size, write_index_p, message_buf);
+            ringbuffer_write_string(membuf, message_buf);
             break;
         default:
         case LINEFMT_END:
@@ -427,43 +430,6 @@ static enum linefmt_ret linefmt_next_token(const char *linefmt,
     return LINEFMT_END;
 }
 
-static void membuf_write_string(char *buf, u64 buf_size,
-    _Atomic u64 *write_index_p, const char *string)
-{
-    if (buf_size <= 1) return;
-
-    /* Keep space for a NULL terminator at the end of the membuf
-     * if someone decides to print it out like a normal string */
-    const u64 usable_buf_size = buf_size - 1;
-    buf[buf_size - 1] = '\0';
-
-    u64 chars_to_write = strlen(string);
-
-    /* If the message is so long that it will loop over itself,
-     * we might as well skip the chars that will be overwritten anyway */
-    if (chars_to_write > usable_buf_size) {
-        string += (chars_to_write - usable_buf_size);
-        chars_to_write = usable_buf_size;
-    }
-
-
-    /* If the message is too long, write the part that would fit
-     * and then set the write index back to the beginning of the buffer */
-    u64 write_index_value = atomic_load(write_index_p);
-    if (chars_to_write + write_index_value > usable_buf_size) {
-        atomic_store(write_index_p, 0);
-        memcpy(buf + write_index_value, string,
-            usable_buf_size - write_index_value);
-        chars_to_write -= usable_buf_size - write_index_value;
-
-        write_index_value = atomic_load(write_index_p);
-    }
-
-    /* Place the write index *ON* the NULL terminator, not after it */
-    buf[write_index_value + chars_to_write] = '\0';
-    atomic_store(write_index_p, write_index_value + chars_to_write);
-    memcpy(buf + write_index_value, string, chars_to_write);
-}
 
 static noreturn void do_abort_v(const char *module_name,
     const char *function_name, const char *fmt, va_list vlist)
@@ -506,8 +472,7 @@ static void read_output_config(struct s_log_output_cfg *o,
             o->out.filepath = cfg->filepath;
             break;
         case S_LOG_OUTPUT_MEMORYBUF:
-            o->out.membuf.buf = cfg->membuf;
-            o->out.membuf.buf_size = cfg->membuf_size;
+            o->out.membuf = o->out.membuf;
             break;
         case S_LOG_OUTPUT_NONE:
             break;
@@ -516,11 +481,9 @@ static void read_output_config(struct s_log_output_cfg *o,
     o->flag_copy = o->flag_append = o->flag_strip_esc_sequences = false;
 }
 
-struct tmp_output_data {
-    FILE *new_fp;
-
-    char *new_buf;
-    bool new_buf_locally_allocated;
+union tmp_output_data {
+    FILE *fp;
+    struct ringbuffer *buf;
 };
 static i32 try_set_output_config(const struct s_log_output_cfg *i,
     enum s_log_level level, bool force)
@@ -530,7 +493,7 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
         spinlock_acquire(&cfg->cfg_lock);
 
     /* Initialize the new output */
-    struct tmp_output_data tmp_new_output = { 0 };
+    union tmp_output_data tmp_new_output = { 0 };
     if (try_init_new_output(level, i, &tmp_new_output)) {
         if (!force)
             spinlock_release(&cfg->cfg_lock);
@@ -539,12 +502,11 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
 
     /* Handle the "copy" flag */
     if (cfg->type == S_LOG_OUTPUT_MEMORYBUF && i->flag_copy) {
-        copy_old_data(tmp_new_output.new_fp, tmp_new_output.new_buf,
-                i->out.membuf.buf_size, i->type, level);
+        copy_old_data(&tmp_new_output, i->type, level);
         /* Clear the buffer after copying data,
          * to prevent duplication of messages when switching
          * to an output shared by multiple levels */
-        memset(cfg->membuf, 0, cfg->membuf_size);
+        memset(cfg->membuf->buf, 0, cfg->membuf->buf_size);
     }
 
     /* Destroy the old output */
@@ -559,7 +521,7 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
 }
 
 static i32 try_init_new_output(enum s_log_level level,
-    const struct s_log_output_cfg *i, struct tmp_output_data *o)
+    const struct s_log_output_cfg *i, union tmp_output_data *o)
 {
     switch (i->type) {
     case S_LOG_OUTPUT_FILE:
@@ -568,7 +530,7 @@ static i32 try_init_new_output(enum s_log_level level,
                 "(for level %s) is NULL", log_level_strings[level]);
             return 1;
         }
-        o->new_fp = i->out.file;
+        o->fp = i->out.file;
         break;
     case S_LOG_OUTPUT_FILEPATH:
         if (i->out.filepath == NULL) {
@@ -576,8 +538,8 @@ static i32 try_init_new_output(enum s_log_level level,
                 "(for level %s) is NULL", log_level_strings[level]);
             return 1;
         }
-        o->new_fp = fopen(i->out.filepath, i->flag_append ? "ab" : "wb");
-        if (o->new_fp == NULL) {
+        o->fp = fopen(i->out.filepath, i->flag_append ? "ab" : "wb");
+        if (o->fp == NULL) {
             s_log_error("Failed to open new log file \"%s\" "
                 "(for level %s): %s",
                 log_level_strings[level], strerror(errno)
@@ -586,26 +548,21 @@ static i32 try_init_new_output(enum s_log_level level,
         }
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
-        if (i->out.membuf.buf_size < S_LOG_MINIMAL_MEMBUF_SIZE) {
-            s_log_error("Invalid parameters: new log buffer size "
-                "(for level %s) is too small (%lu - the minimum is %lu)",
-                log_level_strings[level],
-                i->out.membuf.buf_size, S_LOG_MINIMAL_MEMBUF_SIZE
-            );
+        if (i->out.membuf == NULL) {
+            s_log_error("Invalid parameters: new log ringbuffer handle "
+                "(for level %s) is NULL", log_level_strings[level]);
+            return 1;
+        } else if (i->out.membuf->buf == NULL) {
+            s_log_error("Invalid parameters: new log ringbuffer "
+                "(for level %s) is NULL", log_level_strings[level]);
+            return 1;
+        } else if (i->out.membuf->buf_size < S_LOG_MINIMAL_MEMBUF_SIZE) {
+            s_log_error("Invalid parameters: new log ringbuffer size "
+                "(for level %s) is smaller than S_LOG_MINIMAL_MEMBUF_SIZE (%u)",
+                log_level_strings[level], S_LOG_MINIMAL_MEMBUF_SIZE);
             return 1;
         }
-        if (i->out.membuf.buf == NULL) {
-            o->new_buf = calloc(i->out.membuf.buf_size, 1);
-            if (o->new_buf == NULL) {
-                s_log_error("Failed to allocate new log buffer of size %lu "
-                    "(for level %s)", i->out.membuf.buf_size,
-                    log_level_strings[level]);
-                return 1;
-            }
-            o->new_buf_locally_allocated = true;
-        } else {
-            o->new_buf = i->out.membuf.buf;
-        }
+        o->buf = i->out.membuf;
         break;
     case S_LOG_OUTPUT_NONE:
         break;
@@ -616,29 +573,13 @@ static i32 try_init_new_output(enum s_log_level level,
 
 static void destroy_old_output(struct output *o)
 {
-    switch (o->type) {
-    case S_LOG_OUTPUT_FILEPATH:
+    if (o->type == S_LOG_OUTPUT_FILEPATH)
         fclose(o->fp);
-        break;
-    case S_LOG_OUTPUT_FILE:
-        break;
-    case S_LOG_OUTPUT_MEMORYBUF:
-        if (o->membuf_locally_allocated)
-            free(o->membuf);
-        break;
-    case S_LOG_OUTPUT_NONE:
-        break;
-    }
-    o->filepath = NULL;
-    o->fp = NULL;
-    o->membuf = NULL;
-    o->membuf_size = 0;
-    o->membuf_write_index = 0;
-    o->strip_esc_sequences = false;
+    memset(o, 0, sizeof(struct output));
 }
 
 static void store_new_output(struct output *o,
-    const struct s_log_output_cfg *i, const struct tmp_output_data *i_tmp_data)
+    const struct s_log_output_cfg *i, const union tmp_output_data *i_tmp_data)
 {
     switch (i->type) {
     case S_LOG_OUTPUT_FILE:
@@ -646,13 +587,10 @@ static void store_new_output(struct output *o,
         break;
     case S_LOG_OUTPUT_FILEPATH:
         o->filepath = i->out.filepath;
-        o->fp = i_tmp_data->new_fp;
+        o->fp = i_tmp_data->fp;
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
-        o->membuf = i_tmp_data->new_buf;
-        o->membuf_locally_allocated = i_tmp_data->new_buf_locally_allocated;
-        o->membuf_size = i->out.membuf.buf_size;
-        o->membuf_write_index = 0;
+        o->membuf = i_tmp_data->buf;
         break;
     case S_LOG_OUTPUT_NONE:
         break;
@@ -661,40 +599,32 @@ static void store_new_output(struct output *o,
     o->type = i->type;
 }
 
-static void copy_old_data(FILE *new_fp, char *new_buf, u64 new_buf_size,
+static void copy_old_data(union tmp_output_data *new_output,
     enum s_log_output_type new_type, enum s_log_level level)
 {
     struct output *const cfg = &g_output_cfgs[level];
-    const char *const c_p = memchr(cfg->membuf,
-        '\0', cfg->membuf_size);
+    const char *const c_p = memchr(cfg->membuf->buf,
+        '\0', cfg->membuf->buf_size);
     const u64 n_bytes = c_p ?
-        (u64)(c_p - cfg->membuf) :
-        cfg->membuf_size;
+        (u64)(c_p - cfg->membuf->buf) :
+        cfg->membuf->buf_size;
 
     switch (new_type) {
     case S_LOG_OUTPUT_FILE:
     case S_LOG_OUTPUT_FILEPATH:
-        (void) new_buf;
-        (void) new_buf_size;
-
-        (void) fwrite(cfg->membuf, 1, n_bytes,
-            new_fp);
-        if (ferror(new_fp)) {
+        (void) fwrite(cfg->membuf->buf, 1, n_bytes, new_output->fp);
+        if (ferror(new_output->fp)) {
             s_log_error("Failed to copy over data from old membuf "
                 "(for level %s): %s", log_level_strings[level],
                 strerror(errno));
         }
         break;
     case S_LOG_OUTPUT_MEMORYBUF:
-        (void) new_fp;
-        memcpy(new_buf, cfg->membuf,
-            u_min(cfg->membuf_size, new_buf_size)
+        memcpy(new_output->buf->buf, cfg->membuf->buf,
+            u_min(cfg->membuf->buf_size, new_output->buf->buf_size)
         );
         break;
     case S_LOG_OUTPUT_NONE:
-        (void) new_fp;
-        (void) new_buf;
-        (void) new_buf_size;
         break;
     }
 }

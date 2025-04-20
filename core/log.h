@@ -1,5 +1,6 @@
 #ifndef S_LOG_H_
 #define S_LOG_H_
+#include "ringbuffer.h"
 #include "static-tests.h"
 
 #include <stdbool.h>
@@ -230,7 +231,7 @@ struct s_log_output_cfg {
          * any messages using it are ignored. */
         S_LOG_OUTPUT_NONE,
     } type;
-    union {
+    union s_log_output_handle {
         /* `S_LOG_OUTPUT_FILE`: The file handle to which logs will be written */
         FILE *file;
 
@@ -239,28 +240,18 @@ struct s_log_output_cfg {
         const char *filepath;
 
         /* `S_LOG_OUTPUT_MEMORYBUF`: The in-memory ring buffer
-         * to which logs will be written */
-        struct s_log_output_memorybuf {
-        /* The size of the `static` membufs used for initial logging */
-#define S_LOG_DEFAULT_MEMBUF_SIZE 4096
-
-            /* The ring buffer base pointer.
-             *
-             * If `NULL`, a new buffer of size `buf_size` will be allocated,
-             * and automatically freed on next configuration change.
-             *
-             * Otherwise, the user is responsible for
-             * managing the lifetime of the buffer. */
-            char *buf;
-
+         * to which logs will be written.
+         *
+         * Important note: The user is fully responsible for managing
+         * the `membuf` pointer. It must not go out of scope or get otherwise
+         * freed or invalidated before the output is set to something else.
+         *
+         * If `membuf->buf_size` is smaller than `S_LOG_MINIMAL_MEMBUF_SIZE`,
+         * the configuration will be rejected. */
 #define S_LOG_MINIMAL_MEMBUF_SIZE 16
-            /* The size of the ring buffer. If the provided value
-             * is smaller than `S_LOG_MINIMAL_MEMBUF_SIZE`,
-             * the configuration will be rejected. */
-            u64 buf_size;
-        } membuf;
-    } out;
+        struct ringbuffer *membuf;
 
+    } out;
     /* Used only by `S_LOG_OUTPUT_FILEPATH`.
      * If set, the new log file will be opened in append mode,
      * avoiding overwriting it's previous contents. */

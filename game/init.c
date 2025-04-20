@@ -20,20 +20,19 @@ i32 do_platform_init(i32 argc, const char *const *argv,
     struct platform_ctx *ctx)
 {
     (void) argc;
+    s_log_info("Starting platform init...");
 
     /* Set up logging */
-    s_log_verbose("Initializing log output...");
-    if (setup_log())
-        goto err;
-
-    s_log_info("Log setup OK. Starting platform init...");
-
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
         s_configure_log_level(S_LOG_DEBUG);
 #else
+    s_configure_log_level(S_LOG_INFO);
     (void) argv;
 #endif /* CGD_BUILDTYPE_RELEASE */
+    if (setup_log())
+        goto err;
+    s_log_verbose("Log setup OK");
 
     s_log_verbose("Creating the window...");
     ctx->win = p_window_open(WINDOW_TITLE, &WINDOW_RECT, WINDOW_FLAGS);
@@ -99,8 +98,6 @@ void do_gui_cleanup(struct gui_ctx *gui)
 
 static i32 setup_log(void)
 {
-    s_configure_log_level(S_LOG_INFO);
-
 #if (PLATFORM == PLATFORM_WINDOWS)
 #include <errno.h>
 
