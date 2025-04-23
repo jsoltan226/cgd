@@ -1,10 +1,8 @@
 Make the renderer run in a separate thread
 Automatic dependecy management
-Revise the logging module
 
 (Future) Actual build configs
 (Future) make proper OpenGL and Vulkan renderers
-(Future) Split LOG_DEBUG into multiple levels
 (Future) Implement lazy loading of menus in menu-mgr
 (Future) Add popup menus
 (Future) Add clicking sound in buttons
