@@ -4,6 +4,7 @@
 
 #include "log.h"
 #include "int.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -14,7 +15,6 @@
 #define u_FILEPATH_SIZE 256
 #define u_FILEPATH_MAX (u_FILEPATH_SIZE - 1)
 typedef char u_filepath_t[u_FILEPATH_SIZE];
-
 
 #define goto_error(...) do {    \
     s_log_error(__VA_ARGS__);   \
@@ -31,6 +31,9 @@ typedef char u_filepath_t[u_FILEPATH_SIZE];
 
 #define u_nbits(x) ((((x) - 1) / (8 * sizeof(u64))) + 1)
 
+#define u_str_helper_(x) #x
+#define u_str(x) u_str_helper_(x)
+
 #define u_generic64_zero(x) (_Generic((x),              \
     char: 0, signed char: 0, unsigned char: 0,          \
     short: 0, int: 0, long: 0, long long: 0,            \
@@ -38,6 +41,13 @@ typedef char u_filepath_t[u_FILEPATH_SIZE];
         unsigned long: 0, unsigned long long: 0,        \
     float: 0., double: 0., long double: 0.,             \
     default: (void *)0))
+
+#define u_macro_type_check(macro_name, type, x)             \
+static_assert(                                              \
+    _Generic((x), type: 1, default: 0),                     \
+    MODULE_NAME ":" u_str(__LINE__) ":" #macro_name ": "    \
+        "Type of `" #x "` invalid (should be `" #type "`)"  \
+)                                                           \
 
 #define u_rgba_swap_b_r(color) do {     \
     register const u8 tmp = color.b;    \

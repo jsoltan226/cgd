@@ -5,7 +5,6 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <platform/window.h>
-#include <stdlib.h>
 #include <limits.h>
 #define R_INTERNAL_GUARD__
 #include "rctx-internal.h"
@@ -13,6 +12,8 @@
 #define R_INTERNAL_GUARD__
 #include "putpixel-fast.h"
 #undef R_INTERNAL_GUARD__
+
+#define MODULE_NAME "rect"
 
 void r_draw_rect(struct r_ctx *ctx,
     const i32 x, const i32 y, const i32 w, const i32 h)

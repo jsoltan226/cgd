@@ -65,35 +65,33 @@ void mouse_evdev_update(struct p_mouse *mouse)
         }
 
         bool updated_buttons[P_MOUSE_N_BUTTONS] = { 0 };
-        for (u32 i = 0; i < n_mouse_devs; i++) {
-            struct pollfd *curr_pollfd = &mouse->evdev.poll_fds[i];
-            struct evdev *curr_evdev = &mouse->evdev.mouse_devs[i];
+        struct pollfd *curr_pollfd = &mouse->evdev.poll_fds[i];
+        struct evdev *curr_evdev = &mouse->evdev.mouse_devs[i];
 
-            if (!(curr_pollfd->revents & POLLIN)) continue;
+        if (!(curr_pollfd->revents & POLLIN)) continue;
 
-            read_mouse_events_from_evdev(curr_evdev->fd,
-                    mouse->buttons, updated_buttons,
-                    &mouse->pos.x, &mouse->pos.y);
+        read_mouse_events_from_evdev(curr_evdev->fd,
+                mouse->buttons, updated_buttons,
+                &mouse->pos.x, &mouse->pos.y);
 
-            for (u32 i = 0; i < P_MOUSE_N_BUTTONS; i++) {
-                if (!updated_buttons[i] &&
-                    (mouse->buttons[i].pressed || mouse->buttons[i].up)
-                ) {
-                    pressable_obj_update(&mouse->buttons[i],
-                        mouse->buttons[i].pressed);
-                }
+        for (u32 j = 0; j < P_MOUSE_N_BUTTONS; j++) {
+            if (!updated_buttons[j] &&
+                (mouse->buttons[j].pressed || mouse->buttons[j].up)
+            ) {
+                pressable_obj_update(&mouse->buttons[j],
+                    mouse->buttons[j].pressed);
             }
-
-            /* Update mouse out-of-window status */
-            const rect_t mouse_rect = {
-                .x = mouse->pos.x,
-                .y = mouse->pos.y,
-                .w = 0,
-                .h = 0,
-            };
-            mouse->is_out_of_window =
-                !u_collision(&mouse_rect, &mouse->win->info.client_area);
         }
+
+        /* Update mouse out-of-window status */
+        const rect_t mouse_rect = {
+            .x = mouse->pos.x,
+            .y = mouse->pos.y,
+            .w = 0,
+            .h = 0,
+        };
+        mouse->is_out_of_window =
+            !u_collision(&mouse_rect, &mouse->win->info.client_area);
     }
 }
 

@@ -227,10 +227,10 @@ static void unscaled_unconverted_alpha_blit(
 
             r_putpixel_fast_matching_pixelfmt_(
                 dst_data->buf,
-                dst_rect->x + dx,
-                dst_rect->y + dy,
+                (i32)(dst_rect->x + dx),
+                (i32)(dst_rect->y + dy),
                 dst_data->w,
-                *(src_data->buf + src_offset)
+                (*(src_data->buf + src_offset))
             );
         }
     }
@@ -282,8 +282,8 @@ static void unscaled_converted_alpha_blit(
 
             r_putpixel_fast_(
                 dst_data->buf,
-                dst_rect->x + dx,
-                dst_rect->y + dy,
+                (i32)(dst_rect->x + dx),
+                (i32)(dst_rect->y + dy),
                 dst_data->w,
                 *(src_data->buf + src_offset),
                 dst_pixelfmt
@@ -312,8 +312,8 @@ static void unscaled_converted_noalpha_blit(
 
             r_putpixel_fast_noalpha_(
                 dst_data->buf,
-                dst_rect->x + dx,
-                dst_rect->y + dy,
+                (i32)(dst_rect->x + dx),
+                (i32)(dst_rect->y + dy),
                 dst_data->w,
                 *(src_data->buf + src_offset),
                 dst_pixelfmt

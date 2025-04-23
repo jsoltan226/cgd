@@ -262,8 +262,7 @@ void menu_init_onevent_obj(struct on_event_obj *o,
  * the various operations selected with the menu onevent api */
 static i32 menu_onevent_api_switch_menu(const u64 arg[ONEVENT_OBJ_ARG_LEN])
 {
-    /* check for argument existence and validity */
-    if (arg == NULL || (void *)arg[0] == NULL)
+    if (arg == NULL)
         return EXIT_FAILURE;
 
     /* argv[0] contains a pointer to an mn->switch_target variable,

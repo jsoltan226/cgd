@@ -79,7 +79,7 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
     total_module_name_size++; /* The NULL terminator */
 
     lib->dll_name = malloc(total_module_name_size);
-    s_assert(lib != NULL, "malloc() failed for dll_name string");
+    s_assert(lib->dll_name != NULL, "malloc() failed for dll_name string");
     lib->dll_name[0] = '\0'; /* For `strcat` to not trip over */
 
     /* Check if the provided library name already starts with the prefix */

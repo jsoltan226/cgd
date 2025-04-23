@@ -174,7 +174,6 @@ static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE
 static enum p_keyboard_keycode parse_standard_char(char c)
 {
     if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');
-    if (c >= '0' && c <= '9') return KB_KEYCODE_DIGIT0 + (c - '0');
     if (c >= 'a' && c <= 'z') return KB_KEYCODE_A + (c - 'a');
     if (c >= 'A' && c <= 'Z') return KB_KEYCODE_A + (c - 'A'); // shift mask not implemented yet
 
