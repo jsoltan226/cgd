@@ -63,10 +63,13 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         break;
     }
 
-    /* If we get a notification that the keyboard
-     * is being deregistered, acknowledge it */
+    /* If we get a notification that the keyboard and/or mouse
+     * are being deregistered, acknowledge it */
     if (atomic_load(&win->keyboard_deregistration_notify))
         p_mt_cond_signal(win->keyboard_deregistration_ack);
+
+    if (atomic_load(&win->mouse_deregistration_notify))
+        p_mt_cond_signal(win->mouse_deregistration_ack);
 
     u_nzfree(&ev);
 }

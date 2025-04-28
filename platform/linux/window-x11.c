@@ -104,6 +104,8 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     atomic_store(&win->keyboard_deregistration_notify, false);
 
     win->registered_mouse = NULL;
+    win->mouse_deregistration_ack = p_mt_cond_create();
+    atomic_store(&win->mouse_deregistration_notify, false);
 
     if (libxcb_load(&win->xcb)) goto_error("Failed to load libxcb");
 
@@ -338,6 +340,7 @@ void window_X11_close(struct window_x11 *win)
     }
     libxcb_unload(&win->xcb);
 
+    p_mt_cond_destroy(&win->mouse_deregistration_ack);
     p_mt_cond_destroy(&win->keyboard_deregistration_ack);
 
     /* win->exists is also set to false */
@@ -402,7 +405,21 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
 void window_X11_deregister_mouse(struct window_x11 *win)
 {
     u_check_params(win != NULL);
-    win->registered_mouse = NULL;
+    if (win->registered_mouse != NULL) {
+        /* Notify the event thread that the mouse is
+         * being deregistered and wait for it to acknowledge that */
+        p_mt_mutex_t tmp_mutex = p_mt_mutex_create();
+        p_mt_mutex_lock(&tmp_mutex);
+
+        atomic_store(&win->mouse_deregistration_notify, true);
+        send_dummy_event_to_self(win);
+        p_mt_cond_wait(win->mouse_deregistration_ack, tmp_mutex);
+
+        win->registered_mouse = NULL;
+        atomic_store(&win->mouse_deregistration_notify, false);
+
+        p_mt_mutex_destroy(&tmp_mutex);
+    }
 }
 
 i32 window_X11_set_acceleration(struct window_x11 *win,

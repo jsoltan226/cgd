@@ -29,3 +29,6 @@
         * Added handling for `P_WINDOW_ACCELERATION_UNSET_` in `*window*_set_acceleration` in `platform/linux/window*`
         * `core/log.h`: Made `s_log_trace` and `s_log_debug` be replaced by `((void)0)` when disabled,
             instead of nothing (which would sometimes upset the compiler with pedantic settings)
+
+* Made mouse deregistration in `platform/linux/window-x11` thread-safe
+    * Just what the title says

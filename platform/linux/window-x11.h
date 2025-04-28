@@ -81,6 +81,8 @@ struct window_x11 {
     p_mt_cond_t keyboard_deregistration_ack;
 
     struct mouse_x11 *registered_mouse;
+    _Atomic bool mouse_deregistration_notify;
+    p_mt_cond_t mouse_deregistration_ack;
 
     xcb_input_device_id_t master_mouse_id, master_keyboard_id;
 
