@@ -24,6 +24,7 @@ ifeq ($(PLATFORM), windows)
 LDFLAGS += -municode -mwindows
 endif
 SO_LDFLAGS = -shared
+ASAN_FLAGS = -fsanitize=address
 
 LIBS ?= -lm
 ifeq ($(TERMUX), 1)
@@ -94,22 +95,21 @@ TEST_LIB = $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
 TEST_LIB_OBJS = $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
 EXEARGS =
 
-.PHONY: all trace release strip clean mostlyclean update run br tests build-tests run-tests debug-run bdr test-hooks
-.NOTPARALLEL: all trace release br bdr build-tests
+.PHONY: all trace release strip clean mostlyclean update run br tests tests-release build-tests compile-tests build-tests-release compile-tests-release run-tests debug-run bdr test-hooks
+.NOTPARALLEL: all trace release br bdr build-tests build-tests-release
 
 # Build targets
-all: CFLAGS = -ggdb -O0 -Wall -fsanitize=address
-all: LDFLAGS += -fsanitize=address
+all: CFLAGS = -g -O0 -Wall $(ASAN_FLAGS)
+all: LDFLAGS += $(ASAN_FLAGS)
 all: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
-trace: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
-trace: LDFLAGS += -fsanitize=address
+trace: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
+trace: LDFLAGS += $(ASAN_FLAGS)
 trace: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(EXE)
 
-release: LDFLAGS += -flto
-release: SO_LDFLAGS += -flto
 release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
-release: $(STATIC_TESTS) clean $(OBJDIR) $(BINDIR) $(EXE) tests mostlyclean strip
+release: LDFLAGS += -flto
+release: $(STATIC_TESTS) clean $(OBJDIR) $(BINDIR) $(EXE) tests-release mostlyclean strip
 
 br: all run
 
@@ -160,8 +160,29 @@ asset-load-test-hook:
 # Test execution targets
 run-tests: tests
 
-tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE
+tests: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE
 tests: build-tests test-hooks
+	@n_passed=0; \
+	$(ECHO) -n > $(TEST_LOGFILE); \
+	for i in $(TEST_EXES); do \
+		$(PRINTF) "EXEC	%-30s " "$$i"; \
+		if CGD_TEST_LOG_FILE="$(TEST_LOGFILE)" $$i >/dev/null 2>&1; then \
+			$(PRINTF) "$(GREEN)OK$(COL_RESET)\n"; \
+			n_passed="$$((n_passed + 1))"; \
+		else \
+			$(PRINTF) "$(RED)FAIL$(COL_RESET)\n"; \
+		fi; \
+	done; \
+	n_total=$$(echo $(TEST_EXES) | wc -w); \
+	if test "$$n_passed" -lt "$$n_total"; then \
+		$(PRINTF) "$(RED)"; \
+	else \
+		$(PRINTF) "$(GREEN)"; \
+	fi; \
+	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
+
+tests-release: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE
+tests-release: build-tests-release test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
 	for i in $(TEST_EXES); do \
@@ -183,16 +204,18 @@ tests: build-tests test-hooks
 
 
 # Test compilation targets
-build-tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
-build-tests: LDFLAGS += -fsanitize=address
+build-tests: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
+build-tests: LDFLAGS += $(ASAN_FLAGS)
 build-tests: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
 
-compile-tests: CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
-compile-tests: LDFLAGS += -fsanitize=address
+build-tests-release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
+build-tests-release: LDFLAGS += -flto
+build-tests-release: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests-release
+
 compile-tests: $(TEST_EXES)
 
-$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): CFLAGS = -ggdb -O0 -Wall -DCGD_ENABLE_TRACE -fsanitize=address
-$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): LDFLAGS += -fsanitize=address
+compile-tests-release: $(TEST_EXES)
+
 $(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile tests/log-util.h
 	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
 	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
@@ -209,6 +232,11 @@ clean:
 	@$(ECHO) "RM	$(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(BINDIR) $(OBJDIR) $(TEST_EXES) $(TEST_BINDIR) $(TEST_LOGFILE)"
 	@$(RM) $(OBJS) $(DEPS) $(EXE) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE) assets/tests/asset_load_test/*.png
 	@$(RMRF) $(OBJDIR) $(BINDIR) $(TEST_BINDIR)
+
+tests-clean:
+	@$(ECHO) "RM	$(TEST_LIB) $(TEST_EXES) $(TEST_BINDIR) $(TEST_LOGFILE)"
+	@$(RM) $(TEST_LIB) $(TEST_EXES) $(TEST_LOGFILE)
+	@$(RMRF) $(TEST_BINDIR)
 
 # Output execution targets
 run:

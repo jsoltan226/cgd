@@ -38,6 +38,7 @@ int cgd_main(int argc, char **argv)
 
     p_time_sleep(3);
     if (software_test()) goto err;
+
     p_time_sleep(3);
     if (opengl_test()) goto err;
 

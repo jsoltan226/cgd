@@ -52,16 +52,19 @@
     X_(EGLBoolean, eglDestroySurface, EGLDisplay dpy, EGLSurface surface)   \
     X_(const char *, eglQueryString, EGLDisplay display, EGLint name)       \
     X_(EGLBoolean, eglSwapBuffers, EGLDisplay dpy, EGLSurface surface)      \
+    X_(EGLBoolean, eglDestroyContext, EGLDisplay dpy, EGLContext context)   \
 
 
+struct egl_functions {
 #define X_(return_type, name, ...) \
     union { return_type (*name)(__VA_ARGS__); void *_voidp_##name; };
-struct egl_functions {
     EGL_FUNCTION_LIST
-    void * (*eglGetProcAddress)(const char *procName);
-    void *_voidp_eglGetProcAddress;
-};
 #undef X_
+    union {
+        void * (*eglGetProcAddress)(const char *procName);
+        void *_voidp_eglGetProcAddress;
+    };
+};
 
 struct p_opengl_ctx {
     struct p_opengl_functions functions;
@@ -76,8 +79,10 @@ struct p_opengl_ctx {
         struct egl_functions fns;
         EGLDisplay dpy;
         i32 ver_major, ver_minor;
+
         EGLSurface surface;
         EGLContext ctx;
+        bool egl_context_made_current;
     } egl;
 };
 
@@ -164,7 +169,7 @@ void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
     terminate_egl(&ctx->egl);
 
     if (ctx->bound_win != NULL)
-        p_window_set_acceleration(win, P_WINDOW_ACCELERATION_NONE);
+        p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
 
     memset(ctx, 0, sizeof(struct p_opengl_ctx));
     u_nfree(ctx_p);
@@ -178,9 +183,8 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
     if (egl->lib == NULL)
         goto_error("Failed to load the EGL library.");
 
-    egl->fns._voidp_eglGetProcAddress =
-        p_librtld_load_sym(egl->lib, "eglGetProcAddress");
-    if (egl->fns.eglGetProcAddress == NULL)
+    egl->fns._voidp_eglGetProcAddress = p_librtld_load_sym(egl->lib, "eglGetProcAddress");
+    if (egl->fns._voidp_eglGetProcAddress == NULL)
         goto_error("Failed to load the eglGetProcAddress function.");
 
 #define X_(return_type, name, ...)                              \
@@ -193,7 +197,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
 
     enum window_bit supported_window_types = 0;
     if (check_egl_support(egl, &supported_window_types))
-        goto_error("The EGL implementation doen't support required features.");
+        goto_error("The EGL implementation doesn't support required features.");
 
     EGLenum platform;
     u64 native_dpy;
@@ -254,6 +258,7 @@ static i32 init_egl(struct egl_ctx *egl, struct p_window *win)
     if (egl->fns.eglMakeCurrent(egl->dpy,
             egl->surface, egl->surface, egl->ctx) == 0)
         goto_error("eglMakeCurrent failed (%s)", egl_get_last_error(egl));
+    egl->egl_context_made_current = true;
 
     s_log_verbose("Initialized EGL (version %i.%i)",
         egl->ver_major, egl->ver_minor);
@@ -268,11 +273,35 @@ static void terminate_egl(struct egl_ctx *egl)
 {
     if (egl == NULL) return;
 
-    if (egl->surface != EGL_NO_SURFACE && egl->fns.eglDestroySurface != NULL)
-        (void) egl->fns.eglDestroySurface(egl->dpy, egl->surface);
+    if (egl->egl_context_made_current && egl->fns.eglMakeCurrent != NULL) {
+        if (egl->fns.eglMakeCurrent(egl->dpy,
+            EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_FALSE)
+        {
+            s_log_error("Failed to release EGL context: %s",
+                egl_get_last_error(egl));
+        }
+    }
 
-    if (egl->dpy != EGL_NO_DISPLAY && egl->fns.eglTerminate != NULL)
-        (void) egl->fns.eglTerminate(egl->dpy);
+    if (egl->ctx != EGL_NO_CONTEXT && egl->fns.eglDestroyContext != NULL) {
+        if (egl->fns.eglDestroyContext(egl->dpy, egl->ctx) == EGL_FALSE) {
+            s_log_error("Failed to destroy EGL context: %s",
+                egl_get_last_error(egl));
+        }
+    }
+
+    if (egl->surface != EGL_NO_SURFACE && egl->fns.eglDestroySurface != NULL) {
+        if (egl->fns.eglDestroySurface(egl->dpy, egl->surface) == EGL_FALSE) {
+            s_log_error("Failed to destroy EGL window surface: %s",
+                egl_get_last_error(egl));
+        }
+    }
+
+    if (egl->dpy != EGL_NO_DISPLAY && egl->fns.eglTerminate != NULL) {
+        if (egl->fns.eglTerminate(egl->dpy) == EGL_FALSE) {
+            s_log_error("Failed to terminate EGL: Bad display handle");
+        }
+    }
+
 
     if (egl->lib != NULL)
         p_librtld_close(&egl->lib);
@@ -309,7 +338,8 @@ static i32 check_egl_support(const struct egl_ctx *egl, enum window_bit *o)
 
 static const char * egl_get_last_error(const struct egl_ctx *egl)
 {
-    u_check_params(egl != NULL && egl->fns.eglGetError != NULL);
+    if (egl == NULL || egl->fns.eglGetError == NULL)
+        return "(error message n/a)";
 
 #define EGL_ERROR_LIST_         \
     X_(EGL_SUCCESS)             \

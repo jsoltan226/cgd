@@ -409,8 +409,10 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
     enum p_window_acceleration new_val)
 {
 
-    u_check_params(win != NULL &&
-        new_val >= 0 && new_val < P_WINDOW_ACCELERATION_MAX_);
+    u_check_params(win != NULL && (
+        (new_val >= 0 && new_val < P_WINDOW_ACCELERATION_MAX_)
+            || new_val == P_WINDOW_ACCELERATION_UNSET_)
+    );
 
     switch (win->generic_info_p->gpu_acceleration) {
         case P_WINDOW_ACCELERATION_NONE:
@@ -430,6 +432,8 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
     win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (new_val) {
+    case P_WINDOW_ACCELERATION_UNSET_:
+        break;
     case P_WINDOW_ACCELERATION_NONE:
         if (render_init_software(&win->render.sw,
                 win->generic_info_p->client_area.w,

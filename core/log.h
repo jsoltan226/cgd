@@ -144,7 +144,7 @@ void s_log(enum s_log_level level, const char *module_name,
  * Always disabled in release builds. */
 #define s_log_trace(...) s_log(S_LOG_TRACE, MODULE_NAME, __VA_ARGS__)
 #else
-#define s_log_trace(...)
+#define s_log_trace(...) ((void)0)
 #endif /* CGD_ENABLE_TRACE */
 
 /* Logs a message with the level `S_LOG_DEBUG` (see `S_LOG_LEVEL_LIST`).
@@ -152,8 +152,8 @@ void s_log(enum s_log_level level, const char *module_name,
 #define s_log_debug(...) s_log(S_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 
 #else
-#define s_log_trace(...)
-#define s_log_debug(...)
+#define s_log_trace(...) ((void)0)
+#define s_log_debug(...) ((void)0)
 #endif /* CGD_BUILDTYPE_RELEASE */
 
 /* Logs a message with the level `S_LOG_VERBOSE` (see `S_LOG_LEVEL_LIST`). */

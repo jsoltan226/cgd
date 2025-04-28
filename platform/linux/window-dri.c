@@ -258,7 +258,10 @@ struct pixel_flat_data * window_dri_swap_buffers(struct window_dri *win,
 i32 window_dri_set_acceleration(struct window_dri *win,
     enum p_window_acceleration val)
 {
-    u_check_params(win != NULL && val >= 0 && val < P_WINDOW_ACCELERATION_MAX_);
+    u_check_params(win != NULL &&
+        ((val >= 0 && val < P_WINDOW_ACCELERATION_MAX_) ||
+         val == P_WINDOW_ACCELERATION_UNSET_)
+    );
 
     if (win->generic_info_p->gpu_acceleration == val) {
         s_log_warn("%s(): The desired acceleration mode is the same "
@@ -284,6 +287,8 @@ i32 window_dri_set_acceleration(struct window_dri *win,
     win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (val) {
+    case P_WINDOW_ACCELERATION_UNSET_:
+        break;
     case P_WINDOW_ACCELERATION_NONE:
         if (render_init_software(&win->render.sw, &win->dev,
             &win->drm, &win->generic_info_p->client_area))
