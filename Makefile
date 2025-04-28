@@ -24,7 +24,12 @@ ifeq ($(PLATFORM), windows)
 LDFLAGS += -municode -mwindows
 endif
 SO_LDFLAGS = -shared
+ifeq ($(PLATFORM), linux)
 ASAN_FLAGS = -fsanitize=address
+endif
+ifeq ($(PLATFORM), windows)
+ASAN_FLAGS =
+endif
 
 LIBS ?= -lm
 ifeq ($(TERMUX), 1)

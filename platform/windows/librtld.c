@@ -166,7 +166,7 @@ void * p_librtld_load_sym(struct p_lib *lib, const char *symname)
     s_assert(new_sym.name != NULL, "strdup(symname) returned NULL");
     if (lib->syms == NULL)
         lib->syms = vector_new(struct sym);
-    vector_push_back(lib->syms, new_sym);
+    vector_push_back(&lib->syms, new_sym);
 
     return sym_handle;
 }

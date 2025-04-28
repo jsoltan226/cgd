@@ -4,6 +4,7 @@
 /assets/tests/asset_load_test/*.png
 /tests/testlog.txt
 /tests/bin/*
+/.clangd
 \;
 \\
 log.txt

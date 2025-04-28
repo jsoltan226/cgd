@@ -14,6 +14,7 @@
 #define MODULE_NAME "io-PNG"
 
 #define LIBPNG_NAME "libpng16"
+#define LIBPNG_VERSION "16"
 #define LIBPNG_SYM_LIST                                                        \
     X_(int, png_sig_cmp, (png_bytep sig, size_t start, size_t num_to_check))   \
     X_(png_structp, png_create_read_struct,                                    \
@@ -341,16 +342,8 @@ i32 load_libPNG(void)
         return 0;
     }
 
-#define X_(ret_type, name, ...) \
-    #name,
-
-    static const char *sym_names[] = {
-        LIBPNG_SYM_LIST
-        NULL
-    };
-#undef X_
-
-    libPNG = p_librtld_load(LIBPNG_NAME, sym_names);
+    libPNG = p_librtld_load_lib_explicit(LIBPNG_NAME,
+        NULL, NULL, LIBPNG_VERSION);
     if (libPNG == NULL) {
         p_mt_mutex_unlock(&libPNG_mutex);
         return 1;

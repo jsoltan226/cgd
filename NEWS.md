@@ -32,3 +32,16 @@
 
 * Made mouse deregistration in `platform/linux/window-x11` thread-safe
     * Just what the title says
+
+* Began adapting `platform/windows/window` to the new `p_window` API
+    * Made the code fucking compile
+    * Fixed incorrect (old) use of `vector_push_back`
+    * Fixed not loading `libpng` with the version string
+    * Started laying the groundwork for multiple acceleration mode support in `platform/windows/window`
+        by separating out any software-rendering specific stuff
+    * Moved shit that didn't belong in `do_window_init` out of there
+    * Implemented double-buffering for software rendering
+    * Properly implemented `p_window_swap_buffers` and `p_window_set_acceleration` (at least for software rendering)
+    * Strengthened the argument checking in `p_window_open`, to meet the standards of the new API
+    * The main executable and `window-test` both work as they should (even in release builds),
+        but some other tests either don't compile because of missing headers, or don't work due to no OpenGL/Vulkan implementation.

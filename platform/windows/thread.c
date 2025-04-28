@@ -219,7 +219,7 @@ static void add_mutex_to_registry(struct p_mt_mutex *m)
     if (global_mutex_registry == NULL)
         global_mutex_registry = vector_new(struct p_mt_mutex *);
 
-    vector_push_back(global_mutex_registry, m);
+    vector_push_back(&global_mutex_registry, m);
 
     LeaveCriticalSection(&master_mutex.cs);
 }

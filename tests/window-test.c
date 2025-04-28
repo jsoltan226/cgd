@@ -7,7 +7,6 @@
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define MODULE_NAME "window-test"
 #include "log-util.h"

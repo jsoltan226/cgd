@@ -15,6 +15,16 @@
 #include <wingdi.h>
 #include <minwindef.h>
 
+union window_render_ctx {
+    struct window_render_sw_ctx {
+        HDC dc; /* The device context of the window */
+
+        /* The pixel buffers to which everything is rendered */
+        struct pixel_flat_data buffers_[2];
+        struct pixel_flat_data *back_fb, *front_fb;
+    } sw;
+};
+
 struct p_window {
     HWND win; /* The handle to the main window */
 
@@ -26,7 +36,8 @@ struct p_window {
     /* Contains the client area and the display dimensions */
     struct p_window_info info;
 
-    HDC dc; /* The device context of the window */
+    /* Everything related to presenting the rendered contents to the window */
+    union window_render_ctx render;
 };
 
 struct window_init {
