@@ -47,7 +47,11 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
             goto_error("Failed to set window acceleration");
     }
 
-    ctx->curr_buf = p_window_swap_buffers(ctx->win, P_WINDOW_PRESENT_VSYNC);
+    ctx->curr_buf = p_window_swap_buffers(ctx->win,
+        ctx->win_info.vsync_supported ?
+            P_WINDOW_PRESENT_VSYNC :
+            P_WINDOW_PRESENT_NOW
+    );
     if (ctx->curr_buf == NULL)
         goto_error("Failed to swap buffers");
     u_rect_from_pixel_data(ctx->curr_buf, &ctx->pixels_rect);
@@ -104,7 +108,11 @@ void r_ctx_set_color(struct r_ctx *ctx, color_RGBA32_t color)
 void r_flush(struct r_ctx *ctx)
 {
     u_check_params(ctx != NULL);
-    ctx->curr_buf = p_window_swap_buffers(ctx->win, P_WINDOW_PRESENT_VSYNC);
+    ctx->curr_buf = p_window_swap_buffers(ctx->win,
+        ctx->win_info.vsync_supported ?
+            P_WINDOW_PRESENT_VSYNC :
+            P_WINDOW_PRESENT_NOW
+    );
     s_assert(ctx->curr_buf != NULL, "Failed to swap buffers!");
 }
 

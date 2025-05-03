@@ -1,47 +1,13 @@
-## NEWS for 23.04.2024
-
-* Fixed some bugs, optimized `r_putpixel_fast*`
-    * Removed the useless `for` loop in `spinlock_acquire`
-    * Added a `u_macro_type_check` macro in `core/util.h`
-    * Removed the duplicate `NULL` pointer check in `menu_oneven_api_switch_menu` (`gui/menu.c`)
-    * Removed duplicate line in `platform/linux/keyboard-tty.c:117`
-    * Fixed `s_assert` checking the wrong pointer in `p_librtld_load_lib_explicit` in `platform/*/librtld.c`
-    * Fixed incorrect structuring of code in `mouse_evdev_update` in `platform/linux/mouse-evdev.c`
-    * Forced the inlining of `r_putpixel_fast*` by defining them as macros instead of `static inline void` functions
-    * Since the type checking on the new `r_putpixel_fast*` is now very strict, found and fixed a couple of implicit int conversions
-
-## NEWS for 28.04.2024
-
-* Fixed `platform/linux/opengl` loading, cleaned up the `Makefile` a bit
-    * Changes to `Makefile`:
-        * Added `*tests-release` targets to enable compiling the tests with different `CFLAGS` in release builds
-        * Added a `tests-clean` target
-        * Cleaned up the unnecessary `CFLAGS += -fsanitize=address`... in `compile-tests` and `build-tests`
-        * Replaced all `-fsanitize=address` with references to the new global variable `ASAN_FLAGS`, to make it easier to disable asan
-    * Changes to `platform/linux/opengl`:
-        * Fixed `_voidp_eglGetProcAddress` and `eglGetProcAddress` not being in a `union`
-        * Added missing call to `eglDestroyContext` in `terminate_egl`
-        * Added missing call to `eglMakeCurrent(EGL_NO_CONTEXT)` in `terminate_egl`
-        * Made `p_opengl_destroy_context` set the acceleration mode to `P_WINDOW_ACCELERATION_UNSET_`
-            instead of `P_WINDOW_ACCELERATION_NONE` (software rendering)
-        * Fixed a typo
-    * Miscellaneous changes:
-        * Added handling for `P_WINDOW_ACCELERATION_UNSET_` in `*window*_set_acceleration` in `platform/linux/window*`
-        * `core/log.h`: Made `s_log_trace` and `s_log_debug` be replaced by `((void)0)` when disabled,
-            instead of nothing (which would sometimes upset the compiler with pedantic settings)
-
-* Made mouse deregistration in `platform/linux/window-x11` thread-safe
-    * Just what the title says
-
-* Began adapting `platform/windows/window` to the new `p_window` API
-    * Made the code fucking compile
-    * Fixed incorrect (old) use of `vector_push_back`
-    * Fixed not loading `libpng` with the version string
-    * Started laying the groundwork for multiple acceleration mode support in `platform/windows/window`
-        by separating out any software-rendering specific stuff
-    * Moved shit that didn't belong in `do_window_init` out of there
-    * Implemented double-buffering for software rendering
-    * Properly implemented `p_window_swap_buffers` and `p_window_set_acceleration` (at least for software rendering)
-    * Strengthened the argument checking in `p_window_open`, to meet the standards of the new API
-    * The main executable and `window-test` both work as they should (even in release builds),
-        but some other tests either don't compile because of missing headers, or don't work due to no OpenGL/Vulkan implementation.
+## NEWS for 03.05.2025
+* Refactored the software rendering backend in `platform/linux/window-x11`
+    * Made the present buffer a union of one of three types: `X11_SWFB_MALLOCED_IMAGE`, `X11_SWFB_SHMSEG`, or `X11_SWFB_PRESENT_PIXMAP`.
+        `X11_SWFB_PRESENT_PIXMAP` is planned for the future implementation of a vsync-compatible present mode, and is for now empty.
+    * Split the buffer-type-specific logic `render_*_software` into `software_*_init`, `software_*_present` and `software_*_destroy`
+    * Ensured that the integers passed to the X11 API are of compatible size
+        (most notably - `p_window_open` accepts a `rect_t` (`{ i32 x, y; u32 w; h}`) while X11 can only handle `{ i16 x, y; u16 w, h; }`).
+    * Renamed the `libxcb_error` macro in `window_X11_open` to `libxcb_error()` to highlight that it's more of a function than a constant
+    * `window_X11_close` now calls `p_window_set_acceleration` to destroy any acceleration-specific resources, instead of doing it manually
+    * Added an error condition when attempting to present a frame with vsync
+    * Removed the pixmap from `X11_SWFB_SHMSEG` as it didn't provide any benefits while introducing potential overhead
+    * Added checks to all calls to `xcb_flush`
+    * `render/rctx.c`: Added checks for vsync support in `r_ctx_init` and `r_flush`

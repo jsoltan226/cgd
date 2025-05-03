@@ -6,6 +6,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <errno.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdatomic.h>
 #include <fcntl.h>
@@ -36,23 +37,25 @@
 static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags);
 
 static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
-    u32 win_w, u32 win_h, u32 root_depth, xcb_window_t win_handle,
+    u16 win_w, u16 win_h, u8 root_depth, xcb_window_t win_handle,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
-/* The two below functions clean up after themselves in case of errors */
-static i32 software_init_buffers_shm(
-    struct x11_render_software_buf buffers_o[2],
-    u32 win_w, u32 win_h, u32 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
-);
-static i32 software_init_buffers_malloced(
-    struct x11_render_software_buf buffers_o[2],
-    u32 win_w, u32 win_h, u32 root_depth,
+static i32 software_init_buffer_malloced(
+    struct x11_render_software_malloced_image_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
     xcb_connection_t *conn, const struct libxcb *xcb
 );
-
-static void software_destroy_buffers(
-    struct x11_render_software_buf buffers[2],
+static i32 software_init_buffer_shm(
+    struct x11_render_software_shm_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+static i32 software_init_buffer_pixmap(
+    struct x11_render_software_present_pixmap_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
     xcb_connection_t *conn, const struct libxcb *xcb
 );
 
@@ -60,8 +63,38 @@ static struct pixel_flat_data * render_present_software(
     struct x11_render_software_ctx *sw_rctx, xcb_window_t win_handle,
     xcb_connection_t *conn, const struct libxcb *xcb
 );
+
+static i32 software_present_malloced(
+    const struct x11_render_software_malloced_image_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    const struct libxcb *xcb
+);
+static i32 software_present_shm(
+    const struct x11_render_software_shm_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    const struct libxcb *xcb
+);
+static i32 software_present_pixmap(
+    const struct x11_render_software_present_pixmap_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    const struct libxcb *xcb
+);
+
 static void render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     xcb_connection_t *conn, const struct libxcb *xcb);
+
+static void software_destroy_buffer_malloced(
+    struct x11_render_software_malloced_image_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+static void software_destroy_buffer_shm(
+    struct x11_render_software_shm_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+static void software_destroy_buffer_pixmap(
+    struct x11_render_software_present_pixmap_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
 
 static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
     const struct libxcb *xcb);
@@ -77,6 +110,7 @@ static i32 get_master_input_devices(
     xcb_input_device_id_t *master_mouse_id,
     xcb_input_device_id_t *master_keyboard_id
 );
+
 static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     xcb_connection_t *conn, const struct libxcb *xcb);
 static void detach_shm(xcb_shm_segment_info_t *shm,
@@ -84,7 +118,7 @@ static void detach_shm(xcb_shm_segment_info_t *shm,
 
 static void send_dummy_event_to_self(struct window_x11 *win);
 
-#define libxcb_error (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
+#define libxcb_error() (e = win->xcb.xcb_request_check(win->conn, vc), e != NULL)
 
 i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     const char *title, const rect_t *area, const u32 flags)
@@ -96,6 +130,17 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     /* Reset the window struct, just in case */
     memset(win, 0, sizeof(struct window_x11));
     win->exists = true;
+
+    if (area->w > UINT16_MAX || area->h > UINT16_MAX
+        || area->x < INT16_MIN || area->x > INT16_MAX
+        || area->y < INT16_MIN || area->y > INT16_MAX)
+    {
+        goto_error("The X11 protocol defines window position & dimensions "
+            "as 16-bit integers. The requested values would overflow the "
+            "16-bit integer limit (<%d, %d> for signed (position) "
+            "and <%d, %d> for unsigned (dimensions)).",
+            INT16_MIN, INT16_MAX, 0, UINT16_MAX);
+    }
 
     win->generic_info_p = info;
 
@@ -130,15 +175,15 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     win->win = win->xcb.xcb_generate_id(win->conn);
 
     /* Handle WINDOW_POS_CENTERED flags */
-    u16 x = area->x, y = area->y;
+    i16 x = (i16)area->x, y = (i16)area->y;
     if (flags & P_WINDOW_POS_CENTERED_X)
         x = (win->screen->width_in_pixels - area->w) / 2;
     if (flags & P_WINDOW_POS_CENTERED_Y)
         y = (win->screen->height_in_pixels - area->h) / 2;
 
     /* Initialize the generic window parameters */
-    info->client_area.x = x;
-    info->client_area.y = y;
+    info->client_area.x = (i32)x;
+    info->client_area.y = (i32)y;
     info->client_area.w = area->w;
     info->client_area.h = area->h;
 
@@ -161,7 +206,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         win->win, win->screen->root,
         x, y, area->w, area->h, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         win->screen->root_visual, value_mask, value_list);
-    if (libxcb_error) goto_error("Failed to create the window");
+    if (libxcb_error()) goto_error("Failed to create the window");
     win->win_created = true;
 
     /* Get the UTF8 string atom */
@@ -172,14 +217,14 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         win->win, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
         strlen((char *)title), title
     );
-    if (libxcb_error) goto_error("Failed to change window name");
+    if (libxcb_error()) goto_error("Failed to change window name");
 
     if (intern_atom(win, "_NET_WM_NAME", &win->NET_WM_NAME)) goto err;
     vc = win->xcb.xcb_change_property_checked(win->conn, XCB_PROP_MODE_REPLACE,
         win->win, win->NET_WM_NAME, win->UTF8_STRING, 8,
         strlen((char *)title), title
     );
-    if (libxcb_error) goto_error("Failed to set the _NET_WM_NAME property");
+    if (libxcb_error()) goto_error("Failed to set the _NET_WM_NAME property");
 
     /* Set the window to floating */
     if (intern_atom(win,
@@ -192,7 +237,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         win->win, win->NET_WM_STATE_ABOVE, XCB_ATOM_INTEGER, 32,
         1, &net_wm_state_above_val
     );
-    if (libxcb_error)
+    if (libxcb_error())
         goto_error("Failed to set the NET_WM_STATE_ABOVE property");
 
     /* Set the window minimum and maximum size */
@@ -201,7 +246,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     win->xcb.xcb_icccm_size_hints_set_max_size(&hints, area->w, area->h);
     vc = win->xcb.xcb_icccm_set_wm_normal_hints_checked(win->conn,
             win->win, &hints);
-    if (libxcb_error) goto_error("Failed to set WM normal hints");
+    if (libxcb_error()) goto_error("Failed to set WM normal hints");
 
 
     /* Set the WM_DELETE_WINDOW protocol atom */
@@ -214,7 +259,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         win->win, win->WM_PROTOCOLS, XCB_ATOM_ATOM, 32,
         1, &win->WM_DELETE_WINDOW
     );
-    if (libxcb_error) goto_error("Failed to set WM protocols");
+    if (libxcb_error()) goto_error("Failed to set WM protocols");
 
     /* Initialize the graphics context */
 
@@ -250,14 +295,14 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     vc = win->xcb.xcb_input_xi_select_events_checked(
         win->conn, win->win, 1, &keyboard_mask.head
     );
-    if (libxcb_error)
+    if (libxcb_error())
         goto_error("Failed to enable keyboard input handling with Xi2");
 
 
     vc = win->xcb.xcb_input_xi_select_events_checked(
         win->conn, win->win, 1, &mouse_mask.head
     );
-    if (libxcb_error)
+    if (libxcb_error())
         goto_error("Failed to enable mouse input handling with Xi2");
 
     /* Allocate the key symbols struct, used by keyboard-x11
@@ -272,7 +317,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
 
     /* Map the window so that it's visible */
     vc = win->xcb.xcb_map_window_checked(win->conn, win->win);
-    if (libxcb_error) goto_error("Failed to map (show) the window");
+    if (libxcb_error()) goto_error("Failed to map (show) the window");
 
     /* Finally, flush all the commands */
     if (win->xcb.xcb_flush(win->conn) <= 0)
@@ -305,19 +350,9 @@ void window_X11_close(struct window_x11 *win)
     s_log_verbose("Destroying X11 window...");
     if (!win->xcb.failed_) {
         /* Free acceleration-specific resources */
-        if (win->conn) {
-            switch (win->generic_info_p->gpu_acceleration) {
-                case P_WINDOW_ACCELERATION_NONE:
-                    render_destroy_software(&win->render.sw, win->conn, &win->xcb);
-                    break;
-                case P_WINDOW_ACCELERATION_OPENGL:
-                    render_destroy_egl(&win->render.egl, &win->xcb);
-                    break;
-                case P_WINDOW_ACCELERATION_VULKAN: /* Not implemented yet */
-                default:
-                    break;
-            }
-        }
+        if (win->conn)
+            window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
+
         if (win->key_symbols) win->xcb.xcb_key_symbols_free(win->key_symbols);
 
         if (atomic_load(&win->listener.running)) {
@@ -355,7 +390,11 @@ struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
     if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE)
         return NULL;
 
-    (void) present_mode;
+    if (present_mode == P_WINDOW_PRESENT_VSYNC) {
+        s_log_error("VSync is not yet supported in X11 windows");
+        return NULL;
+    }
+
     return render_present_software(&win->render.sw,
         win->win, win->conn, &win->xcb);
 }
@@ -553,7 +592,7 @@ static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
 }
 
 static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
-    u32 win_w, u32 win_h, u32 root_depth, xcb_window_t win_handle,
+    u16 win_w, u16 win_h, u8 root_depth, xcb_window_t win_handle,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
     sw_rctx->initialized_ = true;
@@ -576,20 +615,49 @@ static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
         return 1;
     }
 
-    sw_rctx->use_shm = xcb->shm.has_shm_extension_;
-    if (sw_rctx->use_shm) {
-        if (software_init_buffers_shm(sw_rctx->buffers,
-                win_w, win_h, root_depth, win_handle, conn, xcb))
+    for (u32 i = 0; i < 2; i++) {
+        struct x11_render_software_buf *const curr_buf = &sw_rctx->buffers[i];
+        curr_buf->initialized_ = true;
+        curr_buf->type = X11_SWFB_NULL;
+
+        if (software_init_buffer_pixmap(&curr_buf->fb.present_pixmap,
+                &curr_buf->pixbuf, win_w, win_h, root_depth, conn, xcb
+            ) == 0)
         {
-            s_log_warn("Failed to create window framebuffers with shm, "
-                "falling back to manually malloc'd buffers");
-            sw_rctx->use_shm = false;
+            s_log_verbose("Window framebuffer %d successfully initialized "
+                "as X11_SWFB_PRESENT_PIXMAP", i);
+            curr_buf->type = X11_SWFB_PRESENT_PIXMAP;
+            continue;
+        } else {
+            s_log_warn("Failed to create window framebuffer %d with "
+                "present/pixmap, falling back to shm", i);
+            software_destroy_buffer_pixmap(&curr_buf->fb.present_pixmap,
+                conn, xcb);
         }
-    }
-    if (!sw_rctx->use_shm) {
-        if (software_init_buffers_malloced(sw_rctx->buffers,
-                win_w, win_h, root_depth, conn, xcb))
+
+        if (software_init_buffer_shm(&curr_buf->fb.shm,
+                &curr_buf->pixbuf, win_w, win_h, root_depth, conn, xcb
+            ) == 0)
         {
+            s_log_verbose("Window framebuffer %d successfully initialized "
+                "as X11_SWFB_SHMSEG", i);
+            curr_buf->type = X11_SWFB_SHMSEG;
+            continue;
+        } else {
+            s_log_warn("Failed to create window framebuffer %d with shm, "
+                "falling back to manually malloc'd buffers", i);
+            software_destroy_buffer_shm(&curr_buf->fb.shm, conn, xcb);
+        }
+
+        if (software_init_buffer_malloced(&curr_buf->fb.malloced,
+                &curr_buf->pixbuf, win_w, win_h, root_depth, conn, xcb
+            ) == 0)
+        {
+            s_log_verbose("Window framebuffer %d successfully initialized "
+                "as X11_SWFB_MALLOCED_IMAGE", i);
+            curr_buf->type = X11_SWFB_MALLOCED_IMAGE;
+            continue;
+        } else {
             s_log_error("Failed to initialize manually allocated buffers");
             return 1;
         }
@@ -601,128 +669,78 @@ static i32 render_init_software(struct x11_render_software_ctx *sw_rctx,
     return 0;
 }
 
-static i32 software_init_buffers_shm(
-    struct x11_render_software_buf buffers_o[2],
-    u32 win_w, u32 win_h, u32 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
-)
-{
-    xcb_generic_error_t *e = NULL;
-    for (u32 i = 0; i < 2; i++) {
-        struct x11_render_software_buf *const curr_buf = &buffers_o[i];
-        memset(curr_buf, 0, sizeof(struct x11_render_software_buf));
-        curr_buf->initialized_ = true;
-        curr_buf->is_shm = true;
-
-        curr_buf->shm.root_depth = root_depth;
-
-        /* Initialize the shm segment */
-        if (attach_shm(&curr_buf->shm.shm_info,
-                win_w, win_h, conn, xcb))
-            goto_error("Failed to initialize shared memory region.");
-
-        /* Create the pixmap using the shm */
-        curr_buf->shm.pixmap = xcb->xcb_generate_id(conn);
-        /* Never fails */
-        (void) xcb->shm.xcb_shm_create_pixmap(conn, curr_buf->shm.pixmap,
-            win_handle, win_w, win_h, root_depth,
-            curr_buf->shm.shm_info.shmseg, 0);
-
-        /* Create the pixmap's graphics context */
-        curr_buf->shm.gc = xcb->xcb_generate_id(conn);
-#define GCV_MASK XCB_GC_FOREGROUND
-        const u32 gcv[] = {
-            0 /* black pixel */
-        };
-        xcb_void_cookie_t vc = xcb->xcb_create_gc_checked(conn,
-            curr_buf->shm.gc, win_handle, GCV_MASK, gcv);
-        if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
-            curr_buf->shm.gc = XCB_NONE;
-            goto_error("Failed to create the pixmap's graphics context");
-        }
-
-        /* Fill in the pixel data struct */
-        curr_buf->user_ret.w = win_w;
-        curr_buf->user_ret.h = win_h;
-        curr_buf->user_ret.buf = (pixel_t *)curr_buf->shm.shm_info.shmaddr;
-    }
-
-    return 0;
-err:
-    if (e != NULL)
-        u_nzfree(&e);
-    software_destroy_buffers(buffers_o, conn, xcb);
-    return 1;
-}
-
-static i32 software_init_buffers_malloced(
-    struct x11_render_software_buf buffers_o[2],
-    u32 win_w, u32 win_h, u32 root_depth,
+static i32 software_init_buffer_malloced(
+    struct x11_render_software_malloced_image_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
     xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
-    for (u32 i = 0; i < 2; i++) {
-        struct x11_render_software_buf *const curr_buf = &buffers_o[i];
-        memset(curr_buf, 0, sizeof(struct x11_render_software_buf));
-        curr_buf->initialized_ = true;
-        curr_buf->is_shm = false;
+    memset(buffer_o, 0, sizeof(struct x11_render_software_malloced_image_buf));
 
-        /* Create the image */
-        curr_buf->malloced.image = xcb->xcb_image_create_native(conn,
-            win_w, win_h, XCB_IMAGE_FORMAT_Z_PIXMAP, root_depth,
-            NULL, 0, NULL); /* Let xcb calculate the size */
-        if (curr_buf->malloced.image == NULL)
-            goto_error("Failed to create the XCB image");
-
-        /* Fill in the pixel data struct */
-        curr_buf->user_ret.w = curr_buf->malloced.image->width;
-        curr_buf->user_ret.h = curr_buf->malloced.image->height;
-        curr_buf->user_ret.buf = curr_buf->malloced.image->base;
-
-        /* Reset the memory to avoid uninitialized data */
-        memset(curr_buf->malloced.image->base, 0,
-            curr_buf->malloced.image->size);
+    /* Create the image */
+    buffer_o->image = xcb->xcb_image_create_native(conn,
+        win_w, win_h, XCB_IMAGE_FORMAT_Z_PIXMAP, root_depth,
+        NULL, 0, NULL); /* Let xcb calculate the size */
+    if (buffer_o->image == NULL) {
+        s_log_error("Failed to create the XCB image");
+        return 1;
     }
+
+    /* Fill in the pixel data struct */
+    pixbuf_o->w = buffer_o->image->width;
+    pixbuf_o->h = buffer_o->image->height;
+    pixbuf_o->buf = buffer_o->image->base;
+
     return 0;
-err:
-    software_destroy_buffers(buffers_o, conn, xcb);
-    return 1;
 }
 
-static void software_destroy_buffers(
-    struct x11_render_software_buf buffers[2],
+static i32 software_init_buffer_shm(
+    struct x11_render_software_shm_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
     xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
-    for (u32 i = 0; i < 2; i++) {
-        struct x11_render_software_buf *const curr_buf = &buffers[i];
-        if (!curr_buf->initialized_) continue;
+    memset(buffer_o, 0, sizeof(struct x11_render_software_shm_buf));
 
-        if (curr_buf->is_shm) {
-            if (curr_buf->shm.gc != XCB_NONE) {
-                /* Never fails */
-                (void) xcb->xcb_free_gc(conn, curr_buf->shm.gc);
-                curr_buf->shm.gc = XCB_NONE;
-            }
-            if (curr_buf->shm.pixmap != XCB_NONE) {
-                xcb_generic_error_t *e = NULL;
-                xcb_void_cookie_t vc =
-                    xcb->xcb_free_pixmap_checked(conn, curr_buf->shm.pixmap);
-                if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
-                    s_log_error("Failed to free pixmap (invalid handle)");
-                    u_nzfree(&e);
-                }
-                curr_buf->shm.pixmap = XCB_NONE;
-            }
+    buffer_o->root_depth = root_depth;
+    buffer_o->w = win_w;
+    buffer_o->h = win_h;
 
-            detach_shm(&curr_buf->shm.shm_info, conn, xcb);
-        } else {
-            if (curr_buf->malloced.image != NULL) {
-                xcb->xcb_image_destroy(curr_buf->malloced.image);
-                curr_buf->malloced.image = NULL;
-            }
-        }
+    /* Initialize the shm segment */
+    if (!xcb->shm.has_shm_extension_) {
+        s_log_error("The shm extension is not initialized");
+        return -1;
     }
+    if (attach_shm(&buffer_o->shm_info, win_w, win_h, conn, xcb)) {
+        s_log_error("Failed to initialize the shared memory segment");
+        return 1;
+    }
+
+    /* Fill in the pixel data struct */
+    pixbuf_o->w = win_w;
+    pixbuf_o->h = win_h;
+    pixbuf_o->buf = (pixel_t *)buffer_o->shm_info.shmaddr;
+
+    return 0;
+}
+
+static i32 software_init_buffer_pixmap(
+    struct x11_render_software_present_pixmap_buf *buffer_o,
+    struct pixel_flat_data *pixbuf_o,
+    u16 win_w, u16 win_h, u8 root_depth,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    (void) buffer_o;
+    (void) pixbuf_o;
+    (void) win_w;
+    (void) win_h;
+    (void) root_depth;
+    (void) conn;
+    (void) xcb;
+    return -1;
 }
 
 static struct pixel_flat_data * render_present_software(
@@ -736,27 +754,83 @@ static struct pixel_flat_data * render_present_software(
     sw_rctx->curr_back_buf = tmp;
 
     struct x11_render_software_buf *const curr_buf = sw_rctx->curr_front_buf;
-    if (sw_rctx->use_shm) {
-        xcb_generic_error_t *e = NULL;
-        xcb_void_cookie_t vc = xcb->xcb_copy_area(conn, curr_buf->shm.pixmap,
-            win_handle, sw_rctx->window_gc, 0, 0, 0, 0,
-            curr_buf->user_ret.w, curr_buf->user_ret.h);
-        if (e = xcb->xcb_request_check(conn, vc), e != NULL)
-            s_log_error("Failed to present pixmap");
-        /*
-        (void) xcb->shm.xcb_shm_put_image(conn, win_handle, sw_rctx->window_gc,
-            TOTAL_W, TOTAL_H, SRC_X, SRC_Y, SRC_W, SRC_H, DST_X, DST_Y,
-            curr_buf->shm.root_depth, XCB_IMAGE_FORMAT_Z_PIXMAP,
-            SHOULD_SEND_EVENT, curr_buf->shm.shm_info.shmseg, OFFSET);
-            */
-    } else {
-        (void) xcb->xcb_image_put(conn, win_handle, sw_rctx->window_gc,
-            curr_buf->malloced.image, 0, 0, 0);
+    switch (curr_buf->type) {
+    case X11_SWFB_NULL:
+        s_log_fatal("Attempt to present an uninitialized buffer");
+    case X11_SWFB_MALLOCED_IMAGE:
+        software_present_malloced(&curr_buf->fb.malloced,
+            conn, win_handle, sw_rctx->window_gc, xcb);
+        break;
+    case X11_SWFB_SHMSEG:
+        software_present_shm(&curr_buf->fb.shm,
+            conn, win_handle, sw_rctx->window_gc, xcb);
+        break;
+    case X11_SWFB_PRESENT_PIXMAP:
+        software_present_pixmap(&curr_buf->fb.present_pixmap,
+            conn, win_handle, sw_rctx->window_gc, xcb);
+        break;
+    default:
+        s_log_fatal("Invalid buffer type %d", curr_buf->type);
     }
 
-    (void) xcb->xcb_flush(conn);
+    if (xcb->xcb_flush(conn) <= 0)
+        s_log_error("xcb_flush failed!");
 
-    return &sw_rctx->curr_back_buf->user_ret;
+    return &sw_rctx->curr_back_buf->pixbuf;
+}
+
+static i32 software_present_malloced(
+    const struct x11_render_software_malloced_image_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    const struct libxcb *xcb
+)
+{
+    (void) xcb->xcb_image_put(conn, win_handle, window_gc, buf->image, 0, 0, 0);
+    return 0;
+}
+
+static i32 software_present_shm(
+    const struct x11_render_software_shm_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    const struct libxcb *xcb
+)
+{
+    const u16 TOTAL_SRC_IMAGE_W = buf->w;
+    const u16 TOTAL_SRC_IMAGE_H = buf->h;
+    const u16 SRC_X = 0, SRC_Y = 0;
+    const u16 SRC_W = buf->w;
+    const u16 SRC_H = buf->h;
+
+    const i16 DST_X = 0, DST_Y = 0;
+    const u8 DST_DEPTH = buf->root_depth;
+    const u8 DST_IMAGE_FORMAT = XCB_IMAGE_FORMAT_Z_PIXMAP;
+
+    const u8 SEND_BLIT_COMPLETE_EVENT = true;
+    const xcb_shm_seg_t SHMSEG = buf->shm_info.shmseg;
+    const u32 SRC_START_OFFSET = 0;
+
+    (void) xcb->shm.xcb_shm_put_image(
+        conn, win_handle, window_gc,
+        TOTAL_SRC_IMAGE_W, TOTAL_SRC_IMAGE_H, SRC_X, SRC_Y, SRC_W, SRC_H,
+        DST_X, DST_Y, DST_DEPTH, DST_IMAGE_FORMAT,
+        SEND_BLIT_COMPLETE_EVENT, SHMSEG, SRC_START_OFFSET
+    );
+
+    return 0;
+}
+
+static i32 software_present_pixmap(
+    const struct x11_render_software_present_pixmap_buf *buf,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t gc,
+    const struct libxcb *xcb
+)
+{
+    (void) buf;
+    (void) conn;
+    (void) win_handle;
+    (void) gc;
+    (void) xcb;
+    return -1;
 }
 
 static void render_destroy_software(struct x11_render_software_ctx *sw_rctx,
@@ -765,14 +839,73 @@ static void render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     if (sw_rctx == NULL || !sw_rctx->initialized_)
         return;
 
-    software_destroy_buffers(sw_rctx->buffers, conn, xcb);
+    for (u32 i = 0; i < 2; i++) {
+        if (!sw_rctx->initialized_)
+            continue;
+
+        struct x11_render_software_buf *const curr_buf = &sw_rctx->buffers[i];
+        switch (curr_buf->type) {
+        case X11_SWFB_NULL: break;
+        case X11_SWFB_MALLOCED_IMAGE:
+            software_destroy_buffer_malloced(&curr_buf->fb.malloced,
+                conn, xcb);
+            break;
+        case X11_SWFB_SHMSEG:
+            software_destroy_buffer_shm(&curr_buf->fb.shm, conn, xcb);
+            break;
+        case X11_SWFB_PRESENT_PIXMAP:
+            software_destroy_buffer_pixmap(&curr_buf->fb.present_pixmap,
+                conn, xcb);
+            break;
+        default:
+            s_log_fatal("Invalid buffer type %d", curr_buf->type);
+        }
+
+        curr_buf->type = X11_SWFB_NULL;
+        memset(&curr_buf->pixbuf, 0, sizeof(struct pixel_flat_data));
+        curr_buf->initialized_ = false;
+    }
 
     if (sw_rctx->window_gc != XCB_NONE) {
         xcb->xcb_free_gc(conn, sw_rctx->window_gc);
         sw_rctx->window_gc = XCB_NONE;
     }
 
-    memset(sw_rctx, 0, sizeof(struct x11_render_software_ctx));
+    sw_rctx->curr_back_buf = sw_rctx->curr_front_buf = NULL;
+    sw_rctx->initialized_ = false;
+}
+
+static void software_destroy_buffer_malloced(
+    struct x11_render_software_malloced_image_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    (void) conn;
+
+    if (buf->image != NULL) {
+        xcb->xcb_image_destroy(buf->image);
+        buf->image = NULL;
+    }
+}
+
+static void software_destroy_buffer_shm(
+    struct x11_render_software_shm_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    buf->root_depth = buf->w = buf->h = 0;
+
+    detach_shm(&buf->shm_info, conn, xcb);
+}
+
+static void software_destroy_buffer_pixmap(
+    struct x11_render_software_present_pixmap_buf *buf,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    (void) buf;
+    (void) conn;
+    (void) xcb;
 }
 
 static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
@@ -871,6 +1004,7 @@ static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     shm_o->shmaddr = (void *)-1;
     shm_o->shmseg = -1;
 
+    /* Create the shmseg */
     shm_o->shmid = shmget(
         IPC_PRIVATE,
         w * h * sizeof(pixel_t),
@@ -879,12 +1013,14 @@ static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     if ((i32)shm_o->shmid == -1)
         goto_error("Failed to create shared memory: %s", strerror(errno));
 
+    /* Attach (map) the segment to our address space */
     shm_o->shmaddr = shmat(shm_o->shmid, NULL, 0);
     if (shm_o->shmaddr == (void *)-1)
         goto_error("Failed to attach shared memory: %s", strerror(errno));
 
     shm_o->shmseg = xcb->xcb_generate_id(conn);
 
+    /* Attach the segment to the X server */
     xcb_void_cookie_t vc = xcb->shm.xcb_shm_attach_checked( conn,
         shm_o->shmseg, shm_o->shmid, false);
     xcb_generic_error_t *e = NULL;
@@ -907,7 +1043,11 @@ err:
 static void detach_shm(xcb_shm_segment_info_t *shm,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
-    (void) xcb->shm.xcb_shm_detach(conn, shm->shmseg); /* Never fails */
+    if (xcb->shm.has_shm_extension_) {
+        (void) xcb->shm.xcb_shm_detach(conn, shm->shmseg); /* Never fails */
+        if (xcb->xcb_flush(conn) <= 0)
+            s_log_error("xcb_flush failed!");
+    }
 
     if (shm->shmaddr != (void *)-1 && shm->shmaddr != NULL) {
         shmdt(shm->shmaddr);
@@ -928,5 +1068,6 @@ static void send_dummy_event_to_self(struct window_x11 *win)
 
     (void) win->xcb.xcb_send_event(win->conn, false, win->win,
             XCB_EVENT_MASK_EXPOSURE, ev_base);
-    (void) win->xcb.xcb_flush(win->conn);
+    if (win->xcb.xcb_flush(win->conn) <= 0)
+        s_log_error("xcb_flush failed!");
 }

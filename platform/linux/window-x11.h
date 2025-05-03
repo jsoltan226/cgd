@@ -24,22 +24,28 @@ struct x11_render_software_ctx {
     bool initialized_;
     xcb_gcontext_t window_gc;
 
-    bool use_shm;
     struct x11_render_software_buf {
         bool initialized_;
-        bool is_shm;
-        union {
-            struct x11_render_software_malloced_buf {
+        enum x11_render_software_fb_type {
+            X11_SWFB_NULL,
+            X11_SWFB_MALLOCED_IMAGE,
+            X11_SWFB_SHMSEG,
+            X11_SWFB_PRESENT_PIXMAP
+        } type;
+        union x11_render_software_fb {
+            struct x11_render_software_malloced_image_buf {
                 xcb_image_t *image;
             } malloced;
             struct x11_render_software_shm_buf {
-                xcb_gcontext_t gc;
-                xcb_pixmap_t pixmap;
+                u16 w, h;
                 xcb_shm_segment_info_t shm_info;
-                u32 root_depth;
+                u8 root_depth;
             } shm;
-        };
-        struct pixel_flat_data user_ret;
+            struct x11_render_software_present_pixmap_buf {
+                xcb_pixmap_t pixmap;
+            } present_pixmap;
+        } fb;
+        struct pixel_flat_data pixbuf;
     } buffers[2], *curr_front_buf, *curr_back_buf;
 };
 struct x11_render_egl_ctx {
