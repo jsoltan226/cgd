@@ -38,14 +38,15 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
     }
 
     ctx->win = win;
-    p_window_get_info(ctx->win, &ctx->win_info);
-    s_log_debug("win_rect->w: %u, win_rect->h: %u",
-        ctx->win_info.client_area.w, ctx->win_info.client_area.h);
-
     if (ctx->win_info.gpu_acceleration != P_WINDOW_ACCELERATION_NONE) {
         if (p_window_set_acceleration(ctx->win, P_WINDOW_ACCELERATION_NONE))
             goto_error("Failed to set window acceleration");
     }
+
+    p_window_get_info(ctx->win, &ctx->win_info);
+    s_log_debug("win_rect->w: %u, win_rect->h: %u, vsync_supported: %d",
+        ctx->win_info.client_area.w, ctx->win_info.client_area.h,
+        ctx->win_info.vsync_supported);
 
     ctx->curr_buf = p_window_swap_buffers(ctx->win,
         ctx->win_info.vsync_supported ?

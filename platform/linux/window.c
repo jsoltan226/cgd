@@ -180,8 +180,13 @@ i32 p_window_set_acceleration(struct p_window *win,
         return window_dri_set_acceleration(&win->dri, new_acceleration_mode);
     case WINDOW_TYPE_FBDEV:
     case WINDOW_TYPE_DUMMY:
-        s_assert(new_acceleration_mode == P_WINDOW_ACCELERATION_NONE,
-            "Dummy and fbdev windows don't support GPU acceleration!");
+        if (new_acceleration_mode != P_WINDOW_ACCELERATION_NONE &&
+            new_acceleration_mode != P_WINDOW_ACCELERATION_UNSET_)
+        {
+            s_log_error("Dummy and fbdev windows don't support "
+                "GPU acceleration!");
+            return 1;
+        }
         return 0;
     }
 

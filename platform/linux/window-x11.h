@@ -19,35 +19,10 @@
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-x11-present-sw.h"
+#undef P_INTERNAL_GUARD__
 
-struct x11_render_software_ctx {
-    bool initialized_;
-    xcb_gcontext_t window_gc;
-
-    struct x11_render_software_buf {
-        bool initialized_;
-        enum x11_render_software_fb_type {
-            X11_SWFB_NULL,
-            X11_SWFB_MALLOCED_IMAGE,
-            X11_SWFB_SHMSEG,
-            X11_SWFB_PRESENT_PIXMAP
-        } type;
-        union x11_render_software_fb {
-            struct x11_render_software_malloced_image_buf {
-                xcb_image_t *image;
-            } malloced;
-            struct x11_render_software_shm_buf {
-                u16 w, h;
-                xcb_shm_segment_info_t shm_info;
-                u8 root_depth;
-            } shm;
-            struct x11_render_software_present_pixmap_buf {
-                xcb_pixmap_t pixmap;
-            } present_pixmap;
-        } fb;
-        struct pixel_flat_data pixbuf;
-    } buffers[2], *curr_front_buf, *curr_back_buf;
-};
 struct x11_render_egl_ctx {
     bool initialized_;
 };
@@ -81,6 +56,8 @@ struct window_x11 {
         _Atomic bool running;
         p_mt_thread_t thread;
     } listener;
+
+    const struct xcb_query_extension_reply_t *xinput_ext_data;
 
     struct keyboard_x11 *registered_keyboard;
     _Atomic bool keyboard_deregistration_notify;
@@ -118,5 +95,12 @@ void window_X11_deregister_mouse(struct window_x11 *win);
 
 i32 window_X11_set_acceleration(struct window_x11 *win,
     enum p_window_acceleration new_val);
+
+i32 X11_check_xinput2_extension(xcb_connection_t *conn,
+    const struct libxcb *xcb);
+i32 X11_check_shm_extension(xcb_connection_t *conn,
+    const struct libxcb *xcb);
+i32 X11_check_present_extension(xcb_connection_t *conn,
+    const struct libxcb *xcb);
 
 #endif /* P_WINDOW_X11_H_ */

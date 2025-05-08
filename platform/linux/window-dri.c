@@ -269,7 +269,11 @@ i32 window_dri_set_acceleration(struct window_dri *win,
         return 0;
     }
 
-    switch (win->generic_info_p->gpu_acceleration) {
+    const enum p_window_acceleration old_acceleration =
+        win->generic_info_p->gpu_acceleration;
+    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+
+    switch (old_acceleration) {
         case P_WINDOW_ACCELERATION_NONE:
             render_destroy_software(&win->render.sw, &win->drm, &win->dev);
             break;
@@ -283,8 +287,6 @@ i32 window_dri_set_acceleration(struct window_dri *win,
             /* Shouldn't be possible */
             break;
     }
-
-    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (val) {
     case P_WINDOW_ACCELERATION_UNSET_:

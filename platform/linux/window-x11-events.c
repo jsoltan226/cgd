@@ -2,6 +2,7 @@
 #include "../event.h"
 #include "../mouse.h"
 #include "../thread.h"
+#include "../window.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/math.h>
@@ -9,7 +10,10 @@
 #include <stdatomic.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcbext.h>
 #include <xcb/xinput.h>
+#include <xcb/present.h>
+#include <xcb/xcb_event.h>
 #define P_INTERNAL_GUARD__
 #include "window-x11-events.h"
 #undef P_INTERNAL_GUARD__
@@ -29,7 +33,12 @@
 #define MODULE_NAME "window-x11-events"
 
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev);
-static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ev);
+static void handle_ge_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ev);
+static void handle_xi2_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ev);
+static void handle_present_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ev);
 
 void window_X11_event_listener_fn(void *arg)
 {
@@ -43,7 +52,7 @@ void window_X11_event_listener_fn(void *arg)
 
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
 {
-    switch (ev->response_type & ~0x80) {
+    switch (XCB_EVENT_RESPONSE_TYPE(ev)) {
     case XCB_CLIENT_MESSAGE: {
         xcb_client_message_event_t *cm = (xcb_client_message_event_t *)ev;
         if (cm->data.data32[0] == win->WM_DELETE_WINDOW)
@@ -55,7 +64,7 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
         break;
     case XCB_GE_GENERIC:
-        handle_ge_event(win, (xcb_ge_event_t *)ev);
+        handle_ge_event(win, (xcb_ge_generic_event_t *)ev);
         break;
     case XCB_EXPOSE:
         break;
@@ -74,7 +83,21 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
     u_nzfree(&ev);
 }
 
-static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
+static void handle_ge_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ge_ev)
+{
+    if (ge_ev->extension == win->render.sw.present.ext_data->major_opcode &&
+        win->generic_info_p->gpu_acceleration == P_WINDOW_ACCELERATION_NONE &&
+        win->render.sw.present.initialized_)
+    {
+        handle_present_event(win, ge_ev);
+    } else if (ge_ev->extension == win->xinput_ext_data->major_opcode) {
+        handle_xi2_event(win, ge_ev);
+    }
+}
+
+static void handle_xi2_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ge_ev)
 {
     const union {
         xcb_input_key_press_event_t *key_press;
@@ -82,17 +105,22 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
         xcb_input_button_press_event_t *button_press;
         xcb_input_button_release_event_t *button_release;
         xcb_input_motion_event_t *motion;
-    } ev = { (void *)ge_ev };
+        xcb_ge_generic_event_t *generic;
+    } ev = { .generic = ge_ev };
 
     const bool keyboard_unusable =
         !(win->registered_keyboard) ||
         atomic_load(&win->keyboard_deregistration_notify);
 
     /* Used in mouse event cases */
+    const bool mouse_unusable =
+        !(win->registered_mouse) ||
+        atomic_load(&win->mouse_deregistration_notify);
+
     struct mouse_x11 *mouse = win->registered_mouse;
     u32 button_bits;
 
-    switch(ge_ev->event_type) {
+    switch (ge_ev->event_type) {
     case XCB_INPUT_KEY_PRESS:
         if (keyboard_unusable)
             break;
@@ -124,10 +152,10 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
 
         break;
     case XCB_INPUT_BUTTON_PRESS:
+        if (mouse_unusable)
+            break;
         if (ev.button_press->deviceid != win->master_mouse_id)
             break;
-
-        if (!win->registered_mouse) break;
 
         button_bits = atomic_load(&mouse->button_bits);
 
@@ -142,10 +170,10 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
 
         break;
     case XCB_INPUT_BUTTON_RELEASE:
+        if (mouse_unusable)
+            break;
         if (ev.button_release->deviceid != win->master_mouse_id)
             break;
-
-        if (!win->registered_mouse) break;
 
         button_bits = atomic_load(&mouse->button_bits);
 
@@ -160,14 +188,41 @@ static void handle_ge_event(struct window_x11 *win, xcb_ge_event_t *ge_ev)
 
         break;
     case XCB_INPUT_MOTION:
+        if (mouse_unusable)
+            break;
         if (ev.button_release->deviceid != win->master_mouse_id)
             break;
-
-        if (!win->registered_mouse) break;
 
         atomic_store(&mouse->x, u_fp1616_to_f32(ev.motion->event_x));
         atomic_store(&mouse->y, u_fp1616_to_f32(ev.motion->event_y));
 
+        break;
+    default:
+        break;
+    }
+}
+
+static void handle_present_event(struct window_x11 *win,
+    xcb_ge_generic_event_t *ge_ev)
+{
+    /* We assume that the window is using software rendering
+     * with `PRESENT_PIXMAP` buffers */
+    s_log_trace("Present event");
+
+    volatile const union {
+        xcb_present_complete_notify_event_t *complete;
+        xcb_ge_generic_event_t *generic;
+    } ev = { .generic = ge_ev };
+    (void) ev;
+
+    switch (ge_ev->event_type) {
+    case XCB_PRESENT_COMPLETE_NOTIFY:
+        (void) win;
+        s_log_trace("Completed page flip no. %u", ev.complete->serial);
+        p_event_send(&(const struct p_event) {
+            .type = P_EVENT_PAGE_FLIP,
+            .info.page_flip_status = 0,
+        });
         break;
     default:
         break;

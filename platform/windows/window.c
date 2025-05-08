@@ -206,7 +206,11 @@ i32 p_window_set_acceleration(struct p_window *win,
 {
     u_check_params(win != NULL);
 
-    switch (win->info.gpu_acceleration) {
+    const enum p_window_acceleration old_acceleration =
+        win->info.gpu_acceleration;
+    win->win->info.gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+
+    switch (old_acceleration) {
     case P_WINDOW_ACCELERATION_UNSET_:
         break;
     case P_WINDOW_ACCELERATION_NONE:
@@ -226,8 +230,6 @@ i32 p_window_set_acceleration(struct p_window *win,
         s_log_fatal("Invalid old window acceleration mode (%#x)",
             win->info.gpu_acceleration);
     }
-
-    win->info.gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (new_acceleration_mode) {
     case P_WINDOW_ACCELERATION_UNSET_:
