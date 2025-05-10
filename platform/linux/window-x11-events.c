@@ -55,7 +55,7 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
     switch (XCB_EVENT_RESPONSE_TYPE(ev)) {
     case XCB_CLIENT_MESSAGE: {
         xcb_client_message_event_t *cm = (xcb_client_message_event_t *)ev;
-        if (cm->data.data32[0] == win->WM_DELETE_WINDOW)
+        if (cm->data.data32[0] == win->atoms.WM_DELETE_WINDOW)
             p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
 
         break;
@@ -74,11 +74,11 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
 
     /* If we get a notification that the keyboard and/or mouse
      * are being deregistered, acknowledge it */
-    if (atomic_load(&win->keyboard_deregistration_notify))
-        p_mt_cond_signal(win->keyboard_deregistration_ack);
+    if (atomic_load(&win->input.keyboard_deregistration_notify))
+        p_mt_cond_signal(win->input.keyboard_deregistration_ack);
 
-    if (atomic_load(&win->mouse_deregistration_notify))
-        p_mt_cond_signal(win->mouse_deregistration_ack);
+    if (atomic_load(&win->input.mouse_deregistration_notify))
+        p_mt_cond_signal(win->input.mouse_deregistration_ack);
 
     u_nzfree(&ev);
 }
@@ -91,7 +91,7 @@ static void handle_ge_event(struct window_x11 *win,
         win->render.sw.present.initialized_)
     {
         handle_present_event(win, ge_ev);
-    } else if (ge_ev->extension == win->xinput_ext_data->major_opcode) {
+    } else if (ge_ev->extension == win->input.xinput_ext_data->major_opcode) {
         handle_xi2_event(win, ge_ev);
     }
 }
@@ -109,52 +109,52 @@ static void handle_xi2_event(struct window_x11 *win,
     } ev = { .generic = ge_ev };
 
     const bool keyboard_unusable =
-        !(win->registered_keyboard) ||
-        atomic_load(&win->keyboard_deregistration_notify);
+        !(win->input.registered_keyboard) ||
+        atomic_load(&win->input.keyboard_deregistration_notify);
 
     /* Used in mouse event cases */
     const bool mouse_unusable =
-        !(win->registered_mouse) ||
-        atomic_load(&win->mouse_deregistration_notify);
+        !(win->input.registered_mouse) ||
+        atomic_load(&win->input.mouse_deregistration_notify);
 
-    struct mouse_x11 *mouse = win->registered_mouse;
+    struct mouse_x11 *mouse = win->input.registered_mouse;
     u32 button_bits;
 
     switch (ge_ev->event_type) {
     case XCB_INPUT_KEY_PRESS:
         if (keyboard_unusable)
             break;
-        if (!win->registered_keyboard)
+        if (!win->input.registered_keyboard)
             break;
 
         const xcb_keysym_t press_keysym = win->xcb.xcb_key_symbols_get_keysym(
-            win->key_symbols,
+            win->input.key_symbols,
             ev.key_press->detail,
             0
         );
-        X11_keyboard_store_key_event(win->registered_keyboard,
+        X11_keyboard_store_key_event(win->input.registered_keyboard,
             press_keysym, KEYBOARD_X11_PRESS);
 
         break;
     case XCB_INPUT_KEY_RELEASE:
         if (keyboard_unusable)
             break;
-        if (ev.key_release->deviceid != win->master_keyboard_id)
+        if (ev.key_release->deviceid != win->input.master_keyboard_id)
             break;
 
         const xcb_keysym_t release_keysym = win->xcb.xcb_key_symbols_get_keysym(
-            win->key_symbols,
+            win->input.key_symbols,
             ev.key_release->detail,
             0
         );
-        X11_keyboard_store_key_event(win->registered_keyboard,
+        X11_keyboard_store_key_event(win->input.registered_keyboard,
             release_keysym, KEYBOARD_X11_RELEASE);
 
         break;
     case XCB_INPUT_BUTTON_PRESS:
         if (mouse_unusable)
             break;
-        if (ev.button_press->deviceid != win->master_mouse_id)
+        if (ev.button_press->deviceid != win->input.master_mouse_id)
             break;
 
         button_bits = atomic_load(&mouse->button_bits);
@@ -172,7 +172,7 @@ static void handle_xi2_event(struct window_x11 *win,
     case XCB_INPUT_BUTTON_RELEASE:
         if (mouse_unusable)
             break;
-        if (ev.button_release->deviceid != win->master_mouse_id)
+        if (ev.button_release->deviceid != win->input.master_mouse_id)
             break;
 
         button_bits = atomic_load(&mouse->button_bits);
@@ -190,7 +190,7 @@ static void handle_xi2_event(struct window_x11 *win,
     case XCB_INPUT_MOTION:
         if (mouse_unusable)
             break;
-        if (ev.button_release->deviceid != win->master_mouse_id)
+        if (ev.button_release->deviceid != win->input.master_mouse_id)
             break;
 
         atomic_store(&mouse->x, u_fp1616_to_f32(ev.motion->event_x));

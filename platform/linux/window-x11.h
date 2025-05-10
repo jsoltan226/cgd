@@ -30,46 +30,79 @@ struct x11_render_egl_ctx {
 struct window_x11 {
     bool exists; /* Sanity check to avoid double-frees */
 
-    struct libxcb xcb;
-
-    xcb_connection_t *conn;
-    const xcb_setup_t *setup;
-    xcb_screen_t *screen;
-    xcb_screen_iterator_t iter;
-    xcb_window_t win;
-    bool win_created;
-
+    /* The interface to the generic `p_window` API;
+     * holds basic information like window position and dimensions,
+     * pixel format and feature (e.g. vsync) support.
+     * Although the actual struct is stored somewhere else,
+     * we are responsible for initializing it. */
     struct p_window_info *generic_info_p;
 
+    /* The libxcb-* library functions, loaded at runtime with `dlopen` */
+    struct libxcb xcb;
+
+    /* The libxcb "context" that represents the connection to the server */
+    xcb_connection_t *conn;
+
+    /* The handle to the X window */
+    xcb_window_t win_handle;
+
+    /* Information about the screen on which our window is displayed */
+    xcb_screen_t *screen;
+
+    /* These are the standard X11 Atoms ("additional window properties")
+     * that are read and/or set during window initialization */
+    struct window_x11_atoms {
+        xcb_atom_t UTF8_STRING;
+        xcb_atom_t NET_WM_NAME;
+        xcb_atom_t NET_WM_STATE_ABOVE;
+        xcb_atom_t WM_PROTOCOLS;
+        xcb_atom_t WM_DELETE_WINDOW;
+    } atoms;
+
+    /* Anything related to frame presentation.
+     * Which one of these is used depends on the window gpu acceleration
+     * (`generic_info_p->gpu_acceleration`). */
     union window_x11_render_ctx {
-        struct x11_render_software_ctx sw;
-        struct x11_render_egl_ctx egl;
+        struct x11_render_software_ctx sw; /* Used with software rendering */
+        struct x11_render_egl_ctx egl; /* Used with OpenGL/EGL rendering */
     } render;
 
-    xcb_atom_t UTF8_STRING;
-    xcb_atom_t NET_WM_NAME;
-    xcb_atom_t NET_WM_STATE_ABOVE;
-    xcb_atom_t WM_PROTOCOLS;
-    xcb_atom_t WM_DELETE_WINDOW;
-
+    /* Stuff related to the event listener thread */
     struct window_x11_listener {
         _Atomic bool running;
         p_mt_thread_t thread;
     } listener;
 
-    const struct xcb_query_extension_reply_t *xinput_ext_data;
+    /* Anything used to process input events */
+    struct window_x11_input {
+        /* Cached data of the Xinput2 extension, which we use to
+         * receive keyboard and mouse input from the server */
+        const struct xcb_query_extension_reply_t *xinput_ext_data;
 
-    struct keyboard_x11 *registered_keyboard;
-    _Atomic bool keyboard_deregistration_notify;
-    p_mt_cond_t keyboard_deregistration_ack;
+        /* The keyboard that will be receiving any keyboard input events.
+         * Used to interface with `p_keyboard`. */
+        struct keyboard_x11 *registered_keyboard;
+        /* These are used to notify the listener thread that the keyboard
+         * is no longer usable and events shouldn't be written to it */
+        _Atomic bool keyboard_deregistration_notify;
+        p_mt_cond_t keyboard_deregistration_ack;
 
-    struct mouse_x11 *registered_mouse;
-    _Atomic bool mouse_deregistration_notify;
-    p_mt_cond_t mouse_deregistration_ack;
+        /* The mouse that will be receiving any mouse input events.
+         * Used to interface with `p_mouse`. */
+        struct mouse_x11 *registered_mouse;
+        /* These are used to notify the listener thread that the mouse
+         * is no longer usable and events shouldn't be written to it */
+        _Atomic bool mouse_deregistration_notify;
+        p_mt_cond_t mouse_deregistration_ack;
 
-    xcb_input_device_id_t master_mouse_id, master_keyboard_id;
+        /* The handles to the "master" X11 devices - virtual devices
+         * that combine input from all physical ("slave") devices */
+        xcb_input_device_id_t master_mouse_id, master_keyboard_id;
 
-    xcb_key_symbols_t *key_symbols;
+        /* Used for easy translation of X11 keyboard events
+         * to keyboard symbols, because the raw event codes are useless */
+        xcb_key_symbols_t *key_symbols;
+    } input;
 };
 
 /* Returns 0 on success and non-zero on failure.

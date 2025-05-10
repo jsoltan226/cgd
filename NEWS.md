@@ -41,3 +41,26 @@
         after the resources of the current acceleration mode have been destroyed, but the `gpu_accleration` field
         was still set to the old acceleration instead of `P_WINDOW_ACCELERATION_UNSET_`
     * Added missing `P_WINDOW_NO_ACCELERATION` flags in some tests
+
+## NEWS for 10.05.2025
+
+* Refactored and cleaned up `struct window_x11`, `window_X11_open` and `window_X11_close`
+    * `struct window_x11`:
+        * Removed the `setup` and `iter` fields as they were basically holding data that's only used temporarily by `window_X11_open`
+        * Removed the `win_created` field since we can use a temporary variable to store the new window ID
+            before we check that the creation request was successfull, and simply assign `XCB_NONE` in case of failure
+        * Moved all the atoms (`UTF8_STRING`, `WM_PROTOCOLS`, etc) to a separate `struct window_x11_atoms` stored
+            inside `struct window_x11` as the new `atoms` field (`win->WM_DELETE_WINDOW` -> `win->atoms.WM_DELETE_WINDOW`)
+        * Moved everything related to input to a new `struct window_x11_input`, stored as the new field `input`
+            (e.g. `win->mouse_deregistration_ack` becomes `win->input.mouse_deregistration_ack`)
+        * Renamed `win` to `win_handle`
+        * Added comments documenting each field
+    * Moved the code that initializes the generic window info `struct p_window_info` to a new helper function - `init_info`
+    * Moved the code used to create the window to a new helper function - `create_window`
+    * Moved the code that sets the window atoms to a new helper function - `set_window_properties`
+    * Moved all the code that initializes Xinput2 to a new helper function - `init_xi2_input`
+    * Made `send_dummy_event_to_self` take as arguments only the things it needs instead of the entire window struct
+    * Removed the `memset` call at the end of `window_X11_close` in favor of explicitly setting all the fields to their "NULL" values
+    * Added comments in `window_X11_open` and `window_X11_close` that mark
+        where each field of `struct window_x11` is initialized/destroyed
+    * Adapted `platform/linux/window-x11-events` and `platform/linux/opengl` to the changes

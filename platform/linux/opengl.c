@@ -419,7 +419,7 @@ static i32 egl_get_native_window(const struct p_window *win,
     switch (win->type) {
         case WINDOW_TYPE_X11:
             /* As it turns out, EGL wants a POINTER to `xcb_window_t` lol */
-            *o = (EGLNativeWindowType)&win->x11.win;
+            *o = (EGLNativeWindowType)&win->x11.win_handle;
             return 0;
         case WINDOW_TYPE_DRI:
             *o = (EGLNativeWindowType)win->dri.render.egl.surface;
