@@ -1,4 +1,3 @@
-#include "../window.h"
 #define P_INTERNAL_GUARD__
 #define X11_RENDER_SOFTWARE_FB_TYPE_LIST_DEF__
 #include "window-x11-present-sw.h"
@@ -10,11 +9,14 @@
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
+#include "../event.h"
+#include "../window.h"
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
 #include <errno.h>
 #include <string.h>
+#include <stdatomic.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
 
@@ -93,6 +95,7 @@ i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
 {
     *o_vsync_supported = false;
     sw_rctx->initialized_ = true;
+    atomic_init(&sw_rctx->present_pending, false);
 
     /* Create the window's graphics context (GC) */
     sw_rctx->window_gc = xcb->xcb_generate_id(conn);
@@ -151,6 +154,14 @@ struct pixel_flat_data * X11_render_present_software(
 {
     /* We assume that `present_mode` has already been validated */
 
+    if (atomic_load(&sw_rctx->present_pending)) {
+        s_log_warn("Another frame presentation already scheduled; "
+            "dropping this one!");
+        return &sw_rctx->curr_back_buf->pixbuf;
+    }
+    atomic_store(&sw_rctx->present_pending, true);
+    /* Resets after the page flip completes */
+
     /* Swap the buffers */
     struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
     sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
@@ -163,14 +174,21 @@ struct pixel_flat_data * X11_render_present_software(
     case X11_SWFB_MALLOCED_IMAGE:
         software_present_malloced(&curr_buf->fb.malloced,
             conn, win_handle, sw_rctx->window_gc, xcb);
+        /* Since vsync isn't supported here, we don't care
+         * about any data races that might cause tearing */
+        X11_render_software_finish_frame(sw_rctx, 0);
         break;
     case X11_SWFB_SHMSEG:
         software_present_shm(&curr_buf->fb.shm,
             conn, win_handle, sw_rctx->window_gc, xcb);
+        /* Same as above */
+        X11_render_software_finish_frame(sw_rctx, 0);
         break;
     case X11_SWFB_PRESENT_PIXMAP:
         software_present_pixmap(&curr_buf->fb.present_pixmap, &sw_rctx->present,
             conn, win_handle, sw_rctx->window_gc, xcb, present_mode);
+        /* In this case, `X11_render_software_finish_frame` gets called
+         * by the listener thread when it receives a PRESENT_COMPLETE event */
         break;
     default:
         s_log_fatal("Invalid buffer type %d", curr_buf->type);
@@ -187,6 +205,11 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
 {
     if (sw_rctx == NULL || !sw_rctx->initialized_)
         return;
+
+    if (atomic_load(&sw_rctx->present_pending)) {
+        s_log_warn("Forcing buffer destruction while it might be in use");
+        atomic_store(&sw_rctx->present_pending, false);
+    }
 
     for (u32 i = 0; i < 2; i++) {
         if (!sw_rctx->initialized_)
@@ -225,6 +248,16 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
 
     sw_rctx->curr_back_buf = sw_rctx->curr_front_buf = NULL;
     sw_rctx->initialized_ = false;
+}
+
+void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
+    bool status)
+{
+    atomic_store(&sw_rctx->present_pending, false);
+    p_event_send(&(const struct p_event) {
+        .type = P_EVENT_PAGE_FLIP,
+        .info.page_flip_status = status
+    });
 }
 
 static i32 software_init_buffer_malloced(
@@ -421,11 +454,10 @@ static i32 software_present_pixmap(
     const xcb_present_notify_t *NOTIFIES = NULL;
 
     (void) xcb->present.xcb_present_pixmap(conn, win_handle, buf->pixmap,
-        ext_data->serial, VALID_PIXMAP_REGION, WINDOW_UPDATE_REGION,
+        ++ext_data->serial, VALID_PIXMAP_REGION, WINDOW_UPDATE_REGION,
         DST_OFFSET_X, DST_OFFSET_Y, TARGET_CRTC, WAIT_FENCE, IDLE_FENCE,
         OPTIONS, TARGET_MONITOR_COUNTER, DIVISOR, REMAINDER,
         NOTIFIES_LEN, NOTIFIES);
-    ext_data->serial++;
 
     return 0;
 }

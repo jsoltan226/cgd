@@ -7,6 +7,7 @@
 #include <render/rctx.h>
 #include <render/rect.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MODULE_NAME "window-test"
 #include "log-util.h"
@@ -42,8 +43,35 @@ int cgd_main(int argc, char **argv)
     if (rctx == NULL)
         goto_error("Failed to init renderer. Stop");
 
+    for (u32 i = 0; i < 10; i++) {
+        s_log_trace("Swap buffers");
+        r_flush(rctx);
+    }
+
+    struct p_event ev = { 0 };
+    while (ev.type != P_EVENT_PAGE_FLIP || ev.info.page_flip_status != 0) {
+        p_time_usleep(1);
+        p_event_poll(&ev);
+    }
+
+    for (u32 i = 0; i < 10; i++) {
+        s_log_trace("Swap buffers & wait");
+        r_flush(rctx);
+        memset(&ev, 0, sizeof(struct p_event));
+        u32 counter = 0;
+        while ((ev.type != P_EVENT_PAGE_FLIP || ev.info.page_flip_status != 0)
+            && counter < 100)
+        {
+            p_time_usleep(1);
+            p_event_poll(&ev);
+            counter++;
+        }
+        if (counter >= 100)
+            s_log_error("Waiting for page flip event failed - timed out");
+    }
+
     color_RGBA32_t color = { 0, 0, 0, 255 };
-    struct p_event ev;
+    memset(&ev, 0, sizeof(struct p_event));
     for (u32 i = 0; i < 255; i++) {
         while (p_event_poll(&ev)) {
             if (ev.type == P_EVENT_QUIT)

@@ -63,6 +63,8 @@ struct x11_render_software_ctx {
         xcb_present_event_t event_context_id;
         u32 serial;
     } present;
+
+    _Atomic bool present_pending;
 };
 
 i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
@@ -78,5 +80,8 @@ struct pixel_flat_data * X11_render_present_software(
 
 void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     xcb_connection_t *conn, xcb_window_t win_hadle, const struct libxcb *xcb);
+
+void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
+    bool status);
 
 #endif /* WINDOW_X11_RENDER_SW_H_ */

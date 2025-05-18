@@ -102,8 +102,17 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
 
     /* Open a connection (`win->conn`) */
     win->conn = win->xcb.xcb_connect(NULL, NULL);
-    if (win->xcb.xcb_connection_has_error(win->conn))
+    if (win->xcb.xcb_connection_has_error(win->conn)) {
+        /* `window_X11_close` needs to somehow know that the connection
+         * is invalid, and the only way to do that without adding
+         * a separate flag for it is to destroy the handle here
+         * and set the value to `NULL` */
+        if (win->conn != NULL) {
+            win->xcb.xcb_disconnect(win->conn);
+            win->conn = NULL;
+        }
         goto_error("Failed to connect to the X server");
+    }
 
     /* Note that this macro should only be used right after calling
      * a `*_checked` xcb function. Otherwise it's useless */
@@ -212,7 +221,7 @@ void window_X11_close(struct window_x11 *win)
 
         /* Free acceleration-specific resources
          * (`win->render`) */
-        if (win->conn)
+        if (win->conn != NULL)
             window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
 
         /* Destroy anything related to input
@@ -227,7 +236,7 @@ void window_X11_close(struct window_x11 *win)
         memset(&win->atoms, 0, sizeof(struct window_x11_atoms));
 
         /* Destroy the window itself (`win->win_handle`) */
-        if (win->win_handle != XCB_NONE) {
+        if (win->win_handle != XCB_NONE && win->conn != NULL) {
             win->xcb.xcb_destroy_window(win->conn, win->win_handle);
             win->win_handle = XCB_NONE;
         }
@@ -240,7 +249,7 @@ void window_X11_close(struct window_x11 *win)
 
         /* Finally, close the connection and free any xcb resources
          * (`win->conn`) */
-        if (win->conn) {
+        if (win->conn != NULL) {
             win->xcb.xcb_disconnect(win->conn);
             win->conn = NULL;
         }

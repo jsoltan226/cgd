@@ -21,6 +21,9 @@
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
+#include "window-x11-present-sw.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
@@ -207,7 +210,6 @@ static void handle_present_event(struct window_x11 *win,
 {
     /* We assume that the window is using software rendering
      * with `PRESENT_PIXMAP` buffers */
-    s_log_trace("Present event");
 
     volatile const union {
         xcb_present_complete_notify_event_t *complete;
@@ -219,10 +221,36 @@ static void handle_present_event(struct window_x11 *win,
     case XCB_PRESENT_COMPLETE_NOTIFY:
         (void) win;
         s_log_trace("Completed page flip no. %u", ev.complete->serial);
-        p_event_send(&(const struct p_event) {
-            .type = P_EVENT_PAGE_FLIP,
-            .info.page_flip_status = 0,
-        });
+        if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE
+            || !win->render.sw.initialized_
+            || win->render.sw.curr_front_buf->type != X11_SWFB_PRESENT_PIXMAP)
+        {
+            s_log_warn("PRESENT_COMPLETE_NOTIFY event received " "while the "
+                "front buffer is not an X11_SWFB_PRESENT_PIXMAP; ignoring");
+            break;
+        }
+
+        if (win->render.sw.present.serial != ev.complete->serial) {
+            if (win->render.sw.present.serial > ev.complete->serial) {
+                s_log_error("Something has gone seriously wrong "
+                    "with the present serial value (%u) - should be %u",
+                    win->render.sw.present.serial, ev.complete->serial);
+            } else if (win->render.sw.present.serial < ev.complete->serial) {
+                /* Send the missing page flip events */
+                const u32 diff =
+                    ev.complete->serial - win->render.sw.present.serial;
+                s_log_warn("Dropped %u frame(s)", diff);
+                for (u32 i = 0; i < diff - 1; i++) {
+                    p_event_send(&(const struct p_event) {
+                        .type = P_EVENT_PAGE_FLIP,
+                        .info.page_flip_status = 1,
+                    });
+                }
+            }
+            X11_render_software_finish_frame(&win->render.sw, 1);
+        } else {
+            X11_render_software_finish_frame(&win->render.sw, 0);
+        }
         break;
     default:
         break;
