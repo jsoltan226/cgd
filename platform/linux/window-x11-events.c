@@ -1,14 +1,15 @@
 #define _GNU_SOURCE
 #include "../event.h"
 #include "../mouse.h"
-#include "../thread.h"
 #include "../window.h"
 #include <core/log.h>
 #include <core/int.h>
 #include <core/math.h>
 #include <core/util.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #include <xcb/xcb.h>
+#include <xcb/shm.h>
 #include <xcb/xproto.h>
 #include <xcb/xcbext.h>
 #include <xcb/xinput.h>
@@ -42,19 +43,47 @@ static void handle_xi2_event(struct window_x11 *win,
     xcb_ge_generic_event_t *ev);
 static void handle_present_event(struct window_x11 *win,
     xcb_ge_generic_event_t *ev);
+static void handle_shm_completion_event(struct window_x11 *win,
+    xcb_generic_event_t *ev);
+static void handle_shm_error(struct window_x11 *win, xcb_generic_error_t *e);
 
-void window_X11_event_listener_fn(void *arg)
+void * window_X11_event_listener_fn(void *arg)
 {
     struct window_x11 *win = (struct window_x11 *)arg;
 
-    while (atomic_load(&win->listener.running))
-        handle_event(win, win->xcb.xcb_wait_for_event(win->conn));
+    while (atomic_load(&win->listener.running)) {
+        xcb_generic_event_t *ev = win->xcb.xcb_wait_for_event(win->conn);
+        if (ev == NULL)
+            s_log_fatal("Connection to X server broken - I/O Error");
 
-    p_mt_thread_exit();
+        handle_event(win, ev);
+        free(ev);
+    }
+
+    pthread_exit(NULL);
 }
 
 static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
 {
+    const enum p_window_acceleration acceleration =
+        win->generic_info_p->gpu_acceleration;
+    const struct x11_render_shared_buffer_data *const shared_buf_data =
+        acceleration == P_WINDOW_ACCELERATION_NONE ?
+            &win->render.sw.shared_buf_data :
+            NULL;
+
+    s_log_trace("Event %u", XCB_EVENT_RESPONSE_TYPE(ev));
+
+    if (acceleration == P_WINDOW_ACCELERATION_NONE &&
+        shared_buf_data->shm.initialized_ &&
+        XCB_EVENT_RESPONSE_TYPE(ev) ==
+            shared_buf_data->shm.ext_data->first_event + XCB_SHM_COMPLETION
+        )
+    {
+        handle_shm_completion_event(win, ev);
+        goto end;
+    }
+
     switch (XCB_EVENT_RESPONSE_TYPE(ev)) {
     case XCB_CLIENT_MESSAGE: {
         xcb_client_message_event_t *cm = (xcb_client_message_event_t *)ev;
@@ -71,27 +100,49 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         break;
     case XCB_EXPOSE:
         break;
+    case 0:
+        if (acceleration == P_WINDOW_ACCELERATION_NONE &&
+            shared_buf_data->shm.initialized_ &&
+            ((xcb_generic_error_t *)ev)->major_code ==
+                shared_buf_data->shm.ext_data->major_opcode)
+        {
+            handle_shm_error(win, (xcb_generic_error_t *)ev);
+        } else {
+            s_log_error("X error %u (extension: %u, request: %u)",
+                ((xcb_generic_error_t *)ev)->error_code,
+                ((xcb_generic_error_t *)ev)->major_code,
+                ((xcb_generic_error_t *)ev)->minor_code
+            );
+        }
+        break;
     default:
         break;
     }
 
+end:
+
     /* If we get a notification that the keyboard and/or mouse
      * are being deregistered, acknowledge it */
     if (atomic_load(&win->input.keyboard_deregistration_notify))
-        p_mt_cond_signal(win->input.keyboard_deregistration_ack);
+        pthread_cond_signal(&win->input.keyboard_deregistration_ack);
 
     if (atomic_load(&win->input.mouse_deregistration_notify))
-        p_mt_cond_signal(win->input.mouse_deregistration_ack);
-
-    u_nzfree(&ev);
+        pthread_cond_signal(&win->input.mouse_deregistration_ack);
 }
 
 static void handle_ge_event(struct window_x11 *win,
     xcb_ge_generic_event_t *ge_ev)
 {
-    if (ge_ev->extension == win->render.sw.present.ext_data->major_opcode &&
-        win->generic_info_p->gpu_acceleration == P_WINDOW_ACCELERATION_NONE &&
-        win->render.sw.present.initialized_)
+    const enum p_window_acceleration acceleration =
+        win->generic_info_p->gpu_acceleration;
+    const struct x11_render_shared_buffer_data *const shared_buf_data =
+        acceleration == P_WINDOW_ACCELERATION_NONE ?
+            &win->render.sw.shared_buf_data :
+            NULL;
+
+    if (acceleration == P_WINDOW_ACCELERATION_NONE &&
+        shared_buf_data->present.initialized_ &&
+        ge_ev->extension == shared_buf_data->present.ext_data->major_opcode)
     {
         handle_present_event(win, ge_ev);
     } else if (ge_ev->extension == win->input.xinput_ext_data->major_opcode) {
@@ -211,16 +262,16 @@ static void handle_present_event(struct window_x11 *win,
     /* We assume that the window is using software rendering
      * with `PRESENT_PIXMAP` buffers */
 
-    volatile const union {
+    const union {
         xcb_present_complete_notify_event_t *complete;
         xcb_ge_generic_event_t *generic;
     } ev = { .generic = ge_ev };
-    (void) ev;
+
+    struct x11_render_shared_present_data *const shared_data =
+        &win->render.sw.shared_buf_data.present;
 
     switch (ge_ev->event_type) {
-    case XCB_PRESENT_COMPLETE_NOTIFY:
-        (void) win;
-        s_log_trace("Completed page flip no. %u", ev.complete->serial);
+    case XCB_PRESENT_COMPLETE_NOTIFY: {
         if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE
             || !win->render.sw.initialized_
             || win->render.sw.curr_front_buf->type != X11_SWFB_PRESENT_PIXMAP)
@@ -230,15 +281,15 @@ static void handle_present_event(struct window_x11 *win,
             break;
         }
 
-        if (win->render.sw.present.serial != ev.complete->serial) {
-            if (win->render.sw.present.serial > ev.complete->serial) {
+        const u32 stored_serial = atomic_load(&shared_data->serial);
+        if (stored_serial != ev.complete->serial) {
+            if (stored_serial > ev.complete->serial) {
                 s_log_error("Something has gone seriously wrong "
                     "with the present serial value (%u) - should be %u",
-                    win->render.sw.present.serial, ev.complete->serial);
-            } else if (win->render.sw.present.serial < ev.complete->serial) {
+                    stored_serial, ev.complete->serial);
+            } else if (stored_serial < ev.complete->serial) {
                 /* Send the missing page flip events */
-                const u32 diff =
-                    ev.complete->serial - win->render.sw.present.serial;
+                const u32 diff = ev.complete->serial - stored_serial;
                 s_log_warn("Dropped %u frame(s)", diff);
                 for (u32 i = 0; i < diff - 1; i++) {
                     p_event_send(&(const struct p_event) {
@@ -252,7 +303,53 @@ static void handle_present_event(struct window_x11 *win,
             X11_render_software_finish_frame(&win->render.sw, 0);
         }
         break;
+    }
     default:
         break;
     }
+}
+
+static void handle_shm_completion_event(struct window_x11 *win,
+    xcb_generic_event_t *ev)
+{
+    struct x11_render_shared_shm_data *const shared_data =
+        &win->render.sw.shared_buf_data.shm;
+    const u64 stored_sequence_number =
+        atomic_load(&shared_data->blit_request_sequence_number);
+
+    if (ev->full_sequence != stored_sequence_number) {
+        s_log_error("The last ShmPutImage request's sequence number (%lu) "
+            "doesn't match that of the completion event (%lu); "
+            "some frames were possibly dropped",
+            stored_sequence_number, ev->full_sequence
+        );
+        p_event_send(&(const struct p_event) {
+            .type = P_EVENT_PAGE_FLIP,
+            .info.page_flip_status = 1,
+        });
+
+        /* This event arriving always means that SOME page flip
+         * has succeeded, so apart from notifying about the mismatch
+         * we should also finish the frame as if everything was OK */
+    }
+
+    X11_render_software_finish_frame(&win->render.sw, 0);
+}
+
+static void handle_shm_error(struct window_x11 *win, xcb_generic_error_t *e)
+{
+    struct x11_render_shared_shm_data *const shared_data =
+        &win->render.sw.shared_buf_data.shm;
+
+    if (e->full_sequence ==
+            atomic_load(&shared_data->blit_request_sequence_number)
+    ) {
+        s_log_error("A ShmPutImage frame presentation failed (frame dropped)");
+        p_event_send(&(const struct p_event) {
+            .type = P_EVENT_PAGE_FLIP,
+            .info.page_flip_status = 1,
+        });
+    }
+    s_log_error("XShm error %u (request opcode: %u)",
+        e->error_code, e->minor_code);
 }

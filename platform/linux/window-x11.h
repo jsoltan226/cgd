@@ -5,12 +5,12 @@
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
 
-#include "../thread.h"
 #include "../window.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <xcb/xinput.h>
@@ -43,6 +43,9 @@ struct window_x11 {
     /* The libxcb "context" that represents the connection to the server */
     xcb_connection_t *conn;
 
+    /* The maximum request size (in bytes) the connection can handle */
+    u64 max_request_size;
+
     /* The handle to the X window */
     xcb_window_t win_handle;
 
@@ -70,7 +73,7 @@ struct window_x11 {
     /* Stuff related to the event listener thread */
     struct window_x11_listener {
         _Atomic bool running;
-        p_mt_thread_t thread;
+        pthread_t thread;
     } listener;
 
     /* Anything used to process input events */
@@ -85,7 +88,7 @@ struct window_x11 {
         /* These are used to notify the listener thread that the keyboard
          * is no longer usable and events shouldn't be written to it */
         _Atomic bool keyboard_deregistration_notify;
-        p_mt_cond_t keyboard_deregistration_ack;
+        pthread_cond_t keyboard_deregistration_ack;
 
         /* The mouse that will be receiving any mouse input events.
          * Used to interface with `p_mouse`. */
@@ -93,7 +96,7 @@ struct window_x11 {
         /* These are used to notify the listener thread that the mouse
          * is no longer usable and events shouldn't be written to it */
         _Atomic bool mouse_deregistration_notify;
-        p_mt_cond_t mouse_deregistration_ack;
+        pthread_cond_t mouse_deregistration_ack;
 
         /* The handles to the "master" X11 devices - virtual devices
          * that combine input from all physical ("slave") devices */

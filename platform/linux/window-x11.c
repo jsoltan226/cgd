@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include "../window.h"
-#include "../thread.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -9,12 +8,16 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/uio.h>
 #include <xcb/xcb.h>
 #include <xcb/shm.h>
 #include <xcb/sync.h>
+#include <xcb/xcbext.h>
 #include <xcb/xproto.h>
 #include <xcb/xinput.h>
 #include <xcb/xfixes.h>
@@ -60,7 +63,7 @@ static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
 
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
     xcb_connection_t *conn, const struct libxcb *xcb);
-static bool query_extension(const char *name,
+static bool query_extension(const char *name, u8 *o_ext_opcode,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
 static i32 get_master_input_devices(
@@ -127,6 +130,10 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     if (setup == NULL)
         goto_error("Failed to get X server setup");
 
+    /* Retrieve the maximum request size */
+    win->max_request_size =
+        win->xcb.xcb_get_maximum_request_length(win->conn) * 4;
+
     /* Get the current screen */
     xcb_screen_iterator_t scr_iter = win->xcb.xcb_setup_roots_iterator(setup);
     win->screen = scr_iter.data;
@@ -174,7 +181,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     /* Create the thread that listens for events
      * (`win->listener`) */
     atomic_init(&win->listener.running, true);
-    if (p_mt_thread_create(&win->listener.thread,
+    if (pthread_create(&win->listener.thread, NULL,
         window_X11_event_listener_fn, win))
     {
         goto_error("Failed to create listener thread.");
@@ -211,11 +218,11 @@ void window_X11_close(struct window_x11 *win)
                 /* Send an event to our window to interrupt the blocking
                  * `xcb_wait_for_event` call in the listener thread */
                 send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-                p_mt_thread_wait(&win->listener.thread);
+                (void) pthread_join(win->listener.thread, NULL);
             } else {
                 /* Forcibly terminate the listener if (somehow)
                  * the window does not exist but the thread is running */
-                p_mt_thread_terminate(&win->listener.thread);
+                pthread_kill(win->listener.thread, SIGKILL);
             }
         }
 
@@ -229,8 +236,8 @@ void window_X11_close(struct window_x11 *win)
         if (win->input.key_symbols)
             win->xcb.xcb_key_symbols_free(win->input.key_symbols);
 
-        p_mt_cond_destroy(&win->input.mouse_deregistration_ack);
-        p_mt_cond_destroy(&win->input.keyboard_deregistration_ack);
+        pthread_cond_destroy(&win->input.mouse_deregistration_ack);
+        pthread_cond_destroy(&win->input.keyboard_deregistration_ack);
 
         /* Reset the atoms (`win->atoms`) */
         memset(&win->atoms, 0, sizeof(struct window_x11_atoms));
@@ -306,17 +313,18 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
     if (win->input.registered_keyboard != NULL) {
         /* Notify the event thread that the keyboard is
          * being deregistered and wait for it to acknowledge that */
-        p_mt_mutex_t tmp_mutex = p_mt_mutex_create();
-        p_mt_mutex_lock(&tmp_mutex);
+        pthread_mutex_t tmp_mutex;
+        (void) pthread_mutex_init(&tmp_mutex, 0); /* always succeeds */
+        pthread_mutex_lock(&tmp_mutex);
 
         atomic_store(&win->input.keyboard_deregistration_notify, true);
         send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-        p_mt_cond_wait(win->input.keyboard_deregistration_ack, tmp_mutex);
+        pthread_cond_wait(&win->input.keyboard_deregistration_ack, &tmp_mutex);
 
         win->input.registered_keyboard = NULL;
         atomic_store(&win->input.keyboard_deregistration_notify, false);
 
-        p_mt_mutex_destroy(&tmp_mutex);
+        (void) pthread_mutex_destroy(&tmp_mutex);
     }
 }
 
@@ -326,17 +334,18 @@ void window_X11_deregister_mouse(struct window_x11 *win)
     if (win->input.registered_mouse != NULL) {
         /* Notify the event thread that the mouse is
          * being deregistered and wait for it to acknowledge that */
-        p_mt_mutex_t tmp_mutex = p_mt_mutex_create();
-        p_mt_mutex_lock(&tmp_mutex);
+        pthread_mutex_t tmp_mutex;
+        (void) pthread_mutex_init(&tmp_mutex, 0); /* always succeeds */
+        pthread_mutex_lock(&tmp_mutex);
 
         atomic_store(&win->input.mouse_deregistration_notify, true);
         send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-        p_mt_cond_wait(win->input.mouse_deregistration_ack, tmp_mutex);
+        pthread_cond_wait(&win->input.mouse_deregistration_ack, &tmp_mutex);
 
         win->input.registered_mouse = NULL;
         atomic_store(&win->input.mouse_deregistration_notify, false);
 
-        p_mt_mutex_destroy(&tmp_mutex);
+        (void) pthread_mutex_destroy(&tmp_mutex);
     }
 }
 
@@ -376,7 +385,8 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
         if (X11_render_init_software(&win->render.sw,
                 win->generic_info_p->client_area.w,
                 win->generic_info_p->client_area.h,
-                win->screen->root_depth, win->win_handle, win->conn, &win->xcb,
+                win->screen->root_depth, win->max_request_size,
+                win->win_handle, win->conn, &win->xcb,
                 &win->generic_info_p->vsync_supported))
         {
             s_log_error("Failed to set up the window for software rendering.");
@@ -417,7 +427,7 @@ i32 X11_check_xinput2_extension(xcb_connection_t *conn,
         return -1;
     }
 
-    if (!query_extension(X11_XINPUT_EXT_NAME, conn, xcb)) {
+    if (!query_extension(X11_XINPUT_EXT_NAME, NULL, conn, xcb)) {
         s_log_error("The XInput extension is not available");
         atomic_store(&cached_extension_status, 1);
         return 1;
@@ -462,7 +472,7 @@ i32 X11_check_shm_extension(xcb_connection_t *conn,
         return -1;
     }
 
-    if (!query_extension(X11_SHM_EXT_NAME, conn, xcb)) {
+    if (!query_extension(X11_SHM_EXT_NAME, NULL, conn, xcb)) {
         s_log_error("The MIT-SHM extension is not available");
         atomic_store(&cached_extension_status, 1);
         return 1;
@@ -486,7 +496,6 @@ i32 X11_check_shm_extension(xcb_connection_t *conn,
         return 1;
     }
 
-
     u_nfree(&reply);
     atomic_store(&cached_extension_status, 0);
     return 0;
@@ -507,7 +516,7 @@ i32 X11_check_present_extension(xcb_connection_t *conn,
     if (cached_extension_status_value != -1)
         return cached_extension_status_value;
 
-    if (!query_extension(X11_PRESENT_EXT_NAME, conn, xcb)) {
+    if (!query_extension(X11_PRESENT_EXT_NAME, NULL, conn, xcb)) {
         s_log_error("The X Present extension is not available");
         atomic_store(&cached_extension_status, 1);
         return 1;
@@ -744,11 +753,12 @@ static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
 
     /* Initialize the interfaces to `p_keyboard` and `p_mouse` */
     i->registered_keyboard = NULL;
-    i->keyboard_deregistration_ack = p_mt_cond_create();
+    /* always succeeds */
+    (void) pthread_cond_init(&i->keyboard_deregistration_ack, NULL);
     atomic_store(&i->keyboard_deregistration_notify, false);
 
     i->registered_mouse = NULL;
-    i->mouse_deregistration_ack = p_mt_cond_create();
+    (void) pthread_cond_init(&i->mouse_deregistration_ack, NULL);
     atomic_store(&i->mouse_deregistration_notify, false);
 
     return 0;
@@ -871,9 +881,11 @@ static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
     return 0;
 }
 
-static bool query_extension(const char *name,
+static bool query_extension(const char *name, u8 *o_ext_opcode,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
+    if (o_ext_opcode != NULL) *o_ext_opcode = 0;
+
     xcb_query_extension_cookie_t cookie = xcb->xcb_query_extension(conn,
         strlen(name), name);
     xcb_query_extension_reply_t *reply =
@@ -883,7 +895,13 @@ static bool query_extension(const char *name,
         return false;
     }
 
+    if (o_ext_opcode != NULL) *o_ext_opcode = reply->major_opcode;
     const bool ret = reply->present;
+
+    s_log_debug("extension \"%s\" present: %d, opcode: %u, "
+        "first event: %u, first error: %u",
+        name, reply->present, reply->major_opcode,
+        reply->first_event, reply->first_error);
 
     u_nfree(&reply);
 

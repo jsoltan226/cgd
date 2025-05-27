@@ -15,24 +15,27 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <xcb/xcb.h>
+#include <xcb/xproto.h>
 
 #define MODULE_NAME "window-x11-present-sw"
 
 static i32 software_init_buffer_malloced(
     struct x11_render_software_malloced_image_buf *buffer_o,
     struct pixel_flat_data *pixbuf_o,
-    u16 win_w, u16 win_h, u8 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+    u16 win_w, u16 win_h
 );
 static i32 software_init_buffer_shm(
     struct x11_render_software_shm_buf *buffer_o,
     struct pixel_flat_data *pixbuf_o,
     u16 win_w, u16 win_h, u8 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+    xcb_connection_t *conn, const struct libxcb *xcb
 );
 static i32 software_init_buffer_pixmap(
     struct x11_render_software_present_pixmap_buf *buffer_o,
@@ -43,24 +46,22 @@ static i32 software_init_buffer_pixmap(
 
 static i32 software_present_malloced(
     const struct x11_render_software_malloced_image_buf *buf,
-    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
-    const struct libxcb *xcb
+    struct x11_render_shared_malloced_data *shared_data
 );
 static i32 software_present_shm(
     const struct x11_render_software_shm_buf *buf,
+    struct x11_render_shared_shm_data *shared_data,
     xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
     const struct libxcb *xcb
 );
 static i32 software_present_pixmap(
     const struct x11_render_software_present_pixmap_buf *buf,
-    struct x11_render_software_present_ext_data *ext_data,
-    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
+    struct x11_render_shared_present_data *shared_data,
+    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t gc,
     const struct libxcb *xcb, enum p_window_present_mode present_mode
 );
-
 static void software_destroy_buffer_malloced(
-    struct x11_render_software_malloced_image_buf *buf,
-    xcb_connection_t *conn, const struct libxcb *xcb
+    struct x11_render_software_malloced_image_buf *buf
 );
 static void software_destroy_buffer_shm(
     struct x11_render_software_shm_buf *buf,
@@ -72,25 +73,44 @@ static void software_destroy_buffer_pixmap(
 );
 
 static i32 do_init_buffer(struct x11_render_software_buf *buf,
-    struct x11_render_software_present_ext_data *present_ext_data,
-    u16 win_w, u16 win_h, u8 root_depth,
-    xcb_connection_t *conn, xcb_window_t win_handle, const struct libxcb *xcb);
+    struct x11_render_shared_buffer_data *shared_buf_data,
+    u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
+    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    xcb_connection_t *conn, const struct libxcb *xcb);
 
-static i32 init_present_extension_data(const struct libxcb *xcb,
-    struct x11_render_software_present_ext_data *ext_data,
-    xcb_connection_t *conn, xcb_window_t win_handle);
-static void destroy_present_extension_data(const struct libxcb *xcb,
-    struct x11_render_software_present_ext_data *ext_data,
-    xcb_connection_t *conn, xcb_window_t win_handle);
+static i32 init_malloced_shared_data(
+    struct x11_render_shared_malloced_data *shared_data, u64 max_request_size,
+    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    xcb_connection_t *conn, const struct libxcb *xcb
+);
+static void destroy_malloced_shared_data(
+    struct x11_render_shared_malloced_data *shared_data
+);
+
+static i32 init_shm_shared_data(struct x11_render_shared_shm_data *shared_data,
+    xcb_connection_t *conn, const struct libxcb *xcb);
+static void destroy_shm_shared_data(
+    struct x11_render_shared_shm_data *shared_data);
+
+static i32 init_present_shared_data(
+    struct x11_render_shared_present_data *shared_data,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+);
+static void destroy_present_shared_data(
+    struct x11_render_shared_present_data *shared_data,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+);
 
 static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     xcb_connection_t *conn, const struct libxcb *xcb);
 static void detach_shm(xcb_shm_segment_info_t *shm,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
+static void * malloced_present_thread_fn(void *arg);
+
 i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
-    u16 win_w, u16 win_h, u8 root_depth, xcb_window_t win_handle,
-    xcb_connection_t *conn, const struct libxcb *xcb,
+    u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb,
     bool *o_vsync_supported)
 {
     *o_vsync_supported = false;
@@ -115,11 +135,17 @@ i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
         return 1;
     }
 
+    atomic_store(&sw_rctx->shared_buf_data.malloced.initialized_, false);
+    atomic_store(&sw_rctx->shared_buf_data.shm.initialized_, false);
+    atomic_store(&sw_rctx->shared_buf_data.present.initialized_, false);
+
     for (u32 i = 0; i < 2; i++) {
-        if (do_init_buffer(&sw_rctx->buffers[i], &sw_rctx->present,
-            win_w, win_h, root_depth, conn, win_handle, xcb))
+        if (do_init_buffer(&sw_rctx->buffers[i], &sw_rctx->shared_buf_data,
+            win_w, win_h, root_depth, max_request_size,
+            &sw_rctx->present_pending, win_handle, sw_rctx->window_gc,
+            conn, xcb))
         {
-            s_log_error("Failed to initialize buffer %u in any way", i);
+            s_log_error("Couldn't initialize buffer %u in any way", i);
         } else {
             s_assert(sw_rctx->buffers[i].type >= 0 &&
                 sw_rctx->buffers[i].type < X11_SWFB_N_TYPES_,
@@ -136,6 +162,7 @@ i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
         }
     }
 
+    /* vsync is only supported by PRESENT_PIXMAP buffers */
     *o_vsync_supported =
         sw_rctx->buffers[0].type == X11_SWFB_PRESENT_PIXMAP &&
         sw_rctx->buffers[1].type == X11_SWFB_PRESENT_PIXMAP;
@@ -162,32 +189,30 @@ struct pixel_flat_data * X11_render_present_software(
     atomic_store(&sw_rctx->present_pending, true);
     /* Resets after the page flip completes */
 
-    /* Swap the buffers */
-    struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
-    sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
-    sw_rctx->curr_back_buf = tmp;
+    i32 swap_ret = 0;
+    struct x11_render_software_buf *const curr_buf = sw_rctx->curr_back_buf;
 
-    struct x11_render_software_buf *const curr_buf = sw_rctx->curr_front_buf;
     switch (curr_buf->type) {
     case X11_SWFB_NULL:
         s_log_fatal("Attempt to present an uninitialized buffer");
     case X11_SWFB_MALLOCED_IMAGE:
-        software_present_malloced(&curr_buf->fb.malloced,
-            conn, win_handle, sw_rctx->window_gc, xcb);
-        /* Since vsync isn't supported here, we don't care
-         * about any data races that might cause tearing */
-        X11_render_software_finish_frame(sw_rctx, 0);
+        swap_ret = software_present_malloced(&curr_buf->fb.malloced,
+            &sw_rctx->shared_buf_data.malloced);
+        /* `X11_render_software_finish_frame` get called
+         * by the special present thread when it completes a presentation */
         break;
     case X11_SWFB_SHMSEG:
-        software_present_shm(&curr_buf->fb.shm,
+        swap_ret = software_present_shm(&curr_buf->fb.shm,
+            &sw_rctx->shared_buf_data.shm,
             conn, win_handle, sw_rctx->window_gc, xcb);
-        /* Same as above */
-        X11_render_software_finish_frame(sw_rctx, 0);
+        /* `X11_render_software_finish_frame` gets called
+         * by the listener thread when it receives a SHM_COMPLETION event */
         break;
     case X11_SWFB_PRESENT_PIXMAP:
-        software_present_pixmap(&curr_buf->fb.present_pixmap, &sw_rctx->present,
+        swap_ret = software_present_pixmap(&curr_buf->fb.present_pixmap,
+            &sw_rctx->shared_buf_data.present,
             conn, win_handle, sw_rctx->window_gc, xcb, present_mode);
-        /* In this case, `X11_render_software_finish_frame` gets called
+        /* `X11_render_software_finish_frame` gets called
          * by the listener thread when it receives a PRESENT_COMPLETE event */
         break;
     default:
@@ -196,6 +221,17 @@ struct pixel_flat_data * X11_render_present_software(
 
     if (xcb->xcb_flush(conn) <= 0)
         s_log_error("xcb_flush failed!");
+
+    if (swap_ret == 0) {
+        /* Swap the buffers only if the page flip succeeded */
+        struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
+        sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
+        sw_rctx->curr_back_buf = tmp;
+        s_log_trace("Page flip OK; swap buffers (new front: %p, new back: %p)",
+            sw_rctx->curr_front_buf, sw_rctx->curr_back_buf);
+    } else {
+        atomic_store(&sw_rctx->present_pending, false);
+    }
 
     return &sw_rctx->curr_back_buf->pixbuf;
 }
@@ -219,8 +255,7 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         switch (curr_buf->type) {
         case X11_SWFB_NULL: break;
         case X11_SWFB_MALLOCED_IMAGE:
-            software_destroy_buffer_malloced(&curr_buf->fb.malloced,
-                conn, xcb);
+            software_destroy_buffer_malloced(&curr_buf->fb.malloced);
             break;
         case X11_SWFB_SHMSEG:
             software_destroy_buffer_shm(&curr_buf->fb.shm, conn, xcb);
@@ -238,8 +273,16 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         curr_buf->initialized_ = false;
     }
 
-    if (sw_rctx->present.initialized_)
-        destroy_present_extension_data(xcb, &sw_rctx->present, conn, win_handle);
+    if (sw_rctx->shared_buf_data.present.initialized_) {
+        destroy_present_shared_data(&sw_rctx->shared_buf_data.present,
+            win_handle, conn, xcb);
+    }
+    if (sw_rctx->shared_buf_data.shm.initialized_) {
+        destroy_shm_shared_data(&sw_rctx->shared_buf_data.shm);
+    }
+    if (sw_rctx->shared_buf_data.malloced.initialized_) {
+        destroy_malloced_shared_data(&sw_rctx->shared_buf_data.malloced);
+    }
 
     if (sw_rctx->window_gc != XCB_NONE) {
         xcb->xcb_free_gc(conn, sw_rctx->window_gc);
@@ -263,28 +306,24 @@ void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
 static i32 software_init_buffer_malloced(
     struct x11_render_software_malloced_image_buf *buffer_o,
     struct pixel_flat_data *pixbuf_o,
-    u16 win_w, u16 win_h, u8 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+    u16 win_w, u16 win_h
 )
 {
-    (void) win_handle;
-
     memset(buffer_o, 0, sizeof(struct x11_render_software_malloced_image_buf));
     memset(pixbuf_o, 0, sizeof(struct pixel_flat_data));
 
-    /* Create the image */
-    buffer_o->image = xcb->xcb_image_create_native(conn,
-        win_w, win_h, XCB_IMAGE_FORMAT_Z_PIXMAP, root_depth,
-        NULL, 0, NULL); /* Let xcb calculate the size */
-    if (buffer_o->image == NULL) {
-        s_log_error("Failed to create the XCB image");
+    buffer_o->w = win_w;
+    buffer_o->h = win_h;
+    buffer_o->buf = calloc(win_w * win_h, sizeof(pixel_t));
+    if (buffer_o->buf == NULL) {
+        s_log_error("Failed to calloc() the pixel buffer");
         return 1;
     }
 
     /* Fill in the pixel data struct */
-    pixbuf_o->w = buffer_o->image->width;
-    pixbuf_o->h = buffer_o->image->height;
-    pixbuf_o->buf = buffer_o->image->base;
+    pixbuf_o->w = win_w;
+    pixbuf_o->h = win_h;
+    pixbuf_o->buf = buffer_o->buf;
 
     return 0;
 }
@@ -293,11 +332,9 @@ static i32 software_init_buffer_shm(
     struct x11_render_software_shm_buf *buffer_o,
     struct pixel_flat_data *pixbuf_o,
     u16 win_w, u16 win_h, u8 root_depth,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+    xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
-    (void) win_handle;
-
     memset(buffer_o, 0, sizeof(struct x11_render_software_shm_buf));
     memset(pixbuf_o, 0, sizeof(struct pixel_flat_data));
 
@@ -365,16 +402,34 @@ static i32 software_init_buffer_pixmap(
 
 static i32 software_present_malloced(
     const struct x11_render_software_malloced_image_buf *buf,
-    xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
-    const struct libxcb *xcb
+    struct x11_render_shared_malloced_data *shared_data
 )
 {
-    (void) xcb->xcb_image_put(conn, win_handle, window_gc, buf->image, 0, 0, 0);
+    s_log_trace("shared_data->present_request_buffer: %p",
+        shared_data->present_request_buffer);
+
+    if (!atomic_load(&shared_data->present_thread_ready)) {
+        s_log_warn("Present thread is not yet ready; dropping frame");
+        return 1;
+    }
+
+    if (atomic_load(&shared_data->present_request_buffer) != NULL) {
+        (void) pthread_cond_signal(&shared_data->present_request_cond);
+        s_log_warn("Present thread is busy; dropping frame");
+        return 1;
+    }
+
+    atomic_store(&shared_data->present_request_buffer, buf);
+    s_log_trace("present_pending -> true");
+    atomic_store(shared_data->present_pending_p, true);
+    (void) pthread_cond_signal(&shared_data->present_request_cond);
+
     return 0;
 }
 
 static i32 software_present_shm(
     const struct x11_render_software_shm_buf *buf,
+    struct x11_render_shared_shm_data *shared_data,
     xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t window_gc,
     const struct libxcb *xcb
 )
@@ -393,24 +448,30 @@ static i32 software_present_shm(
     const xcb_shm_seg_t SHMSEG = buf->shm_info.shmseg;
     const u32 SRC_START_OFFSET = 0;
 
-    (void) xcb->shm.xcb_shm_put_image(
+    xcb_void_cookie_t cookie = xcb->shm.xcb_shm_put_image(
         conn, win_handle, window_gc,
         TOTAL_SRC_IMAGE_W, TOTAL_SRC_IMAGE_H, SRC_X, SRC_Y, SRC_W, SRC_H,
         DST_X, DST_Y, DST_DEPTH, DST_IMAGE_FORMAT,
         SEND_BLIT_COMPLETE_EVENT, SHMSEG, SRC_START_OFFSET
     );
+    atomic_store(&shared_data->blit_request_sequence_number, cookie.sequence);
 
     return 0;
 }
 
 static i32 software_present_pixmap(
     const struct x11_render_software_present_pixmap_buf *buf,
-    struct x11_render_software_present_ext_data *ext_data,
+    struct x11_render_shared_present_data *shared_data,
     xcb_connection_t *conn, xcb_window_t win_handle, xcb_gcontext_t gc,
     const struct libxcb *xcb, enum p_window_present_mode present_mode
 )
 {
     (void) gc;
+
+    /* The serial number that we use to track each page flip request.
+     * Incremented on each request so that it's unique */
+    const u32 SERIAL = atomic_load(&shared_data->serial) + 1;
+    atomic_store(&shared_data->serial, SERIAL);
 
     /* The region of the pixmap that we mark as "containing updated pixels"
      * (the whole pixmap) */
@@ -454,7 +515,7 @@ static i32 software_present_pixmap(
     const xcb_present_notify_t *NOTIFIES = NULL;
 
     (void) xcb->present.xcb_present_pixmap(conn, win_handle, buf->pixmap,
-        ++ext_data->serial, VALID_PIXMAP_REGION, WINDOW_UPDATE_REGION,
+        SERIAL, VALID_PIXMAP_REGION, WINDOW_UPDATE_REGION,
         DST_OFFSET_X, DST_OFFSET_Y, TARGET_CRTC, WAIT_FENCE, IDLE_FENCE,
         OPTIONS, TARGET_MONITOR_COUNTER, DIVISOR, REMAINDER,
         NOTIFIES_LEN, NOTIFIES);
@@ -463,16 +524,12 @@ static i32 software_present_pixmap(
 }
 
 static void software_destroy_buffer_malloced(
-    struct x11_render_software_malloced_image_buf *buf,
-    xcb_connection_t *conn, const struct libxcb *xcb
+    struct x11_render_software_malloced_image_buf *buf
 )
 {
-    (void) conn;
-
-    if (buf->image != XCB_NONE) {
-        xcb->xcb_image_destroy(buf->image);
-        buf->image = XCB_NONE;
-    }
+    if (buf->buf != NULL)
+        u_nfree(&buf->buf);
+    buf->w = buf->h = 0;
 }
 
 static void software_destroy_buffer_shm(
@@ -506,9 +563,10 @@ static void software_destroy_buffer_pixmap(
 }
 
 static i32 do_init_buffer(struct x11_render_software_buf *buf,
-    struct x11_render_software_present_ext_data *present_ext_data,
-    u16 win_w, u16 win_h, u8 root_depth,
-    xcb_connection_t *conn, xcb_window_t win_handle, const struct libxcb *xcb)
+    struct x11_render_shared_buffer_data *shared_buf_data,
+    u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
+    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    xcb_connection_t *conn, const struct libxcb *xcb)
 {
     buf->initialized_ = true;
     buf->type = X11_SWFB_NULL;
@@ -521,12 +579,13 @@ static i32 do_init_buffer(struct x11_render_software_buf *buf,
         /* Now that we have a pixmap buffer, to be able to use it
          * we need to init the struct containing the data that's shared
          * between all buffers (related to the present extension) */
-        if (!present_ext_data->initialized_ &&
-            init_present_extension_data(xcb, present_ext_data, conn, win_handle)
+        if (!atomic_load(&shared_buf_data->present.initialized_) &&
+            init_present_shared_data(&shared_buf_data->present, win_handle,
+                conn, xcb)
         ) {
-            s_log_error("Failed to init X Present extension data");
-            destroy_present_extension_data(xcb, present_ext_data,
-                conn, win_handle);
+            s_log_error("Failed to init SWFB_PRESENT_PIXMAP shared data");
+            destroy_present_shared_data(&shared_buf_data->present, win_handle,
+                conn, xcb);
             goto pixmap_fail;
         }
         buf->type = X11_SWFB_PRESENT_PIXMAP;
@@ -541,90 +600,205 @@ pixmap_fail:
 
     if (software_init_buffer_shm(&buf->fb.shm,
             &buf->pixbuf, win_w, win_h, root_depth,
-            win_handle, conn, xcb
+            conn, xcb
         ) == 0)
     {
+        if (!atomic_load(&shared_buf_data->shm.initialized_) &&
+            init_shm_shared_data(&shared_buf_data->shm, conn, xcb)
+        ) {
+            s_log_error("Failed to init SWFB_SHMSEG shared data");
+            destroy_shm_shared_data(&shared_buf_data->shm);
+            goto shm_fail;
+        }
         buf->type = X11_SWFB_SHMSEG;
         return 0;
     } else {
+shm_fail:
         s_log_warn("Failed to create window framebuffer with shm, "
-            "falling back to manually malloc'd buffers");
+            "falling back to manually malloc'd buffer");
         software_destroy_buffer_shm(&buf->fb.shm, conn, xcb);
     }
 
     if (software_init_buffer_malloced(&buf->fb.malloced,
-            &buf->pixbuf, win_w, win_h, root_depth,
-            win_handle, conn, xcb
+            &buf->pixbuf, win_w, win_h
         ) == 0)
     {
+        if (!atomic_load(&shared_buf_data->malloced.initialized_) &&
+            init_malloced_shared_data(&shared_buf_data->malloced,
+                max_request_size, present_pending_p, win_handle, gc, conn, xcb)
+        ) {
+            s_log_error("Failed to init SWFB_MALLOCED_IMAGE shared data");
+            destroy_malloced_shared_data(&shared_buf_data->malloced);
+            goto malloced_fail;
+        }
         buf->type = X11_SWFB_MALLOCED_IMAGE;
         return 0;
     } else {
-        s_log_error("Failed to initialize manually allocated buffers");
+malloced_fail:
+        s_log_error("Failed to initialize manually allocated buffer");
         return 1;
     }
 
     s_log_fatal("impossible outcome");
 }
 
-static i32 init_present_extension_data(const struct libxcb *xcb,
-    struct x11_render_software_present_ext_data *ext_data,
-    xcb_connection_t *conn, xcb_window_t win_handle)
+static i32 init_malloced_shared_data(
+    struct x11_render_shared_malloced_data *shared_data, u64 max_request_size,
+    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    xcb_connection_t *conn, const struct libxcb *xcb
+)
 {
-    if (ext_data->initialized_) {
-        s_log_warn("X Present extension data already initialized; "
+    if (atomic_load(&shared_data->initialized_)) {
+        s_log_warn("SWFB_MALLOCED_IMAGE shared data already initialized; "
             "not doing anything.");
         return 0;
     }
-    ext_data->initialized_ = true;
 
-    ext_data->serial = 0;
-    ext_data->ext_data =
+    atomic_store(&shared_data->initialized_, true);
+    shared_data->present_thread = 0;
+
+    (void) pthread_mutex_init(&shared_data->present_request_mutex, NULL);
+    (void) pthread_cond_init(&shared_data->present_request_cond, NULL);
+    atomic_store(&shared_data->present_request_buffer, NULL);
+    shared_data->present_pending_p = present_pending_p;
+    shared_data->max_request_size = max_request_size;
+    shared_data->win_handle = win_handle;
+    shared_data->gc = gc;
+    shared_data->conn = conn;
+    shared_data->xcb = xcb;
+
+    atomic_store(&shared_data->present_thread_ready, false);
+    atomic_store(&shared_data->present_thread_running, true);
+    i32 ret = pthread_create(&shared_data->present_thread, NULL,
+        malloced_present_thread_fn, shared_data);
+    if (ret != 0) {
+        atomic_store(&shared_data->present_thread_running, false);
+        s_log_error("Failed to create the malloced buffer present thread: %s",
+            strerror(ret));
+        return 1;
+    }
+    return 0;
+}
+
+static void destroy_malloced_shared_data(
+    struct x11_render_shared_malloced_data *shared_data
+)
+{
+    if (!atomic_load(&shared_data->initialized_))
+        return;
+    atomic_store(&shared_data->initialized_, false);
+
+    atomic_store(&shared_data->present_thread_running, false);
+    (void) pthread_cond_signal(&shared_data->present_request_cond);
+    (void) pthread_join(shared_data->present_thread, NULL);
+    shared_data->present_thread = 0;
+    atomic_store(&shared_data->present_thread_ready, false);
+
+    (void) pthread_mutex_destroy(&shared_data->present_request_mutex);
+    (void) pthread_cond_destroy(&shared_data->present_request_cond);
+    atomic_store(&shared_data->present_request_buffer, NULL);
+    shared_data->max_request_size = 0;
+    shared_data->present_pending_p = NULL;
+    shared_data->win_handle = XCB_NONE;
+    shared_data->gc = XCB_NONE;
+    shared_data->conn = NULL;
+    shared_data->xcb = NULL;
+}
+
+static i32 init_shm_shared_data(struct x11_render_shared_shm_data *shared_data,
+    xcb_connection_t *conn, const struct libxcb *xcb)
+{
+    if (atomic_load(&shared_data->initialized_)) {
+        s_log_warn("SWFB_SHMSEG shared data already initialized; "
+            "not doing anything.");
+        return 0;
+    }
+
+    atomic_store(&shared_data->initialized_, true);
+
+    atomic_store(&shared_data->ext_data,
+        xcb->xcb_get_extension_data(conn, xcb->shm.xcb_shm_id)
+    );
+    s_assert(atomic_load(&shared_data->ext_data) != NULL,
+        "The MIT-SHM extension data should alredy be loaded and cached!");
+
+    atomic_store(&shared_data->blit_request_sequence_number, 0);
+
+    return 0;
+}
+
+static void destroy_shm_shared_data(
+    struct x11_render_shared_shm_data *shared_data)
+{
+    if (!atomic_load(&shared_data->initialized_))
+        return;
+
+    atomic_store(&shared_data->initialized_, false);
+    atomic_store(&shared_data->ext_data, NULL);
+}
+
+static i32 init_present_shared_data(
+    struct x11_render_shared_present_data *shared_data,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+)
+{
+    if (atomic_load(&shared_data->initialized_)) {
+        s_log_warn("SWFB_PRESENT_PIXMAP shared data already initialized; "
+            "not doing anything.");
+        return 0;
+    }
+    atomic_store(&shared_data->initialized_, true);
+    atomic_store(&shared_data->serial, 0);
+
+    const xcb_query_extension_reply_t *ext_data =
         xcb->xcb_get_extension_data(conn, xcb->present.xcb_present_id);
-    s_assert(ext_data->ext_data != NULL,
+    s_assert(ext_data != NULL,
         "The X Present extension data should be loaded & cached by now");
+    atomic_store(&shared_data->ext_data, ext_data);
 
-    ext_data->event_context_id = xcb->xcb_generate_id(conn);
-
+    atomic_store(&shared_data->event_context_id, XCB_NONE);
+    xcb_present_event_t tmp_event_context_id = xcb->xcb_generate_id(conn);
     xcb_void_cookie_t vc = xcb->present.xcb_present_select_input_checked(
-        conn, ext_data->event_context_id, win_handle,
+        conn, tmp_event_context_id, win_handle,
         XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY
     );
     xcb_generic_error_t *e = NULL;
     if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
         s_log_error("xcb_present_select_input failed");
         u_nfree(&e);
-        ext_data->event_context_id = XCB_NONE;
+        atomic_store(&shared_data->event_context_id, XCB_NONE);
         return 1;
     }
+    atomic_store(&shared_data->event_context_id, tmp_event_context_id);
 
     return 0;
 }
 
-static void destroy_present_extension_data(const struct libxcb *xcb,
-    struct x11_render_software_present_ext_data *ext_data,
-    xcb_connection_t *conn, xcb_window_t win_handle)
+static void destroy_present_shared_data(
+    struct x11_render_shared_present_data *shared_data,
+    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
+)
 {
-    if (!ext_data->initialized_)
+    if (!atomic_load(&shared_data->initialized_))
         return;
-    ext_data->initialized_ = false;
+    atomic_store(&shared_data->initialized_, false);
 
-    if (ext_data->event_context_id != XCB_NONE
+    if (atomic_load(&shared_data->event_context_id) != XCB_NONE
         && xcb->present._voidp_xcb_present_select_input_checked != NULL
     ) {
         /* Delete the event context */
         xcb_void_cookie_t vc = xcb->present.xcb_present_select_input_checked(
-            conn, ext_data->event_context_id, win_handle, 0
+            conn, atomic_load(&shared_data->event_context_id), win_handle, 0
         );
         xcb_generic_error_t *e = NULL;
         if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
             s_log_error("xcb_present_select_input_checked failed");
             u_nfree(&e);
         }
-        ext_data->event_context_id = XCB_NONE;
+        atomic_store(&shared_data->event_context_id, XCB_NONE);
     }
-    ext_data->ext_data = NULL;
-    ext_data->serial = 0;
+    atomic_store(&shared_data->ext_data, NULL);
+    atomic_store(&shared_data->serial, 0);
 }
 
 static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
@@ -660,8 +834,7 @@ static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     xcb_generic_error_t *e = NULL;
     if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
         u_nzfree(&e);
-        goto_error("XCB failed to attach the shm segment");
-    }
+        goto_error("XCB failed to attach the shm segment"); }
 
     if (shmctl(shm_o->shmid, IPC_RMID, NULL))
         goto_error("Failed to mark the shm segment to be destroyed "
@@ -689,4 +862,80 @@ static void detach_shm(xcb_shm_segment_info_t *shm,
     }
     shm->shmid = -1;
     shm->shmseg = -1;
+}
+
+static void * malloced_present_thread_fn(void *arg_voidp)
+{
+    struct x11_render_shared_malloced_data *arg = arg_voidp;
+
+    s_log_trace("THREAD CREATED");
+
+    while (true) {
+        (void) pthread_mutex_lock(&arg->present_request_mutex);
+        atomic_store(&arg->present_thread_ready, true);
+        (void) pthread_cond_wait(&arg->present_request_cond,
+            &arg->present_request_mutex);
+        (void) pthread_mutex_unlock(&arg->present_request_mutex);
+        if (!atomic_load(&arg->present_thread_running))
+            break;
+
+        s_assert(atomic_load(&arg->present_request_buffer) != NULL,
+            "Present request cond signaled without a buffer to present");
+
+        const struct x11_render_software_malloced_image_buf *const buf =
+            atomic_load(&arg->present_request_buffer);
+
+        const u64 max_data_size =
+            arg->max_request_size - sizeof(xcb_put_image_request_t);
+        const u64 rows_per_request = max_data_size / (buf->w * sizeof(pixel_t));
+        if (rows_per_request == 0) {
+            s_log_error("The maximum request size is too small to send even"
+                "1 row of pixels. Dropping the frame.");
+            s_log_trace("THREAD: present_pending -> false");
+            atomic_store(arg->present_pending_p, false);
+            atomic_store(&arg->present_request_buffer, NULL);
+            p_event_send(&(const struct p_event) {
+                .type = P_EVENT_PAGE_FLIP,
+                .info.page_flip_status = 1,
+            });
+            continue;
+        }
+
+        xcb_connection_t *const CONN = arg->conn;
+        const u8 FORMAT = XCB_IMAGE_FORMAT_Z_PIXMAP;
+        const xcb_drawable_t DST_DRAWABLE = arg->win_handle;
+        const xcb_gcontext_t GC = arg->gc;
+        const u16 WIDTH = buf->w;
+        const i16 DST_X = 0;
+        const u8 LEFT_PAD = 0;
+        const u8 DEPTH = 24;
+
+        /* Split up the request into smaller chunks so that it can
+         * be handle by the X socket connection */
+        for (u32 y = 0; y < buf->h; y++) {
+            u16 height = buf->h - y;
+            if (height > rows_per_request)
+                height = rows_per_request;
+
+            const u32 data_len = height * WIDTH * sizeof(pixel_t);
+            u8 *const data = (u8 *)buf->buf + (y * WIDTH * sizeof(pixel_t));
+
+            arg->xcb->xcb_put_image(CONN, FORMAT, DST_DRAWABLE, GC,
+                WIDTH, height, DST_X, y, LEFT_PAD, DEPTH,
+                data_len, data);
+        }
+        (void) arg->xcb->xcb_flush(CONN);
+
+        s_log_trace("THREAD: done presenting %p", arg->present_request_buffer);
+        s_log_trace("THREAD: present_pending -> false");
+        atomic_store(arg->present_pending_p, false);
+        atomic_store(&arg->present_request_buffer, NULL);
+        p_event_send(&(const struct p_event) {
+            .type = P_EVENT_PAGE_FLIP,
+            .info.page_flip_status = 0,
+        });
+    }
+
+    s_log_debug("Exiting...");
+    pthread_exit(NULL);
 }

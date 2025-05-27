@@ -1,18 +1,22 @@
-## NEWS for 18.05.2025
+## NEWS for 27.05.2025
 
-* Implemented presentation buffer locking in `platform/linux/window-x11`
-    * Added a new field in `struct window_x11_render_software_ctx` - `presentation_pending`
-        which is used to communicate between the caller of `p_window_swap_buffers` and the listener thread
-        about whether a frame is awaiting a presentation. `render_software_present` will set the variable to `true`,
-        while the listener thread will reset it back to `false` once it receives a `PRESENT_COMPLETE_NOTIFY` event.
-        `render_software_present` will also drop the frame if another one is yet to be presented
-        (the field is set when `render_software_present` is called).
-        * Note that the above only applies to `X11_SWFB_PRESENT_PIXMAP`, since only it requires buffer locking.
-            In all other (`X11_SWFB_MALLOCED_IMAGE` and `X11_SWFB_SHMSEG`) the field is reset at the end of `render_software_present`.
-    * The `serial` field will now be incremented BEFORE the present request.
-        This makes it easy to check for missed presentations in the listener thread.
-    * `handle_present_event` in `platform/linux/window-x11-events` will now properly check
-        for missed page flips and send the appropriate events (using the aforementioned `serial` field)
-    * Fixed a bug where if `conn` wasn't `NULL` but the connection failed, `window_X11_close`
-        would attempt to destroy resources that weren't yet initialized
-    * Added some testing regarding page flip events/timing in `tests/window-test`
+* Implemented proper non-blocking error-checking double-buffered presentations for all `platform/linux/window-x11` presentation modes
+    * Made `X11_SWFB_SHMSEG` and `X11_SWFB_MALLOCED_IMAGE` presentations non-blocking and error-checking:
+        * `X11_SWFB_SHMSEG` will now tell the `XShmPutImage` request to send a `ShmCompletion` event to the listener thread when the page flip completes successfully. The listener thread will then handle such events to mark the buffer as free and/or handle any errors by sending a `P_EVENT_PAGE_FLIP` event with a `page_flip_status` of FAILURE (`1`).
+        * `X11_SWFB_MALLOCED_IMAGE` now spawns a completely separate thread, whose sole job is to write the framebuffer's data to the X11 socket with the X `PutImage` request, like so:
+            * The malloced-present thread blocks on a condition variable while idle
+            * `software_present_malloced` checks that the thread isn't already busy with another frame, and if it is, a failure status is returned
+            * `software_present_malloced` signals the aforementioned condition variable and sets the framebuffer that is to be presented
+            * `software_present_malloced` now returns with a success status
+            * In the present thread, the framebuffer is split up into smaller chunks so that they fit within the X request size limit
+            * The present thread now sends a series of `PutImage` requests, one chunk after the other
+            * If everything goes alright, a `P_EVENT_PAGE_FLIP` with `page_flip_status` of SUCCESS (`0`), or FAILURE (`1`) if an error is encountered.
+            * The present thread unlocks the buffer and goes idle, waiting on the present request condition variable
+        * Due to the rewrite of the `X11_SWFB_MALLOCED_IMAGE` presentation code, no function from `libxcb-image.so` is needed anymore, and so it was entirely removed from `libxcb-rtld`
+        * Made the event received by `window_X11_event_listener_fn` be freed explicitly in the main thread function instead of `handle_event`
+        * Added support for `ShmCompletion` events in the listener thread
+        * All multithreading code in `platform/linux/window-x11` now directly uses the `pthread` library instead of the `p_mt_*` wrapper
+        * Removed some useless random lines of code in `handle_ge_event`
+        * Fixed the `initialized_` fields in `sw_rctx->shared_data.*` not being initialized... lol
+        * `X11_render_present_software` will only actually swap the buffers if the presentation request is successfull(y sent)
+        * Refactored the `software_*_buffer_*` functions to take in as arguments only what they specifically need

@@ -14,7 +14,6 @@
 #define LIBXCB_RTLD_ERROR_MAGIC -1
 
 static struct p_lib *g_libxcb_lib = NULL;
-static struct p_lib *g_libxcb_image_lib = NULL;
 static struct p_lib *g_libxcb_icccm_lib = NULL;
 static struct p_lib *g_libxcb_keysyms_lib = NULL;
 
@@ -33,11 +32,6 @@ static p_mt_mutex_t g_mutex = P_MT_MUTEX_INITIALIZER;
 #define X_V_(type, name) #name,
 static const char *libxcb_sym_names[] = {
     LIBXCB_SYM_LIST
-    NULL
-};
-
-static const char *libxcb_image_sym_names[] = {
-    LIBXCB_IMAGE_SYM_LIST
     NULL
 };
 
@@ -88,7 +82,6 @@ i32 libxcb_load(struct libxcb *o)
     }
 
     if (g_libxcb_lib == NULL ||
-        g_libxcb_image_lib == NULL ||
         g_libxcb_icccm_lib == NULL ||
         g_libxcb_keysyms_lib == NULL ||
         (g_libxcb_input_lib == NULL && g_libxcb_input_ok) ||
@@ -142,9 +135,6 @@ static i32 do_load_libraries(void)
 
     g_libxcb_lib = p_librtld_load(LIBXCB_SO_NAME, libxcb_sym_names);
 
-    g_libxcb_image_lib = p_librtld_load(LIBXCB_IMAGE_SO_NAME,
-            libxcb_image_sym_names);
-
     g_libxcb_icccm_lib = p_librtld_load(LIBXCB_ICCCM_SO_NAME,
             libxcb_icccm_sym_names);
 
@@ -152,7 +142,6 @@ static i32 do_load_libraries(void)
             libxcb_keysyms_sym_names);
 
     if (g_libxcb_lib == NULL ||
-        g_libxcb_image_lib == NULL ||
         g_libxcb_icccm_lib == NULL ||
         g_libxcb_keysyms_lib == NULL
     ) {
@@ -184,9 +173,6 @@ static i32 do_load_libraries(void)
 
 #define curr_lib g_libxcb_lib
         LIBXCB_SYM_LIST
-#undef curr_lib
-#define curr_lib g_libxcb_image_lib
-        LIBXCB_IMAGE_SYM_LIST
 #undef curr_lib
 #define curr_lib g_libxcb_icccm_lib
         LIBXCB_ICCCM_SYM_LIST
@@ -242,7 +228,6 @@ static void do_unload_libraries(void)
      * so we don't have to check if the handles are NULL */
     p_librtld_close(&g_libxcb_lib);
     p_librtld_close(&g_libxcb_icccm_lib);
-    p_librtld_close(&g_libxcb_image_lib);
     p_librtld_close(&g_libxcb_keysyms_lib);
     p_librtld_close(&g_libxcb_input_lib);
     p_librtld_close(&g_libxcb_shm_lib);

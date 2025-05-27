@@ -1,8 +1,10 @@
 #ifndef LIBXCB_RTLD_H_
 #define LIBXCB_RTLD_H_
 
+#include <xcb/bigreq.h>
 #include <xcb/present.h>
 #include <xcb/shm.h>
+#include <xcb/xcbext.h>
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
 #endif /* P_INTERNAL_GUARD__ */
@@ -81,21 +83,20 @@
     X_FN_(const struct xcb_query_extension_reply_t *, xcb_get_extension_data,  \
         xcb_connection_t *c, xcb_extension_t *ext                              \
     )                                                                          \
-
-
-#define LIBXCB_IMAGE_SO_NAME "libxcb-image"
-#define LIBXCB_IMAGE_SYM_LIST                                                  \
-    X_FN_(xcb_void_cookie_t, xcb_image_put,                                    \
-        xcb_connection_t *conn, xcb_drawable_t draw, xcb_gcontext_t gc,        \
-        xcb_image_t * image, int16_t x, int16_t y, uint8_t left_pad            \
+    X_FN_(xcb_big_requests_enable_cookie_t, xcb_big_requests_enable,           \
+        xcb_connection_t *c                                                    \
     )                                                                          \
-    X_FN_(xcb_image_t *, xcb_image_create_native,                              \
-        xcb_connection_t *c, uint16_t width, uint16_t height,                  \
-        xcb_image_format_t format, uint8_t depth,                              \
-        void * base, uint32_t bytes, uint8_t * data                            \
+    X_FN_(xcb_big_requests_enable_reply_t *, xcb_big_requests_enable_reply,    \
+        xcb_connection_t *c, xcb_big_requests_enable_cookie_t cookie,          \
+        xcb_generic_error_t **e                                                \
     )                                                                          \
-    X_FN_(void, xcb_image_destroy, xcb_image_t *image)                         \
-
+    X_FN_(xcb_void_cookie_t, xcb_put_image,                                    \
+        xcb_connection_t *c, uint8_t format, xcb_drawable_t drawable,          \
+        xcb_gcontext_t gc, uint16_t width, uint16_t height,                    \
+        int16_t dst_x, int16_t dst_y, uint8_t left_pad, uint8_t depth,         \
+        uint32_t data_len, const uint8_t *data                                 \
+    )                                                                          \
+    X_FN_(uint32_t, xcb_get_maximum_request_length, xcb_connection_t *conn)    \
 
 #define LIBXCB_ICCCM_SO_NAME "libxcb-icccm"
 #define LIBXCB_ICCCM_SYM_LIST                                                  \
@@ -116,6 +117,9 @@
         xcb_key_symbols_t *syms, xcb_keycode_t keycode, int col                \
     )                                                                          \
     X_FN_(void, xcb_key_symbols_free, xcb_key_symbols_t *syms)                 \
+
+#define LIBXCB_ERRORS_SO_NAME "libxcb-errors"
+#define LIBXCB_ERRORS_SYM_LIST
 
 
 #define X11_XINPUT_EXT_NAME "XInputExtension"
@@ -181,6 +185,7 @@
         xcb_connection_t *conn, xcb_shm_query_version_cookie_t cookie,         \
         xcb_generic_error_t **e                                                \
     )                                                                          \
+    X_V_(xcb_extension_t, xcb_shm_id)                                          \
 
 #define X11_PRESENT_EXT_NAME "Present"
 #define LIBXCB_PRESENT_SO_NAME "libxcb-present"
@@ -206,9 +211,7 @@
         xcb_connection_t *c, xcb_present_event_t eid,                          \
         xcb_window_t window, uint32_t event_mask                               \
     )                                                                          \
-                                                                               \
     X_V_(xcb_extension_t, xcb_present_id)                                      \
-
 
 struct libxcb {
 #define X_FN_(ret_type, name, ...) \
@@ -218,7 +221,6 @@ struct libxcb {
 
     bool loaded_;
     LIBXCB_SYM_LIST
-    LIBXCB_IMAGE_SYM_LIST
     LIBXCB_ICCCM_SYM_LIST
     LIBXCB_KEYSYMS_SYM_LIST
 

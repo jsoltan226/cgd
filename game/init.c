@@ -25,7 +25,7 @@ i32 do_platform_init(i32 argc, const char *const *argv,
     /* Set up logging */
 #ifndef CGD_BUILDTYPE_RELEASE
     if (!strcmp(argv[0], "debug"))
-        s_configure_log_level(S_LOG_DEBUG);
+        s_configure_log_level(S_LOG_TRACE);
 #else
     s_configure_log_level(S_LOG_INFO);
     (void) argv;
