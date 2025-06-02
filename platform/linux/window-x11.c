@@ -5,6 +5,7 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
 #include <fcntl.h>
@@ -611,6 +612,7 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
 {
     xcb_void_cookie_t vc;
     xcb_generic_error_t *e = NULL;
+    char *wm_class_string = NULL;
 
 #define libxcb_error() \
     (e = xcb->xcb_request_check(conn, vc), e != NULL)
@@ -618,6 +620,35 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
     /* Get the UTF8 string atom */
     if (intern_atom("UTF8_STRING", &atoms->UTF8_STRING, conn, xcb))
         goto err;
+
+    /* Set the window class */
+    /* By (the `icccm`) convention, the `WM_CLASS` atom must be set
+     * by the application before mapping the window.
+     * It's a string that should contain the "instance name"
+     * and the "class name" in a manner like this:
+     *  `<instance>\0<class>\0`.
+     *
+     * `class` should contain the application name,
+     * while `instance` - a user-settible runtime override for `class`.
+     * For now, we just set both to `"cgd"`.
+     */
+    const u32 title_len = strlen(title);
+    const u32 wm_class_size = (title_len + 1) * 2;
+    wm_class_string = malloc(wm_class_size);
+    s_assert(wm_class_string != NULL,
+        "malloc failed for window instance/class string");
+    memcpy(wm_class_string, title, title_len + 1);
+    memcpy(wm_class_string + title_len + 1, title, title_len + 1);
+
+    if (intern_atom("WM_CLASS", &atoms->WM_CLASS, conn, xcb))
+        goto err;
+    vc = xcb->xcb_change_property_checked(conn, XCB_PROP_MODE_REPLACE,
+        win, atoms->WM_CLASS, XCB_ATOM_STRING, 8,
+        wm_class_size, wm_class_string);
+    if (libxcb_error())
+        goto_error("Failed to set the window class");
+
+    u_nfree(&wm_class_string);
 
     /* Set the window title */
     vc = xcb->xcb_change_property_checked(conn, XCB_PROP_MODE_REPLACE,
@@ -679,6 +710,9 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
     return 0;
 
 err:
+    if (wm_class_string != NULL) {
+        u_nfree(&wm_class_string);
+    }
     if (e != NULL) {
         u_nfree(&e);
     }

@@ -56,6 +56,7 @@ struct window_x11 {
      * that are read and/or set during window initialization */
     struct window_x11_atoms {
         xcb_atom_t UTF8_STRING;
+        xcb_atom_t WM_CLASS;
         xcb_atom_t NET_WM_NAME;
         xcb_atom_t NET_WM_STATE_ABOVE;
         xcb_atom_t WM_PROTOCOLS;
