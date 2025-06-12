@@ -291,9 +291,9 @@ i32 window_X11_register_keyboard(struct window_x11 *win,
 {
     u_check_params(win != NULL && kb != NULL);
 
-    if (win->input.registered_keyboard != NULL) return 1;
+    if (atomic_load(&win->input.registered_keyboard) != NULL) return 1;
 
-    win->input.registered_keyboard = kb;
+    atomic_store(&win->input.registered_keyboard, kb);
     return 0;
 }
 
@@ -301,9 +301,9 @@ i32 window_X11_register_mouse(struct window_x11 *win, struct mouse_x11 *mouse)
 {
     u_check_params(win != NULL && mouse != NULL);
 
-    if (win->input.registered_mouse != NULL) return 1;
+    if (atomic_load(&win->input.registered_mouse) != NULL) return 1;
 
-    win->input.registered_mouse = mouse;
+    atomic_store(&win->input.registered_mouse, mouse);
     return 0;
 }
 
@@ -311,7 +311,7 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
 {
     u_check_params(win != NULL);
 
-    if (win->input.registered_keyboard != NULL) {
+    if (atomic_load(&win->input.registered_keyboard) != NULL) {
         /* Notify the event thread that the keyboard is
          * being deregistered and wait for it to acknowledge that */
         pthread_mutex_t tmp_mutex;
@@ -322,31 +322,36 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
         send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
         pthread_cond_wait(&win->input.keyboard_deregistration_ack, &tmp_mutex);
 
-        win->input.registered_keyboard = NULL;
+        atomic_store(&win->input.registered_keyboard, NULL);
         atomic_store(&win->input.keyboard_deregistration_notify, false);
 
-        (void) pthread_mutex_destroy(&tmp_mutex);
+        (void) pthread_mutex_unlock(&tmp_mutex);
+        s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
+            "tmp_mutex is busy (race)");
     }
 }
 
 void window_X11_deregister_mouse(struct window_x11 *win)
 {
     u_check_params(win != NULL);
-    if (win->input.registered_mouse != NULL) {
+    if (atomic_load(&win->input.registered_mouse) != NULL) {
         /* Notify the event thread that the mouse is
          * being deregistered and wait for it to acknowledge that */
         pthread_mutex_t tmp_mutex;
         (void) pthread_mutex_init(&tmp_mutex, 0); /* always succeeds */
-        pthread_mutex_lock(&tmp_mutex);
+        s_assert(pthread_mutex_lock(&tmp_mutex) == 0,
+            "impossible outcome");
 
         atomic_store(&win->input.mouse_deregistration_notify, true);
         send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
         pthread_cond_wait(&win->input.mouse_deregistration_ack, &tmp_mutex);
 
-        win->input.registered_mouse = NULL;
+        atomic_store(&win->input.registered_mouse, NULL);
         atomic_store(&win->input.mouse_deregistration_notify, false);
 
-        (void) pthread_mutex_destroy(&tmp_mutex);
+        (void) pthread_mutex_unlock(&tmp_mutex);
+        s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
+            "tmp_mutex is busy (race)");
     }
 }
 
@@ -630,7 +635,7 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
      *
      * `class` should contain the application name,
      * while `instance` - a user-settible runtime override for `class`.
-     * For now, we just set both to `"cgd"`.
+     * For now, we just set both to whatever the provided `title` is.
      */
     const u32 title_len = strlen(title);
     const u32 wm_class_size = (title_len + 1) * 2;

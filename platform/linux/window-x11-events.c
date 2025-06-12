@@ -1,3 +1,4 @@
+#include "core/spinlock.h"
 #define _GNU_SOURCE
 #include "../event.h"
 #include "../mouse.h"
@@ -77,7 +78,8 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
     if (acceleration == P_WINDOW_ACCELERATION_NONE &&
         shared_buf_data->shm.initialized_ &&
         XCB_EVENT_RESPONSE_TYPE(ev) ==
-            shared_buf_data->shm.ext_data->first_event + XCB_SHM_COMPLETION
+            shared_buf_data->shm.const_data.ext_data->first_event
+                + XCB_SHM_COMPLETION
         )
     {
         handle_shm_completion_event(win, ev);
@@ -104,7 +106,7 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         if (acceleration == P_WINDOW_ACCELERATION_NONE &&
             shared_buf_data->shm.initialized_ &&
             ((xcb_generic_error_t *)ev)->major_code ==
-                shared_buf_data->shm.ext_data->major_opcode)
+                shared_buf_data->shm.const_data.ext_data->major_opcode)
         {
             handle_shm_error(win, (xcb_generic_error_t *)ev);
         } else {
@@ -142,7 +144,8 @@ static void handle_ge_event(struct window_x11 *win,
 
     if (acceleration == P_WINDOW_ACCELERATION_NONE &&
         shared_buf_data->present.initialized_ &&
-        ge_ev->extension == shared_buf_data->present.ext_data->major_opcode)
+        ge_ev->extension ==
+            shared_buf_data->present.const_data.ext_data->major_opcode)
     {
         handle_present_event(win, ge_ev);
     } else if (ge_ev->extension == win->input.xinput_ext_data->major_opcode) {
@@ -271,15 +274,19 @@ static void handle_present_event(struct window_x11 *win,
         &win->render.sw.shared_buf_data.present;
 
     switch (ge_ev->event_type) {
-    case XCB_PRESENT_COMPLETE_NOTIFY: {
+    case XCB_PRESENT_COMPLETE_NOTIFY:
+    {
+        spinlock_acquire(&win->render.sw.swap_lock);
         if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE
             || !win->render.sw.initialized_
             || win->render.sw.curr_front_buf->type != X11_SWFB_PRESENT_PIXMAP)
         {
             s_log_warn("PRESENT_COMPLETE_NOTIFY event received " "while the "
                 "front buffer is not an X11_SWFB_PRESENT_PIXMAP; ignoring");
+            spinlock_release(&win->render.sw.swap_lock);
             break;
         }
+        spinlock_release(&win->render.sw.swap_lock);
 
         const u32 stored_serial = atomic_load(&shared_data->serial);
         if (stored_serial != ev.complete->serial) {

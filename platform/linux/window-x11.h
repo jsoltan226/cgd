@@ -85,7 +85,7 @@ struct window_x11 {
 
         /* The keyboard that will be receiving any keyboard input events.
          * Used to interface with `p_keyboard`. */
-        struct keyboard_x11 *registered_keyboard;
+        struct keyboard_x11 *_Atomic registered_keyboard;
         /* These are used to notify the listener thread that the keyboard
          * is no longer usable and events shouldn't be written to it */
         _Atomic bool keyboard_deregistration_notify;
@@ -93,7 +93,7 @@ struct window_x11 {
 
         /* The mouse that will be receiving any mouse input events.
          * Used to interface with `p_mouse`. */
-        struct mouse_x11 *registered_mouse;
+        struct mouse_x11 *_Atomic registered_mouse;
         /* These are used to notify the listener thread that the mouse
          * is no longer usable and events shouldn't be written to it */
         _Atomic bool mouse_deregistration_notify;

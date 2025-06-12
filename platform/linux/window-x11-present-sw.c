@@ -14,6 +14,7 @@
 #include <core/int.h>
 #include <core/log.h>
 #include <core/util.h>
+#include <core/spinlock.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,12 +76,12 @@ static void software_destroy_buffer_pixmap(
 static i32 do_init_buffer(struct x11_render_software_buf *buf,
     struct x11_render_shared_buffer_data *shared_buf_data,
     u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
-    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    atomic_flag *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
 static i32 init_malloced_shared_data(
     struct x11_render_shared_malloced_data *shared_data, u64 max_request_size,
-    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    atomic_flag *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
     xcb_connection_t *conn, const struct libxcb *xcb
 );
 static void destroy_malloced_shared_data(
@@ -115,7 +116,8 @@ i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
 {
     *o_vsync_supported = false;
     sw_rctx->initialized_ = true;
-    atomic_init(&sw_rctx->present_pending, false);
+    atomic_flag_clear(&sw_rctx->present_pending);
+    spinlock_init(&sw_rctx->swap_lock);
 
     /* Create the window's graphics context (GC) */
     sw_rctx->window_gc = xcb->xcb_generate_id(conn);
@@ -179,15 +181,14 @@ struct pixel_flat_data * X11_render_present_software(
     enum p_window_present_mode present_mode
 )
 {
+    sw_rctx->total_frames++;
     /* We assume that `present_mode` has already been validated */
 
-    if (atomic_load(&sw_rctx->present_pending)) {
-        s_log_warn("Another frame presentation already scheduled; "
-            "dropping this one!");
+    if (atomic_flag_test_and_set(&sw_rctx->present_pending)) {
+        sw_rctx->dropped_frames++;
         return &sw_rctx->curr_back_buf->pixbuf;
     }
-    atomic_store(&sw_rctx->present_pending, true);
-    /* Resets after the page flip completes */
+    /* Reset after the page flip completes */
 
     i32 swap_ret = 0;
     struct x11_render_software_buf *const curr_buf = sw_rctx->curr_back_buf;
@@ -224,13 +225,18 @@ struct pixel_flat_data * X11_render_present_software(
 
     if (swap_ret == 0) {
         /* Swap the buffers only if the page flip succeeded */
-        struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
-        sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
-        sw_rctx->curr_back_buf = tmp;
+        spinlock_acquire(&sw_rctx->swap_lock);
+        {
+            struct x11_render_software_buf *const tmp = sw_rctx->curr_front_buf;
+            sw_rctx->curr_front_buf = sw_rctx->curr_back_buf;
+            sw_rctx->curr_back_buf = tmp;
+        }
+        spinlock_release(&sw_rctx->swap_lock);
         s_log_trace("Page flip OK; swap buffers (new front: %p, new back: %p)",
             sw_rctx->curr_front_buf, sw_rctx->curr_back_buf);
     } else {
-        atomic_store(&sw_rctx->present_pending, false);
+        atomic_flag_clear(&sw_rctx->present_pending);
+        sw_rctx->dropped_frames++;
     }
 
     return &sw_rctx->curr_back_buf->pixbuf;
@@ -242,10 +248,9 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     if (sw_rctx == NULL || !sw_rctx->initialized_)
         return;
 
-    if (atomic_load(&sw_rctx->present_pending)) {
+    if (atomic_flag_test_and_set(&sw_rctx->present_pending))
         s_log_warn("Forcing buffer destruction while it might be in use");
-        atomic_store(&sw_rctx->present_pending, false);
-    }
+    atomic_flag_clear(&sw_rctx->present_pending);
 
     for (u32 i = 0; i < 2; i++) {
         if (!sw_rctx->initialized_)
@@ -273,14 +278,14 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         curr_buf->initialized_ = false;
     }
 
-    if (sw_rctx->shared_buf_data.present.initialized_) {
+    if (atomic_load(&sw_rctx->shared_buf_data.present.initialized_)) {
         destroy_present_shared_data(&sw_rctx->shared_buf_data.present,
             win_handle, conn, xcb);
     }
-    if (sw_rctx->shared_buf_data.shm.initialized_) {
+    if (atomic_load(&sw_rctx->shared_buf_data.shm.initialized_)) {
         destroy_shm_shared_data(&sw_rctx->shared_buf_data.shm);
     }
-    if (sw_rctx->shared_buf_data.malloced.initialized_) {
+    if (atomic_load(&sw_rctx->shared_buf_data.malloced.initialized_)) {
         destroy_malloced_shared_data(&sw_rctx->shared_buf_data.malloced);
     }
 
@@ -289,6 +294,11 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         sw_rctx->window_gc = XCB_NONE;
     }
 
+    s_log_verbose("Total dropped frames: %lu/%lu (%lf%%)",
+        sw_rctx->dropped_frames, sw_rctx->total_frames,
+        ((f64)sw_rctx->dropped_frames / (f64)sw_rctx->total_frames) * 100.0
+    );
+
     sw_rctx->curr_back_buf = sw_rctx->curr_front_buf = NULL;
     sw_rctx->initialized_ = false;
 }
@@ -296,7 +306,7 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
 void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
     bool status)
 {
-    atomic_store(&sw_rctx->present_pending, false);
+    atomic_flag_clear(&sw_rctx->present_pending);
     p_event_send(&(const struct p_event) {
         .type = P_EVENT_PAGE_FLIP,
         .info.page_flip_status = status
@@ -408,10 +418,11 @@ static i32 software_present_malloced(
     s_log_trace("shared_data->present_request_buffer: %p",
         shared_data->present_request_buffer);
 
-    if (!atomic_load(&shared_data->present_thread_ready)) {
+    if (atomic_flag_test_and_set(&shared_data->present_thread_not_ready)) {
         s_log_warn("Present thread is not yet ready; dropping frame");
         return 1;
     }
+    atomic_flag_clear(&shared_data->present_thread_not_ready);
 
     if (atomic_load(&shared_data->present_request_buffer) != NULL) {
         (void) pthread_cond_signal(&shared_data->present_request_cond);
@@ -421,7 +432,7 @@ static i32 software_present_malloced(
 
     atomic_store(&shared_data->present_request_buffer, buf);
     s_log_trace("present_pending -> true");
-    atomic_store(shared_data->present_pending_p, true);
+    (void) atomic_flag_test_and_set(shared_data->const_data.present_pending_p);
     (void) pthread_cond_signal(&shared_data->present_request_cond);
 
     return 0;
@@ -565,7 +576,7 @@ static void software_destroy_buffer_pixmap(
 static i32 do_init_buffer(struct x11_render_software_buf *buf,
     struct x11_render_shared_buffer_data *shared_buf_data,
     u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
-    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    atomic_flag *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
     buf->initialized_ = true;
@@ -644,7 +655,7 @@ malloced_fail:
 
 static i32 init_malloced_shared_data(
     struct x11_render_shared_malloced_data *shared_data, u64 max_request_size,
-    _Atomic bool *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
+    atomic_flag *present_pending_p, xcb_window_t win_handle, xcb_gcontext_t gc,
     xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
@@ -655,24 +666,28 @@ static i32 init_malloced_shared_data(
     }
 
     atomic_store(&shared_data->initialized_, true);
-    shared_data->present_thread = 0;
+
+    spinlock_init(&shared_data->const_data_lock);
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+        shared_data->const_data.present_pending_p = present_pending_p;
+        shared_data->const_data.max_request_size = max_request_size;
+        shared_data->const_data.win_handle = win_handle;
+        shared_data->const_data.gc = gc;
+        shared_data->const_data.conn = conn;
+        shared_data->const_data.xcb = xcb;
+    }
+    spinlock_release(&shared_data->const_data_lock);
 
     (void) pthread_mutex_init(&shared_data->present_request_mutex, NULL);
     (void) pthread_cond_init(&shared_data->present_request_cond, NULL);
     atomic_store(&shared_data->present_request_buffer, NULL);
-    shared_data->present_pending_p = present_pending_p;
-    shared_data->max_request_size = max_request_size;
-    shared_data->win_handle = win_handle;
-    shared_data->gc = gc;
-    shared_data->conn = conn;
-    shared_data->xcb = xcb;
-
-    atomic_store(&shared_data->present_thread_ready, false);
-    atomic_store(&shared_data->present_thread_running, true);
+    (void) atomic_flag_test_and_set(&shared_data->present_thread_not_ready);
+    (void) atomic_flag_test_and_set(&shared_data->present_thread_running);
     i32 ret = pthread_create(&shared_data->present_thread, NULL,
         malloced_present_thread_fn, shared_data);
     if (ret != 0) {
-        atomic_store(&shared_data->present_thread_running, false);
+        atomic_flag_clear(&shared_data->present_thread_running);
         s_log_error("Failed to create the malloced buffer present thread: %s",
             strerror(ret));
         return 1;
@@ -688,21 +703,26 @@ static void destroy_malloced_shared_data(
         return;
     atomic_store(&shared_data->initialized_, false);
 
-    atomic_store(&shared_data->present_thread_running, false);
+    atomic_flag_clear(&shared_data->present_thread_running);
     (void) pthread_cond_signal(&shared_data->present_request_cond);
     (void) pthread_join(shared_data->present_thread, NULL);
     shared_data->present_thread = 0;
-    atomic_store(&shared_data->present_thread_ready, false);
+    (void) atomic_flag_test_and_set(&shared_data->present_thread_not_ready);
 
     (void) pthread_mutex_destroy(&shared_data->present_request_mutex);
     (void) pthread_cond_destroy(&shared_data->present_request_cond);
     atomic_store(&shared_data->present_request_buffer, NULL);
-    shared_data->max_request_size = 0;
-    shared_data->present_pending_p = NULL;
-    shared_data->win_handle = XCB_NONE;
-    shared_data->gc = XCB_NONE;
-    shared_data->conn = NULL;
-    shared_data->xcb = NULL;
+
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+        shared_data->const_data.max_request_size = 0;
+        shared_data->const_data.present_pending_p = NULL;
+        shared_data->const_data.win_handle = XCB_NONE;
+        shared_data->const_data.gc = XCB_NONE;
+        shared_data->const_data.conn = NULL;
+        shared_data->const_data.xcb = NULL;
+    }
+    spinlock_release(&shared_data->const_data_lock);
 }
 
 static i32 init_shm_shared_data(struct x11_render_shared_shm_data *shared_data,
@@ -716,11 +736,15 @@ static i32 init_shm_shared_data(struct x11_render_shared_shm_data *shared_data,
 
     atomic_store(&shared_data->initialized_, true);
 
-    atomic_store(&shared_data->ext_data,
-        xcb->xcb_get_extension_data(conn, xcb->shm.xcb_shm_id)
-    );
-    s_assert(atomic_load(&shared_data->ext_data) != NULL,
-        "The MIT-SHM extension data should alredy be loaded and cached!");
+    spinlock_init(&shared_data->const_data_lock);
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+        shared_data->const_data.ext_data =
+            xcb->xcb_get_extension_data(conn, xcb->shm.xcb_shm_id);
+        s_assert(shared_data->const_data.ext_data != NULL,
+            "The MIT-SHM extension data should alredy be loaded and cached!");
+    }
+    spinlock_release(&shared_data->const_data_lock);
 
     atomic_store(&shared_data->blit_request_sequence_number, 0);
 
@@ -734,7 +758,12 @@ static void destroy_shm_shared_data(
         return;
 
     atomic_store(&shared_data->initialized_, false);
-    atomic_store(&shared_data->ext_data, NULL);
+
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+        shared_data->const_data.ext_data = NULL;
+    }
+    spinlock_release(&shared_data->const_data_lock);
 }
 
 static i32 init_present_shared_data(
@@ -750,28 +779,37 @@ static i32 init_present_shared_data(
     atomic_store(&shared_data->initialized_, true);
     atomic_store(&shared_data->serial, 0);
 
-    const xcb_query_extension_reply_t *ext_data =
-        xcb->xcb_get_extension_data(conn, xcb->present.xcb_present_id);
-    s_assert(ext_data != NULL,
-        "The X Present extension data should be loaded & cached by now");
-    atomic_store(&shared_data->ext_data, ext_data);
+    i32 ret = 0;
 
-    atomic_store(&shared_data->event_context_id, XCB_NONE);
-    xcb_present_event_t tmp_event_context_id = xcb->xcb_generate_id(conn);
-    xcb_void_cookie_t vc = xcb->present.xcb_present_select_input_checked(
-        conn, tmp_event_context_id, win_handle,
-        XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY
-    );
-    xcb_generic_error_t *e = NULL;
-    if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
-        s_log_error("xcb_present_select_input failed");
-        u_nfree(&e);
-        atomic_store(&shared_data->event_context_id, XCB_NONE);
-        return 1;
+    spinlock_init(&shared_data->const_data_lock);
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+        const xcb_query_extension_reply_t *ext_data =
+            xcb->xcb_get_extension_data(conn, xcb->present.xcb_present_id);
+        s_assert(ext_data != NULL,
+            "The X Present extension data should be loaded & cached by now");
+
+        shared_data->const_data.ext_data = ext_data;
+
+        shared_data->const_data.event_context_id = XCB_NONE;
+        xcb_present_event_t tmp_event_context_id = xcb->xcb_generate_id(conn);
+        xcb_void_cookie_t vc = xcb->present.xcb_present_select_input_checked(
+            conn, tmp_event_context_id, win_handle,
+            XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY
+        );
+        xcb_generic_error_t *e = NULL;
+        if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
+            s_log_error("xcb_present_select_input failed");
+            u_nfree(&e);
+            shared_data->const_data.event_context_id = XCB_NONE;
+            ret = 1;
+        } else {
+            shared_data->const_data.event_context_id = tmp_event_context_id;
+        }
     }
-    atomic_store(&shared_data->event_context_id, tmp_event_context_id);
+    spinlock_release(&shared_data->const_data_lock);
 
-    return 0;
+    return ret;
 }
 
 static void destroy_present_shared_data(
@@ -783,21 +821,30 @@ static void destroy_present_shared_data(
         return;
     atomic_store(&shared_data->initialized_, false);
 
-    if (atomic_load(&shared_data->event_context_id) != XCB_NONE
-        && xcb->present._voidp_xcb_present_select_input_checked != NULL
-    ) {
-        /* Delete the event context */
-        xcb_void_cookie_t vc = xcb->present.xcb_present_select_input_checked(
-            conn, atomic_load(&shared_data->event_context_id), win_handle, 0
-        );
-        xcb_generic_error_t *e = NULL;
-        if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
-            s_log_error("xcb_present_select_input_checked failed");
-            u_nfree(&e);
+    spinlock_acquire(&shared_data->const_data_lock);
+    {
+
+        if (shared_data->const_data.event_context_id != XCB_NONE
+            && xcb->present._voidp_xcb_present_select_input_checked != NULL
+        ) {
+            /* Delete the event context */
+            xcb_void_cookie_t vc =
+                xcb->present.xcb_present_select_input_checked(
+                    conn, shared_data->const_data.event_context_id, win_handle,
+                    0
+                );
+            xcb_generic_error_t *e = NULL;
+            if (e = xcb->xcb_request_check(conn, vc), e != NULL) {
+                s_log_error("xcb_present_select_input_checked failed");
+                u_nfree(&e);
+            }
+            shared_data->const_data.event_context_id = XCB_NONE;
         }
-        atomic_store(&shared_data->event_context_id, XCB_NONE);
+
+        shared_data->const_data.ext_data = NULL;
     }
-    atomic_store(&shared_data->ext_data, NULL);
+    spinlock_release(&shared_data->const_data_lock);
+
     atomic_store(&shared_data->serial, 0);
 }
 
@@ -870,14 +917,20 @@ static void * malloced_present_thread_fn(void *arg_voidp)
 
     s_log_trace("THREAD CREATED");
 
+    (void) pthread_mutex_lock(&arg->present_request_mutex);
+    atomic_flag_clear(&arg->present_thread_not_ready);
+    goto first_run_entry;
+
     while (true) {
         (void) pthread_mutex_lock(&arg->present_request_mutex);
-        atomic_store(&arg->present_thread_ready, true);
+first_run_entry:
         (void) pthread_cond_wait(&arg->present_request_cond,
             &arg->present_request_mutex);
         (void) pthread_mutex_unlock(&arg->present_request_mutex);
-        if (!atomic_load(&arg->present_thread_running))
+        if (!atomic_flag_test_and_set(&arg->present_thread_running)) {
+            atomic_flag_clear(&arg->present_thread_running);
             break;
+        }
 
         s_assert(atomic_load(&arg->present_request_buffer) != NULL,
             "Present request cond signaled without a buffer to present");
@@ -885,14 +938,15 @@ static void * malloced_present_thread_fn(void *arg_voidp)
         const struct x11_render_software_malloced_image_buf *const buf =
             atomic_load(&arg->present_request_buffer);
 
+        /* Check that we can at least send a single row of pixels */
         const u64 max_data_size =
-            arg->max_request_size - sizeof(xcb_put_image_request_t);
+            arg->const_data.max_request_size - sizeof(xcb_put_image_request_t);
         const u64 rows_per_request = max_data_size / (buf->w * sizeof(pixel_t));
         if (rows_per_request == 0) {
             s_log_error("The maximum request size is too small to send even"
                 "1 row of pixels. Dropping the frame.");
             s_log_trace("THREAD: present_pending -> false");
-            atomic_store(arg->present_pending_p, false);
+            atomic_flag_clear(arg->const_data.present_pending_p);
             atomic_store(&arg->present_request_buffer, NULL);
             p_event_send(&(const struct p_event) {
                 .type = P_EVENT_PAGE_FLIP,
@@ -901,10 +955,10 @@ static void * malloced_present_thread_fn(void *arg_voidp)
             continue;
         }
 
-        xcb_connection_t *const CONN = arg->conn;
+        xcb_connection_t *const CONN = arg->const_data.conn;
         const u8 FORMAT = XCB_IMAGE_FORMAT_Z_PIXMAP;
-        const xcb_drawable_t DST_DRAWABLE = arg->win_handle;
-        const xcb_gcontext_t GC = arg->gc;
+        const xcb_drawable_t DST_DRAWABLE = arg->const_data.win_handle;
+        const xcb_gcontext_t GC = arg->const_data.gc;
         const u16 WIDTH = buf->w;
         const i16 DST_X = 0;
         const u8 LEFT_PAD = 0;
@@ -920,15 +974,15 @@ static void * malloced_present_thread_fn(void *arg_voidp)
             const u32 data_len = height * WIDTH * sizeof(pixel_t);
             u8 *const data = (u8 *)buf->buf + (y * WIDTH * sizeof(pixel_t));
 
-            arg->xcb->xcb_put_image(CONN, FORMAT, DST_DRAWABLE, GC,
+            arg->const_data.xcb->xcb_put_image(CONN, FORMAT, DST_DRAWABLE, GC,
                 WIDTH, height, DST_X, y, LEFT_PAD, DEPTH,
                 data_len, data);
         }
-        (void) arg->xcb->xcb_flush(CONN);
+        (void) arg->const_data.xcb->xcb_flush(CONN);
 
         s_log_trace("THREAD: done presenting %p", arg->present_request_buffer);
         s_log_trace("THREAD: present_pending -> false");
-        atomic_store(arg->present_pending_p, false);
+        atomic_flag_clear(arg->const_data.present_pending_p);
         atomic_store(&arg->present_request_buffer, NULL);
         p_event_send(&(const struct p_event) {
             .type = P_EVENT_PAGE_FLIP,
