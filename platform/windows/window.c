@@ -1,6 +1,6 @@
-#include "../window.h"
 #include "../event.h"
 #include "../thread.h"
+#include "../window.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -27,14 +27,14 @@
 #define P_INTERNAL_GUARD__
 #include "global.h"
 #undef P_INTERNAL_GUARD__
-
-#define CGD_LOCAL_QUIT_INTERRUPT_EVENT (WM_APP + 1)
+#define P_INTERNAL_GUARD__
+#include "window-thread.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-present-sw.h"
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
-
-static void thread_fn(void *arg);
-static i32 do_window_init(struct p_window *win, const char *title);
-static void do_window_cleanup(struct p_window *win);
 
 static i32 check_flags(const u32 flags);
 static void set_default_flags(u32 *flags);
@@ -43,18 +43,6 @@ static i32 init_window_info(struct p_window_info *info,
 
 static i32 initialize_acceleration(struct p_window *win,
     const enum p_window_flags flags);
-
-static i32 render_init_software(struct window_render_sw_ctx *sw_rctx,
-    const struct p_window *win);
-static struct pixel_flat_data * render_present_software(
-    struct window_render_sw_ctx *sw_rctx,
-    enum p_window_present_mode present_mode
-);
-static void render_destroy_software(struct window_render_sw_ctx *sw_rctx,
-    const struct p_window *win);
-
-static LRESULT CALLBACK
-window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 struct p_window * p_window_open(const char *title,
     const rect_t *area, u32 flags)
@@ -80,37 +68,43 @@ struct p_window * p_window_open(const char *title,
         .win = win,
 
         /* PARAMS */
-        .title = (const char *)title,
-        .area = area,
-        .flags = flags,
+        .in.title = (const char *)title,
+        .in.area = area,
+        .in.flags = flags,
+
+        .out = { 0 },
 
         /* Temporary thread sync/communication objects */
         .cond = p_mt_cond_create(),
         .mutex = p_mt_mutex_create(),
-
-        .result = 0
     };
-
-    /* The mutex must be locked before calling `p_mt_cond_wait` */
-    p_mt_mutex_lock(&init.mutex);
+    atomic_store(&init.result, -1);
 
     /* Create the thread */
-    if (p_mt_thread_create(&win->thread, thread_fn, &init)) {
+    if (p_mt_thread_create(&win->thread, window_thread_fn, &init)) {
         p_mt_cond_destroy(&init.cond);
         p_mt_mutex_destroy(&init.mutex);
         goto_error("Failed to spawn window thread");
     }
 
     /* Wait for the thread to complete window initialization */
-    p_mt_cond_wait(init.cond, init.mutex);
+    p_mt_mutex_lock(&init.mutex);
+    {
+        while (atomic_load(&init.result) == -1)
+            p_mt_cond_wait(init.cond, init.mutex);
+    }
+    p_mt_mutex_unlock(&init.mutex);
 
     /* Clean up temporary objects */
     p_mt_cond_destroy(&init.cond);
     p_mt_mutex_destroy(&init.mutex);
 
     /* Check the results */
-    if (init.result != 0)
+    if (atomic_load(&init.result) != 0)
         goto_error("Window init failed.");
+
+    /* Read the outputs */
+    win->window_dc = init.out.window_dc;
 
     win->initialized = true;
     s_log_verbose("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
@@ -137,7 +131,19 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
 
     switch (win->info.gpu_acceleration) {
     case P_WINDOW_ACCELERATION_NONE:
-        return render_present_software(&win->render.sw, present_mode);
+        ;
+        if (present_mode != P_WINDOW_PRESENT_NOW) {
+            s_log_error("Software-rendered windows don't yet support VSync");
+            return NULL;
+        }
+        struct render_present_software_req req = { .ctx = &win->render.sw };
+        if (window_thread_request_operation_and_wait(win->win,
+                REQ_OP_RENDER_PRESENT_SOFTWARE, &req))
+        {
+            s_log_error("Failed to present frame");
+            return NULL;
+        }
+        return req.o_new_back_buf;
     case P_WINDOW_ACCELERATION_OPENGL:
     case P_WINDOW_ACCELERATION_VULKAN:
         s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
@@ -160,13 +166,15 @@ void p_window_close(struct p_window **win_p)
 
     s_log_verbose("Destroying window...");
 
+    p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
+
     const DWORD thread_id = GetThreadId(win->thread);
 
     if (!win->initialized) {
         /* Window init failed
          * (the thread should have already exited by itself) */
         p_mt_thread_wait(&win->thread);
-    } else if (PostThreadMessage(thread_id, CGD_LOCAL_QUIT_INTERRUPT_EVENT, 0, 0) == 0) {
+    } else if (PostThreadMessage(thread_id, CGD_REQEV_QUIT_, 0, 0) == 0) {
         /* The window is OK, but we could't send it the message
          * to exit gracefully by itself, so we have reach out for
          * more drastic measures (or else the execution will deadlock here) */
@@ -187,8 +195,6 @@ void p_window_close(struct p_window **win_p)
         win->win = NULL;
     }
 
-    p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
-
     /* Destroy the event queue */
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 
@@ -208,7 +214,7 @@ i32 p_window_set_acceleration(struct p_window *win,
 
     const enum p_window_acceleration old_acceleration =
         win->info.gpu_acceleration;
-    win->win->info.gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    win->info.gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
     switch (old_acceleration) {
     case P_WINDOW_ACCELERATION_UNSET_:
@@ -219,7 +225,13 @@ i32 p_window_set_acceleration(struct p_window *win,
                 "but it's already enabled. Not doing anything.");
             return 0;
         }
-        render_destroy_software(&win->render.sw, win);
+        struct render_destroy_software_req req = { .ctx = &win->render.sw };
+        if (window_thread_request_operation_and_wait(win->win,
+                REQ_OP_RENDER_DESTROY_SOFTWARE, &req))
+        {
+            s_log_error("The render_destroy_software request failed!");
+            return 1;
+        }
         break;
     case P_WINDOW_ACCELERATION_OPENGL:
     case P_WINDOW_ACCELERATION_VULKAN:
@@ -235,7 +247,15 @@ i32 p_window_set_acceleration(struct p_window *win,
     case P_WINDOW_ACCELERATION_UNSET_:
         break;
     case P_WINDOW_ACCELERATION_NONE:
-        if (render_init_software(&win->render.sw, win)) {
+        ;
+        struct render_init_software_req req = {
+            .win_info = &win->info,
+            .win_handle = win->win,
+            .ctx = &win->render.sw
+        };
+        if (window_thread_request_operation_and_wait(win->win,
+                REQ_OP_RENDER_INIT_SOFTWARE, &req))
+        {
             s_log_error("Failed to initialize software rendering");
             return 1;
         }
@@ -255,100 +275,6 @@ i32 p_window_set_acceleration(struct p_window *win,
     return 0;
 }
 
-static void thread_fn(void *arg)
-{
-    struct window_init *init = arg;
-    struct p_window *win = init->win;
-
-    const i32 result = do_window_init(init->win, init->title);
-
-    /* Communicate the init result to the main thread */
-    init->result = result;
-    p_mt_cond_signal(init->cond);
-
-    /* Any use of the init struct at this point
-     * (except the window pointer) is undefined behaviour */
-    init = NULL;
-
-    /* Exit if window init failed */
-    if (result != 0)
-        p_mt_thread_exit();
-
-    /* The message loop */
-    MSG msg = { 0 };
-    while (msg.message != CGD_LOCAL_QUIT_INTERRUPT_EVENT) {
-        if (GetMessage(&msg, NULL, 0, 0) < 0) {
-            s_log_fatal("GetMessage() failed: %s", get_last_error_msg());
-        }
-        DispatchMessage(&msg);
-    }
-
-    do_window_cleanup(win);
-
-    p_mt_thread_exit();
-}
-
-static i32 do_window_init(struct p_window *win, const char *title)
-{
-    struct p_window_info *const info = &win->info;
-
-    /* Normal style, but non-resizeable and non-maximizeable */
-#define WINDOW_STYLE (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX)
-
-    /* Adjust the client rect to actually be what we want */
-    win->window_rect.left = info->client_area.x;
-    win->window_rect.top = info->client_area.y;
-    win->window_rect.right = info->client_area.x + info->client_area.w;
-    win->window_rect.bottom = info->client_area.y + info->client_area.h;
-    if (AdjustWindowRect(&win->window_rect, WINDOW_STYLE, false) == 0)
-        goto_error("Failed to adjust the window rect: %s", get_last_error_msg());
-
-    /* Register the window class */
-#define WINDOW_CLASS_NAME "cgd-window"
-    const WNDCLASS window_class = {
-        .hInstance = g_instance_handle,
-        .lpszClassName = WINDOW_CLASS_NAME,
-        .lpfnWndProc = window_procedure,
-        .hCursor = LoadCursor(NULL, IDC_ARROW),
-        .hIcon = LoadIcon(NULL, IDI_APPLICATION),
-    };
-
-    if (RegisterClass(&window_class) == 0)
-        goto_error("Failed to register the window class: %s",
-            get_last_error_msg());
-
-    /* Create the window */
-    win->win = CreateWindowExA(0, WINDOW_CLASS_NAME, title, WINDOW_STYLE,
-        win->window_rect.left, /* x */
-        win->window_rect.top, /* y */
-        win->window_rect.right - win->window_rect.left, /* width */
-        win->window_rect.bottom - win->window_rect.top, /* height */
-        NULL, NULL, g_instance_handle, NULL
-    );
-    if (win->win == NULL)
-        goto_error("Failed to create the window: %s", get_last_error_msg());
-
-
-    /* Make the window visible */
-    (void) ShowWindow(win->win, g_n_cmd_show);
-
-    return 0;
-
-err:
-    return 1;
-}
-
-static void do_window_cleanup(struct p_window *win)
-{
-    if (win->win != NULL) {
-        /* Destroy the window */
-        if (DestroyWindow(win->win) == 0) {
-            s_log_error("Failed to destroy the window: %s",
-                get_last_error_msg());
-        }
-        win->win = NULL;
-    }
-}
 
 static void set_default_flags(u32 *flags)
 {
@@ -520,121 +446,4 @@ static i32 initialize_acceleration(struct p_window *win,
 
     s_log_error("No GPU acceleration mode could be initialized.");
     return 1;
-}
-
-static i32 render_init_software(struct window_render_sw_ctx *sw_rctx,
-    const struct p_window *win)
-{
-    memset(sw_rctx, 0, sizeof(struct window_render_sw_ctx));
-
-    const u32 w = win->info.client_area.w;
-    const u32 h = win->info.client_area.h;
-
-    /* Initialize the pixel buffers */
-    sw_rctx->buffers_[0].w = sw_rctx->buffers_[1].w = w;
-    sw_rctx->buffers_[0].h = sw_rctx->buffers_[1].h = h;
-
-    sw_rctx->buffers_[0].buf = calloc(w * h, sizeof(pixel_t));
-    if (sw_rctx->buffers_[0].buf == NULL)
-        goto_error("Failed to allocate the first pixel buffer");
-
-    sw_rctx->buffers_[1].buf = calloc(w * h, sizeof(pixel_t));
-    if (sw_rctx->buffers_[1].buf == NULL)
-        goto_error("Failed to allocate the second pixel buffer");
-
-    sw_rctx->back_fb = &sw_rctx->buffers_[0];
-    sw_rctx->front_fb = &sw_rctx->buffers_[0];
-
-    /* Get the device context of the window */
-    sw_rctx->dc = GetDC(win->win);
-    if (sw_rctx->dc == NULL)
-        goto_error("Failed to get the window device context handle: %s",
-            get_last_error_msg());
-
-    return 0;
-
-err:
-    render_destroy_software(sw_rctx, win);
-    return 1;
-}
-
-static struct pixel_flat_data * render_present_software(
-    struct window_render_sw_ctx *sw_rctx,
-    enum p_window_present_mode present_mode
-)
-{
-    (void) present_mode;
-
-    /* Swap the buffers */
-    struct pixel_flat_data *const tmp = sw_rctx->back_fb;
-    sw_rctx->back_fb = sw_rctx->front_fb;
-    sw_rctx->front_fb = tmp;
-
-    const BITMAPINFO bmi = {
-        .bmiHeader = {
-            .biSize = sizeof(BITMAPINFO),
-            .biWidth = sw_rctx->front_fb->w,
-            .biHeight = -sw_rctx->front_fb->h,
-            .biPlanes = 1,
-            .biBitCount = 32,
-            .biCompression = BI_RGB
-        },
-    };
-#define DST_X 0
-#define DST_Y 0
-#define SRC_X 0
-#define SRC_Y 0
-#define WIDTH sw_rctx->front_fb->w
-#define HEIGHT sw_rctx->front_fb->h
-#define START_SCANLINE 0
-#define N_LINES HEIGHT
-
-    i32 ret = SetDIBitsToDevice(sw_rctx->dc, DST_X, DST_Y, WIDTH, HEIGHT,
-        SRC_X, SRC_Y, START_SCANLINE, N_LINES,
-        sw_rctx->front_fb->buf, &bmi, DIB_RGB_COLORS);
-    if (ret != (i32)HEIGHT) {
-        s_log_error("SetDIBitsToDevice failed (ret %d - should be %d)",
-            ret, HEIGHT);
-        p_event_send(&(const struct p_event) {
-            .type = P_EVENT_PAGE_FLIP,
-            .info.page_flip_status = 1
-        });
-    } else {
-        p_event_send(&(const struct p_event) {
-            .type = P_EVENT_PAGE_FLIP,
-            .info.page_flip_status = 0,
-        });
-    }
-
-    return sw_rctx->back_fb;
-}
-
-static void render_destroy_software(struct window_render_sw_ctx *sw_rctx,
-    const struct p_window *win)
-{
-    if (sw_rctx->dc != NULL) {
-        /* Release the window's device context */
-        if (ReleaseDC(win->win, sw_rctx->dc) != 1)
-            s_log_error("The window device context was not released.");
-    }
-
-    if (sw_rctx->buffers_[0].buf != NULL)
-        free(sw_rctx->buffers_[0].buf);
-    if (sw_rctx->buffers_[1].buf != NULL)
-        free(sw_rctx->buffers_[1].buf);
-
-    memset(sw_rctx, 0, sizeof(struct window_render_sw_ctx));
-}
-
-static LRESULT CALLBACK
-window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (uMsg) {
-    case WM_CLOSE:
-        p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
-        break;
-    default:
-        break;
-    }
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

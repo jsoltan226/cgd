@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #define MODULE_NAME "render-test"
 #include "log-util.h"

@@ -27,8 +27,8 @@
 
 struct p_mt_mutex {
     CRITICAL_SECTION cs;
-    bool initialized;
-    bool is_static;
+    _Atomic bool initialized;
+    _Atomic bool is_static;
 };
 
 static bool should_not_destroy_master_mutex = false;
@@ -115,8 +115,8 @@ p_mt_mutex_t p_mt_mutex_create(void)
     s_assert(m != NULL, "calloc() failed for struct mutex");
 
     InitializeCriticalSection(&m->cs);
-    m->initialized = true;
-    m->is_static = false;
+    atomic_store(&m->initialized, true);
+    atomic_store(&m->is_static, false);
 
     return m;
 }
@@ -127,9 +127,9 @@ void p_mt_mutex_lock(p_mt_mutex_t *mutex_p)
 
     if (*mutex_p == P_MT_MUTEX_INITIALIZER) {
         *mutex_p = p_mt_mutex_create();
-        (*mutex_p)->is_static = true;
+        atomic_store(&(*mutex_p)->is_static, true);
         add_mutex_to_registry(*mutex_p);
-    } if (*mutex_p == NULL || !(*mutex_p)->initialized) {
+    } if (*mutex_p == NULL || !atomic_load(&(*mutex_p)->initialized)) {
         *mutex_p = p_mt_mutex_create();
     }
 
@@ -139,7 +139,7 @@ void p_mt_mutex_lock(p_mt_mutex_t *mutex_p)
 void p_mt_mutex_unlock(p_mt_mutex_t *mutex_p)
 {
     u_check_params(mutex_p != NULL);
-    if (*mutex_p == NULL || !(*mutex_p)->initialized)
+    if (*mutex_p == NULL || !atomic_load(&(*mutex_p)->initialized))
         return;
 
     LeaveCriticalSection(&(*mutex_p)->cs);
@@ -150,23 +150,23 @@ void p_mt_mutex_destroy(p_mt_mutex_t *mutex_p)
     if (mutex_p == NULL || *mutex_p == NULL) return;
 
     struct p_mt_mutex *m = *mutex_p;
-    if (!m->initialized) return;
+    if (!atomic_load(&m->initialized)) return;
 
     DeleteCriticalSection(&m->cs);
 
-    /* Also sets `m->initialized` to false */
-    memset(*mutex_p, 0, sizeof(struct p_mt_mutex));
+    atomic_store(&m->initialized, false);
+    atomic_store(&m->is_static, false);
     u_nfree(mutex_p);
 }
 
 void p_mt_mutex_global_cleanup(void)
 {
-    if (master_mutex.initialized)
+    if (atomic_load(&master_mutex.initialized))
         EnterCriticalSection(&master_mutex.cs);
 
     cleanup_global_mutexes();
 
-    if (master_mutex.initialized)
+    if (atomic_load(&master_mutex.initialized))
         LeaveCriticalSection(&master_mutex.cs);
 }
 
@@ -182,7 +182,8 @@ p_mt_cond_t p_mt_cond_create(void)
 
 void p_mt_cond_wait(p_mt_cond_t cond, p_mt_mutex_t mutex)
 {
-    u_check_params(cond != NULL && mutex != NULL && mutex->initialized);
+    u_check_params(cond != NULL && mutex != NULL &&
+        atomic_load(&mutex->initialized));
     SleepConditionVariableCS(&cond->cond, &mutex->cs, INFINITE);
 }
 
@@ -202,9 +203,9 @@ void p_mt_cond_destroy(p_mt_cond_t *cond_p)
 
 static void add_mutex_to_registry(struct p_mt_mutex *m)
 {
-    if (!master_mutex.initialized) {
+    if (!atomic_load(&master_mutex.initialized)) {
         InitializeCriticalSection(&master_mutex.cs);
-        master_mutex.initialized = true;
+        atomic_store(&master_mutex.initialized, true);
     }
 
     EnterCriticalSection(&master_mutex.cs);
@@ -230,7 +231,8 @@ static void cleanup_global_mutexes(void)
         struct p_mt_mutex *curr_mutex = global_mutex_registry[i];
 
         DeleteCriticalSection(&curr_mutex->cs);
-        memset(curr_mutex, 0, sizeof(struct p_mt_mutex));
+        atomic_store(&curr_mutex->initialized, false);
+        atomic_store(&curr_mutex->is_static, false);
 
         free(curr_mutex);
         global_mutex_registry[i] = NULL;
@@ -244,6 +246,6 @@ static void cleanup_global_mutexes(void)
     /* If we're called at exit, clean up the master mutex too */
     if (!should_not_destroy_master_mutex) {
         DeleteCriticalSection(&master_mutex.cs);
-        master_mutex.initialized = false;
+        atomic_store(&master_mutex.initialized, false);
     }
 }
