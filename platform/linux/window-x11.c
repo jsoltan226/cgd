@@ -4,6 +4,7 @@
 #include <core/util.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,9 @@
 #include "window-x11-events.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
+#include "window-x11-extensions.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-x11-present-sw.h"
 #undef P_INTERNAL_GUARD__
 
@@ -53,6 +57,7 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
     const struct p_window_info *info, const char *title, xcb_window_t win,
     xcb_connection_t *conn, const struct libxcb *xcb);
 static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
+    const struct x11_extension_store *ext_store,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
 static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags);
@@ -63,8 +68,6 @@ static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
     const struct libxcb *xcb);
 
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
-    xcb_connection_t *conn, const struct libxcb *xcb);
-static bool query_extension(const char *name, u8 *o_ext_opcode,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
 static i32 get_master_input_devices(
@@ -118,6 +121,9 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         goto_error("Failed to connect to the X server");
     }
 
+    /* Query all relevant extension metadata (`win->ext_store`) */
+    X11_extension_store_init(&win->ext_store, win->conn, &win->xcb);
+
     /* Note that this macro should only be used right after calling
      * a `*_checked` xcb function. Otherwise it's useless */
 #define libxcb_error() \
@@ -165,8 +171,11 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
         goto_error("Failed to map (show) the window");
 
     /* Initialize input stuff (`win->input`) */
-    if (init_xi2_input(&win->input, win->win_handle, win->conn, &win->xcb))
+    if (init_xi2_input(&win->input, win->win_handle,
+            &win->ext_store, win->conn, &win->xcb))
+    {
         goto_error("Failed to initialize input");
+    }
 
     /* Initialize the GPU acceleration based on the flags.
      * This populates `win->render` as well as
@@ -215,17 +224,40 @@ void window_X11_close(struct window_x11 *win)
         if (atomic_load(&win->listener.running)) {
             atomic_store(&win->listener.running, false);
 
-            if (win->win_handle != XCB_NONE) {
-                /* Send an event to our window to interrupt the blocking
-                 * `xcb_wait_for_event` call in the listener thread */
-                send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-                (void) pthread_join(win->listener.thread, NULL);
-            } else {
-                /* Forcibly terminate the listener if (somehow)
-                 * the window does not exist but the thread is running */
+            /* Send an event to our window to interrupt the blocking
+             * `xcb_wait_for_event` call in the listener thread */
+            send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
+            struct timespec thread_timeout;
+
+            if (clock_gettime(CLOCK_REALTIME, &thread_timeout)) {
+                s_log_error("Failed to get the current time: %s",
+                    strerror(errno));
+                /* Give the thread 0.1s to clean itself up */
+                usleep(100000);
+                s_log_warn("Killing the listener thread...");
                 pthread_kill(win->listener.thread, SIGKILL);
+
+                goto thread_terminated;
             }
+
+            /* Set the timeout to 1 second from now */
+            thread_timeout.tv_sec += 1;
+
+            i32 ret = pthread_timedjoin_np(win->listener.thread,
+                NULL, &thread_timeout);
+            if (ret == ETIMEDOUT) {
+                s_log_error("Timed out while waiting for "
+                    "the event listener thread to terminate. "
+                    "Killing the thread...");
+                pthread_kill(win->listener.thread, SIGKILL);
+            } else if (ret != 0) {
+                s_log_error("Failed to timed_join() the listener thread: %s. "
+                    "Killing the thread...", strerror(ret));
+                pthread_kill(win->listener.thread, SIGKILL);
+            } /* else OK */
+
         }
+thread_terminated:
 
         /* Free acceleration-specific resources
          * (`win->render`) */
@@ -283,7 +315,7 @@ struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
     }
 
     return X11_render_present_software(&win->render.sw,
-        win->win_handle, win->conn, &win->xcb, present_mode);
+        win->conn, &win->xcb, present_mode);
 }
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
@@ -315,8 +347,9 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
         /* Notify the event thread that the keyboard is
          * being deregistered and wait for it to acknowledge that */
         pthread_mutex_t tmp_mutex;
-        (void) pthread_mutex_init(&tmp_mutex, 0); /* always succeeds */
-        pthread_mutex_lock(&tmp_mutex);
+        (void) pthread_mutex_init(&tmp_mutex, 0); /* always successful */
+        s_assert(pthread_mutex_lock(&tmp_mutex) == 0,
+            "impossible outcome");
 
         atomic_store(&win->input.keyboard_deregistration_notify, true);
         send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
@@ -325,7 +358,8 @@ void window_X11_deregister_keyboard(struct window_x11 *win)
         atomic_store(&win->input.registered_keyboard, NULL);
         atomic_store(&win->input.keyboard_deregistration_notify, false);
 
-        (void) pthread_mutex_unlock(&tmp_mutex);
+        s_assert(pthread_mutex_unlock(&tmp_mutex) == 0,
+            "impossible outcome");
         s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
             "tmp_mutex is busy (race)");
     }
@@ -349,7 +383,8 @@ void window_X11_deregister_mouse(struct window_x11 *win)
         atomic_store(&win->input.registered_mouse, NULL);
         atomic_store(&win->input.mouse_deregistration_notify, false);
 
-        (void) pthread_mutex_unlock(&tmp_mutex);
+        s_assert(pthread_mutex_unlock(&tmp_mutex) == 0,
+            "impossible outcome");
         s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
             "tmp_mutex is busy (race)");
     }
@@ -392,7 +427,7 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
                 win->generic_info_p->client_area.w,
                 win->generic_info_p->client_area.h,
                 win->screen->root_depth, win->max_request_size,
-                win->win_handle, win->conn, &win->xcb,
+                win->win_handle, &win->ext_store, win->conn, &win->xcb,
                 &win->generic_info_p->vsync_supported))
         {
             s_log_error("Failed to set up the window for software rendering.");
@@ -414,141 +449,6 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
     }
 
     win->generic_info_p->gpu_acceleration = new_val;
-    return 0;
-}
-
-i32 X11_check_xinput2_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb)
-{
-    static _Atomic i8 cached_extension_status = ATOMIC_VAR_INIT(-1);
-
-    const i8 cached_extension_status_value =
-        atomic_load(&cached_extension_status);
-
-    if (cached_extension_status_value != -1)
-        return cached_extension_status_value;
-
-    if (!xcb->xinput.loaded_) {
-        s_log_error("The libxcb-xinput client library is not available");
-        return -1;
-    }
-
-    if (!query_extension(X11_XINPUT_EXT_NAME, NULL, conn, xcb)) {
-        s_log_error("The XInput extension is not available");
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    /* Check the extension version */
-    xcb_input_xi_query_version_cookie_t cookie =
-        xcb->xinput.xcb_input_xi_query_version(conn, 2, 0);
-    xcb_input_xi_query_version_reply_t *reply =
-        xcb->xinput.xcb_input_xi_query_version_reply(conn, cookie, NULL);
-
-    if (reply == NULL) {
-        s_log_error("xcb_input_xi_query_version failed!");
-        return -1;
-    } else if (reply->major_version < 2) {
-        s_log_error("The XInput extension version (%h.%h) is too old - "
-            "the required is at least 2.0",
-            reply->major_version, reply->minor_version);
-        u_nfree(&reply);
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    u_nfree(&reply);
-    atomic_store(&cached_extension_status, 0);
-    return 0;
-}
-
-i32 X11_check_shm_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb)
-{
-    static _Atomic i8 cached_extension_status = ATOMIC_VAR_INIT(-1);
-
-    const i8 cached_extension_status_value =
-        atomic_load(&cached_extension_status);
-
-    if (cached_extension_status_value != -1)
-        return cached_extension_status_value;
-
-    if (!xcb->shm.loaded_) {
-        s_log_error("The libxcb-shm client library is not available");
-        return -1;
-    }
-
-    if (!query_extension(X11_SHM_EXT_NAME, NULL, conn, xcb)) {
-        s_log_error("The MIT-SHM extension is not available");
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    xcb_shm_query_version_cookie_t cookie =
-        xcb->shm.xcb_shm_query_version(conn);
-    xcb_shm_query_version_reply_t *reply =
-        xcb->shm.xcb_shm_query_version_reply(conn, cookie, NULL);
-    if (reply == NULL) {
-        s_log_error("xcb_shm_query_version failed!");
-        return -1;
-    } else if (reply->major_version < 1 ||
-            (reply->major_version == 1 && reply->minor_version < 1))
-    {
-        s_log_error("The X MIT-SHM extension version (%h.%h) is too old - "
-            "the required is as least 1.1",
-            reply->major_version, reply->minor_version);
-        u_nfree(&reply);
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    u_nfree(&reply);
-    atomic_store(&cached_extension_status, 0);
-    return 0;
-}
-
-i32 X11_check_present_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb)
-{
-    if (!xcb->present.loaded_) {
-        s_log_error("The libxcb-present client library is not available!");
-        return -1;
-    }
-
-    static _Atomic i8 cached_extension_status = ATOMIC_VAR_INIT(-1);
-
-    const i8 cached_extension_status_value =
-        atomic_load(&cached_extension_status);
-    if (cached_extension_status_value != -1)
-        return cached_extension_status_value;
-
-    if (!query_extension(X11_PRESENT_EXT_NAME, NULL, conn, xcb)) {
-        s_log_error("The X Present extension is not available");
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    xcb_present_query_version_cookie_t cookie =
-        xcb->present.xcb_present_query_version(conn, 1, 1);
-    xcb_present_query_version_reply_t *reply =
-        xcb->present.xcb_present_query_version_reply(conn, cookie, NULL);
-
-    if (reply == NULL) {
-        s_log_error("xcb_present_query_version failed!");
-        return -1;
-    } else if (reply->major_version < 1 ||
-            (reply->major_version == 1 && reply->minor_version < 1))
-    {
-        s_log_error("The X Present extension version (%h.%h) is too old - "
-            "the required is as least 1.1",
-            reply->major_version, reply->minor_version);
-        u_nfree(&reply);
-        atomic_store(&cached_extension_status, 1);
-        return 1;
-    }
-
-    u_nfree(&reply);
-    atomic_store(&cached_extension_status, 0);
     return 0;
 }
 
@@ -727,6 +627,7 @@ err:
 }
 
 static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
+    const struct x11_extension_store *ext_store,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
     xcb_void_cookie_t vc;
@@ -736,13 +637,28 @@ static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
     (e = xcb->xcb_request_check(conn, vc), e != NULL)
 
     /* Initialize the XInput2 externsion */
-    if (X11_check_xinput2_extension(conn, xcb))
-        goto_error("The XInput2 extension is not available");
+    X11_extension_get_data(ext_store, X11_EXT_XINPUT, &i->xinput_ext_data);
+    if (!i->xinput_ext_data.available)
+        goto_error("The XInput extension is not available");
 
-    i->xinput_ext_data = xcb->xcb_get_extension_data(conn,
-        xcb->xinput.xcb_input_id);
-    if (i->xinput_ext_data == NULL)
-        goto_error("Couldn't get XInput extension data");
+    /* Check the extension version */
+    xcb_input_xi_query_version_cookie_t cookie =
+        xcb->xinput.xcb_input_xi_query_version(conn, 2, 0);
+    xcb_input_xi_query_version_reply_t *reply =
+        xcb->xinput.xcb_input_xi_query_version_reply(conn, cookie, NULL);
+
+    if (reply == NULL) {
+        s_log_error("xcb_input_xi_query_version failed!");
+        return -1;
+    } else if (reply->major_version < 2) {
+        s_log_error("The XInput extension version (%h.%h) is too old - "
+            "the required is at least 2.0",
+            reply->major_version, reply->minor_version);
+        u_nfree(&reply);
+        return 1;
+    }
+
+    u_nfree(&reply);
 
     /* Get the master keyboard and master mouse device IDs */
     if (get_master_input_devices(
@@ -918,33 +834,6 @@ static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
     *o = reply->atom;
     u_nfree(&reply);
     return 0;
-}
-
-static bool query_extension(const char *name, u8 *o_ext_opcode,
-    xcb_connection_t *conn, const struct libxcb *xcb)
-{
-    if (o_ext_opcode != NULL) *o_ext_opcode = 0;
-
-    xcb_query_extension_cookie_t cookie = xcb->xcb_query_extension(conn,
-        strlen(name), name);
-    xcb_query_extension_reply_t *reply =
-        xcb->xcb_query_extension_reply(conn, cookie, NULL);
-    if (reply == NULL) {
-        s_log_error("xcb_query_extension(\"%s\") failed!", name);
-        return false;
-    }
-
-    if (o_ext_opcode != NULL) *o_ext_opcode = reply->major_opcode;
-    const bool ret = reply->present;
-
-    s_log_debug("extension \"%s\" present: %d, opcode: %u, "
-        "first event: %u, first error: %u",
-        name, reply->present, reply->major_opcode,
-        reply->first_event, reply->first_error);
-
-    u_nfree(&reply);
-
-    return ret;
 }
 
 static i32 get_master_input_devices(

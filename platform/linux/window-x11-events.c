@@ -1,4 +1,3 @@
-#include "core/spinlock.h"
 #define _GNU_SOURCE
 #include "../event.h"
 #include "../mouse.h"
@@ -7,6 +6,7 @@
 #include <core/int.h>
 #include <core/math.h>
 #include <core/util.h>
+#include <core/spinlock.h>
 #include <stdatomic.h>
 #include <pthread.h>
 #include <xcb/xcb.h>
@@ -21,6 +21,9 @@
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "window-x11-extensions.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11-present-sw.h"
@@ -75,12 +78,11 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
 
     s_log_trace("Event %u", XCB_EVENT_RESPONSE_TYPE(ev));
 
+    struct x11_extension shm_extension;
+    X11_extension_get_data(&win->ext_store, X11_EXT_SHM, &shm_extension);
     if (acceleration == P_WINDOW_ACCELERATION_NONE &&
         shared_buf_data->shm.initialized_ &&
-        XCB_EVENT_RESPONSE_TYPE(ev) ==
-            shared_buf_data->shm.const_data.ext_data->first_event
-                + XCB_SHM_COMPLETION
-        )
+        XCB_EVENT_RESPONSE_TYPE(ev) == shm_extension.first_event)
     {
         handle_shm_completion_event(win, ev);
         goto end;
@@ -106,7 +108,7 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         if (acceleration == P_WINDOW_ACCELERATION_NONE &&
             shared_buf_data->shm.initialized_ &&
             ((xcb_generic_error_t *)ev)->major_code ==
-                shared_buf_data->shm.const_data.ext_data->major_opcode)
+                shm_extension.major_opcode)
         {
             handle_shm_error(win, (xcb_generic_error_t *)ev);
         } else {
@@ -142,14 +144,26 @@ static void handle_ge_event(struct window_x11 *win,
             &win->render.sw.shared_buf_data :
             NULL;
 
-    if (acceleration == P_WINDOW_ACCELERATION_NONE &&
-        shared_buf_data->present.initialized_ &&
-        ge_ev->extension ==
-            shared_buf_data->present.const_data.ext_data->major_opcode)
-    {
-        handle_present_event(win, ge_ev);
-    } else if (ge_ev->extension == win->input.xinput_ext_data->major_opcode) {
+    const enum x11_extension_name ext =
+        X11_extension_get_name_by_opcode(&win->ext_store, ge_ev->extension);
+
+    switch (ext) {
+    case X11_EXT_XINPUT:
         handle_xi2_event(win, ge_ev);
+        break;
+    case X11_EXT_PRESENT:
+        if (acceleration != P_WINDOW_ACCELERATION_NONE
+            || !atomic_load(&shared_buf_data->present.initialized_))
+        {
+            s_log_error("Present event received while "
+                "no X11_SWFB_PRESENT_PIXMAPs are in use");
+        }
+        handle_present_event(win, ge_ev);
+        break;
+    default: case X11_EXT_SHM: case X11_EXT_NULL_:
+        s_log_error("Unhandled extension %u event %u",
+            ge_ev->extension, ge_ev->response_type);
+        break;
     }
 }
 

@@ -20,6 +20,9 @@
 #include "libxcb-rtld.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
+#include "window-x11-extensions.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
 #include "window-x11-present-sw.h"
 #undef P_INTERNAL_GUARD__
 
@@ -42,6 +45,10 @@ struct window_x11 {
 
     /* The libxcb "context" that represents the connection to the server */
     xcb_connection_t *conn;
+
+    /* A struct that stores X11 extension info
+     * like availability, major opcodes, etc */
+    struct x11_extension_store ext_store;
 
     /* The maximum request size (in bytes) the connection can handle */
     u64 max_request_size;
@@ -81,7 +88,7 @@ struct window_x11 {
     struct window_x11_input {
         /* Cached data of the Xinput2 extension, which we use to
          * receive keyboard and mouse input from the server */
-        const struct xcb_query_extension_reply_t *xinput_ext_data;
+        struct x11_extension xinput_ext_data;
 
         /* The keyboard that will be receiving any keyboard input events.
          * Used to interface with `p_keyboard`. */
@@ -132,12 +139,5 @@ void window_X11_deregister_mouse(struct window_x11 *win);
 
 i32 window_X11_set_acceleration(struct window_x11 *win,
     enum p_window_acceleration new_val);
-
-i32 X11_check_xinput2_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb);
-i32 X11_check_shm_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb);
-i32 X11_check_present_extension(xcb_connection_t *conn,
-    const struct libxcb *xcb);
 
 #endif /* P_WINDOW_X11_H_ */

@@ -64,19 +64,14 @@ struct x11_render_software_ctx {
         struct x11_render_shared_malloced_data {
             _Atomic bool initialized_;
 
-            spinlock_t const_data_lock;
             struct {
-                atomic_flag *present_pending_p;
-                u64 max_request_size;
-                xcb_window_t win_handle;
-                xcb_gcontext_t gc;
+                struct x11_render_software_ctx *ro_sw_rctx_handle;
                 xcb_connection_t *conn;
-                const struct libxcb *xcb;
             } const_data;
 
             pthread_t present_thread;
             atomic_flag present_thread_running;
-            atomic_flag present_thread_not_ready;
+            _Atomic bool present_thread_ready;
 
             pthread_mutex_t present_request_mutex;
             pthread_cond_t present_request_cond;
@@ -86,39 +81,50 @@ struct x11_render_software_ctx {
         } malloced;
         struct x11_render_shared_shm_data {
             _Atomic bool initialized_;
-
-            spinlock_t const_data_lock;
-            struct {
-                const struct xcb_query_extension_reply_t *ext_data;
-            } const_data;
-
             _Atomic u64 blit_request_sequence_number;
         } shm;
         struct x11_render_shared_present_data {
             _Atomic bool initialized_;
-
-            spinlock_t const_data_lock;
-            struct {
-                const struct xcb_query_extension_reply_t *ext_data;
-                xcb_present_event_t event_context_id;
-            } const_data;
+            _Atomic xcb_present_event_t event_context_id;
 
             _Atomic u32 serial;
         } present;
     } shared_buf_data;
+
+    struct x11_render_software_generic_window_info {
+        u64 max_request_size;
+        u16 win_w, win_h;
+        u8 root_depth;
+
+        xcb_window_t win_handle;
+        xcb_gcontext_t win_gc;
+
+        const struct x11_extension_store *ext_store;
+    } generic_win_info;
 
     _Atomic u64 total_frames, dropped_frames;
 
     atomic_flag present_pending;
 };
 
+struct x11_render_software_malloced_present_thread_arg {
+    struct x11_render_software_generic_window_info win_info;
+    struct x11_render_shared_malloced_data *shared_data;
+
+    xcb_connection_t *conn;
+    const struct libxcb *xcb;
+
+    struct x11_render_software_ctx *sw_rctx_handle__;
+};
+
 i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
     u16 win_w, u16 win_h, u8 root_depth, u64 max_request_size,
-    xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb,
+    xcb_window_t win_handle, const struct x11_extension_store *ext_store,
+    xcb_connection_t *conn, const struct libxcb *xcb,
     bool *o_vsync_supported);
 
 struct pixel_flat_data * X11_render_present_software(
-    struct x11_render_software_ctx *sw_rctx, xcb_window_t win_handle,
+    struct x11_render_software_ctx *sw_rctx,
     xcb_connection_t *conn, const struct libxcb *xcb,
     enum p_window_present_mode present_mode
 );

@@ -11,4 +11,6 @@ void spinlock_init(spinlock_t *lock);
 void spinlock_acquire(spinlock_t *lock);
 void spinlock_release(spinlock_t *lock);
 
+i32 spinlock_try_acquire(spinlock_t *lock);
+
 #endif /* SPINLOCK_H_ */
