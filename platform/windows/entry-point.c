@@ -48,7 +48,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             get_last_error_msg());
 
     /* Allocate the argv array */
-    argv = calloc(argc, sizeof(char *));
+    u64 n_args = 0;
+    while (argv_w[n_args] != NULL)
+        n_args++;
+
+    argv = calloc(argc, n_args * sizeof(char *));
     if (argv == NULL)
         goto_error("Failed to allocate the argv array. Stop.\n");
 
@@ -75,7 +79,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     /** CLEANUP **/
     for (i32 i = 0; i < argc; i++)
         free(argv[i]);
-    u_nzfree(argv);
+    u_nfree(&argv);
 
     LocalFree(argv_w);
     argv_w = NULL;

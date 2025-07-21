@@ -88,7 +88,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
 
     /* Reset the window struct, just in case */
     memset(win, 0, sizeof(struct window_x11));
-    win->exists = true;
+    atomic_store(&win->exists, true);
 
     /* Check the parameters for compatibility with the 1980s-like
      * X11 protocol constraints */
@@ -215,14 +215,13 @@ err:
 
 void window_X11_close(struct window_x11 *win)
 {
-    s_assert(win->exists, "Attempt to double-free window");
-    win->exists = false;
+    s_assert(atomic_exchange(&win->exists_, false),
+        "Attempt to double-free window");
 
     s_log_verbose("Destroying X11 window...");
     if (win->xcb.loaded_) {
         /* End the listener thread (`win->listener`) */
-        if (atomic_load(&win->listener.running)) {
-            atomic_store(&win->listener.running, false);
+        if (atomic_exchange(&win->listener.running, false)) {
 
             /* Send an event to our window to interrupt the blocking
              * `xcb_wait_for_event` call in the listener thread */
@@ -323,7 +322,7 @@ i32 window_X11_register_keyboard(struct window_x11 *win,
 {
     u_check_params(win != NULL && kb != NULL);
 
-    if (atomic_load(&win->input.registered_keyboard) != NULL) return 1;
+    if (atomic_exchange(&win->input.registered_keyboard, kb) != NULL) return 1;
 
     atomic_store(&win->input.registered_keyboard, kb);
     return 0;

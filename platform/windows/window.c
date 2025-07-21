@@ -53,45 +53,52 @@ struct p_window * p_window_open(const char *title,
     struct p_window *win = calloc(1, sizeof(struct p_window));
     s_assert(win != NULL, "calloc() failed for struct window");
 
+    atomic_store(&win->exists_, true);
+    atomic_store(&win->init_ok_, false);
+
     s_assert(g_instance_handle != NULL,
         "Global instance handle not initialized!");
-
-    memset(win, 0, sizeof(struct p_window));
 
     /* Populate the info struct */
     if (init_window_info(&win->info, area, flags))
         goto_error("Failed to init the window info struct");
 
     /* Create the window thread, which will do the rest of the work */
-    struct window_init init = {
-        /* The p_window structure to be initialized */
-        .win = win,
-
+    p_mt_mutex_t init_mutex = p_mt_mutex_create();
+    p_mt_cond_t init_cond = p_mt_cond_create();
+    struct window_init init;
+    p_mt_mutex_lock(&init_mutex);
+    {
         /* PARAMS */
-        .in.title = (const char *)title,
-        .in.area = area,
-        .in.flags = flags,
+        init.in.title = (const char *)title;
+        init.in.win_info = &win->info;
+        init.in.flags = flags;
 
-        .out = { 0 },
+        /* Data returned by the thread */
+        memset(&init.out, 0, sizeof(init.out));
 
         /* Temporary thread sync/communication objects */
-        .cond = p_mt_cond_create(),
-        .mutex = p_mt_mutex_create(),
-    };
-    atomic_store(&init.result, -1);
+        init.cond = init_cond,
+        init.mutex = init_mutex,
+
+        init.result = -1;
+    }
+    p_mt_mutex_unlock(&init_mutex);
 
     /* Create the thread */
+    atomic_store(&win->thread_started_, false);
     if (p_mt_thread_create(&win->thread, window_thread_fn, &init)) {
         p_mt_cond_destroy(&init.cond);
         p_mt_mutex_destroy(&init.mutex);
         goto_error("Failed to spawn window thread");
     }
+    atomic_store(&win->thread_started_, true);
 
     /* Wait for the thread to complete window initialization */
-    p_mt_mutex_lock(&init.mutex);
+    p_mt_mutex_lock(&init_mutex);
     {
-        while (atomic_load(&init.result) == -1)
-            p_mt_cond_wait(init.cond, init.mutex);
+        while (init.result == -1)
+            p_mt_cond_wait(init_cond, init_mutex);
     }
     p_mt_mutex_unlock(&init.mutex);
 
@@ -100,15 +107,13 @@ struct p_window * p_window_open(const char *title,
     p_mt_mutex_destroy(&init.mutex);
 
     /* Check the results */
-    if (atomic_load(&init.result) != 0)
+    if (init.result != 0)
         goto_error("Window init failed.");
 
-    /* Read the outputs */
-    win->window_dc = init.out.window_dc;
+    atomic_store(&win->init_ok_, true);
 
-    win->initialized = true;
-    s_log_verbose("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
-        __func__, rect_arg_expand(win->info.client_area));
+    win->win_handle = init.out.win_handle;
+    memcpy(&win->window_rect, &init.out.window_rect, sizeof(RECT));
 
     /* Initialize anything acceleration-specific */
     if (initialize_acceleration(win, flags))
@@ -116,6 +121,9 @@ struct p_window * p_window_open(const char *title,
 
     /* Initialize the event queue */
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_INIT_ });
+
+    s_log_verbose("%s() OK; window position: [%i, %i]; window dimensions: %ux%u",
+        __func__, rect_arg_expand(win->info.client_area));
 
     return win;
 
@@ -131,30 +139,14 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
 
     switch (win->info.gpu_acceleration) {
     case P_WINDOW_ACCELERATION_NONE:
-        ;
         if (present_mode != P_WINDOW_PRESENT_NOW) {
             s_log_error("Software-rendered windows don't yet support VSync");
             return NULL;
         }
 
-        if (atomic_flag_test_and_set(&win->render.sw.swap_busy)) {
-            /* Another page flip is in progress, drop this frame */
-            return NULL;
-        }
-
-        struct render_present_software_req req = { .ctx = &win->render.sw };
-        if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_PRESENT_SOFTWARE,
-                win->render.sw.swap_req_mutex,
-                &req)
-        ) {
-            s_log_error("Failed to present frame");
-            return NULL;
-        }
-
-        atomic_flag_clear(&win->render.sw.swap_busy);
-
-        return req.o_new_back_buf;
+        return render_software_swap_buffers_and_request_presentation(
+                win->win_handle, &win->render.sw
+        );
     case P_WINDOW_ACCELERATION_OPENGL:
     case P_WINDOW_ACCELERATION_VULKAN:
         s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
@@ -172,58 +164,64 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
 
 void p_window_close(struct p_window **win_p)
 {
-    if (win_p == NULL || *win_p == NULL) return;
+    if (win_p == NULL || *win_p == NULL || !atomic_load(&(*win_p)->exists_))
+        return;
+
     struct p_window *win = *win_p;
 
     s_log_verbose("Destroying window...");
 
-    p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
+    if (atomic_exchange(&win->thread_started_, false) ||
+        !atomic_load(&win->init_ok_))
+    {
+        p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
 
-    const DWORD thread_id = GetThreadId(win->thread);
+        if (PostMessage(win->win_handle, CGD_WM_EV_QUIT_, 0, 0) == 0) {
+            /* The window is OK, but we could't send it the message
+             * to exit gracefully by itself, so we have reach out for
+             * more drastic measures (or else the execution will deadlock here)
+             */
+            s_log_error("Failed to send the quit interrupt event "
+                    "to the listener thread: %s", get_last_error_msg());
+            p_mt_thread_terminate(&win->thread);
+        } else {
+            /* The normal case (window is OK and we
+             * successfully sent it the termination message) */
+            p_mt_thread_wait(&win->thread);
+        }
 
-    if (!win->initialized) {
+        win->win_handle = NULL;
+    } else {
+        win->win_handle = NULL;
+
         /* Window init failed
          * (the thread should have already exited by itself) */
         p_mt_thread_wait(&win->thread);
-    } else if (PostThreadMessage(thread_id, CGD_WM_EV_QUIT_, 0, 0) == 0) {
-        /* The window is OK, but we could't send it the message
-         * to exit gracefully by itself, so we have reach out for
-         * more drastic measures (or else the execution will deadlock here) */
-        s_log_error("Failed to send the quit interrupt event "
-                "to the listener thread: %s", get_last_error_msg());
-        p_mt_thread_terminate(&win->thread);
-    } else {
-        /* The normal case (window is OK and we
-         * successfully sent it the termination message) */
-        p_mt_thread_wait(&win->thread);
     }
 
-    s_log_info("terminated thread");
-
-    /* The window should already be destroyed by now,
-     * but if it isn't, at least try to close it */
-    if (win->win != NULL) {
-        s_log_error("Window was not closed by the window thread");
-        (void) DestroyWindow(win->win);
-        win->win = NULL;
-    }
+    s_log_verbose("terminated thread & window");
 
     /* Destroy the event queue */
     p_event_send(&(const struct p_event) { .type = P_EVENT_CTL_DESTROY_ });
 
-    u_nzfree(win_p);
+    /* Clean up the rest */
+    memset(&win->info, 0, sizeof(struct p_window_info));
+    memset(&win->window_rect, 0, sizeof(RECT));
+    atomic_store(&win->exists_, false);
+
 }
 
 void p_window_get_info(const struct p_window *win, struct p_window_info *out)
 {
-    u_check_params(win != NULL && out != NULL);
+    u_check_params(win != NULL && out != NULL && atomic_load(&win->exists_));
     memcpy(out, &win->info, sizeof(struct p_window_info));
 }
 
 i32 p_window_set_acceleration(struct p_window *win,
     enum p_window_acceleration new_acceleration_mode)
 {
-    u_check_params(win != NULL);
+    u_check_params(win != NULL && atomic_load(&win->exists_));
+    /* `new_acceleration_mode` checked later */
 
     const enum p_window_acceleration old_acceleration =
         win->info.gpu_acceleration;
@@ -239,9 +237,9 @@ i32 p_window_set_acceleration(struct p_window *win,
             return 0;
         }
         struct render_destroy_software_req req = { .ctx = &win->render.sw };
-        if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_DESTROY_SOFTWARE, P_MT_MUTEX_NULL, &req))
-        {
+        if (window_thread_request_operation_and_wait(win->win_handle,
+                REQ_OP_RENDER_DESTROY_SOFTWARE, P_MT_MUTEX_NULL, &req)
+        ) {
             s_log_error("The render_destroy_software request failed!");
             return 1;
         }
@@ -263,12 +261,11 @@ i32 p_window_set_acceleration(struct p_window *win,
         ;
         struct render_init_software_req req = {
             .win_info = &win->info,
-            .win_handle = win->win,
             .ctx = &win->render.sw
         };
-        if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_INIT_SOFTWARE, P_MT_MUTEX_NULL, &req))
-        {
+        if (window_thread_request_operation_and_wait(win->win_handle,
+                REQ_OP_RENDER_INIT_SOFTWARE, P_MT_MUTEX_NULL, &req)
+        ) {
             s_log_error("Failed to initialize software rendering");
             return 1;
         }

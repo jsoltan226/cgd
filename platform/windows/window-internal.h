@@ -26,10 +26,10 @@ union window_render_ctx {
 };
 
 struct p_window {
-    HWND win; /* The handle to the main window */
+    _Atomic bool exists_; /* Sanity check to avoid double-frees */
 
+    _Atomic bool thread_started_;
     p_mt_thread_t thread; /* The window thread */
-    bool initialized; /* Sanity check to avoid double-frees */
 
     RECT window_rect; /* The posistion and dimensions of the whole window */
 
@@ -39,31 +39,31 @@ struct p_window {
     /* Everything related to presenting the rendered contents to the window */
     union window_render_ctx render;
 
-    /* The window's GDI device context */
-    HDC window_dc;
+    /* The handle to the window created & owned by the window thread */
+    HWND win_handle;
+
+    _Atomic bool init_ok_; /* Used to mark successfull window creation */
 };
 
 struct window_init {
-    /* The p_window structure to be initialized */
-    struct p_window *win;
-
     /* PARAMS */
     struct {
         const char *title;
-        const rect_t *area;
-        const u32 flags;
+        u32 flags;
+        const struct p_window_info *win_info;
     } in;
 
     /* Data returned by the thread */
     struct {
-        HDC window_dc;
+        HWND win_handle;
+        RECT window_rect;
     } out;
 
     /* Temporary thread sync/communication objects */
     p_mt_cond_t cond;
     p_mt_mutex_t mutex;
 
-    _Atomic i32 result;
+    i32 result;
 };
 
 #endif /* WINDOW_INTERNAL_H_ */

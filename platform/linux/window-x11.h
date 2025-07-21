@@ -27,11 +27,11 @@
 #undef P_INTERNAL_GUARD__
 
 struct x11_render_egl_ctx {
-    bool initialized_;
+    _Atomic bool initialized_;
 };
 
 struct window_x11 {
-    bool exists; /* Sanity check to avoid double-frees */
+    _Atomic bool exists_; /* Sanity check to avoid double-frees */
 
     /* The interface to the generic `p_window` API;
      * holds basic information like window position and dimensions,

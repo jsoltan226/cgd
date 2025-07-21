@@ -61,7 +61,7 @@ void p_mouse_update(struct p_mouse *mouse)
     }
     memcpy(&window_pos, &screen_pos, sizeof(POINT));
 
-    if (ScreenToClient(mouse->win->win, &window_pos) == 0) {
+    if (ScreenToClient(mouse->win->win_handle, &window_pos) == 0) {
         s_log_error("Failed to translate mouse screen coordinates"
             "to window coordinates: %s", get_last_error_msg());
         return;

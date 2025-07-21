@@ -193,12 +193,11 @@ struct pixel_flat_data * X11_render_present_software(
     enum p_window_present_mode present_mode
 )
 {
-    sw_rctx->total_frames++;
     /* We assume that `present_mode` has already been validated */
 
     if (atomic_flag_test_and_set(&sw_rctx->present_pending)) {
-        sw_rctx->dropped_frames++;
-        return &sw_rctx->curr_back_buf->pixbuf;
+        /* Another page flip is already in progress; drop this frame */
+        return NULL;
     }
     /* Reset after the page flip completes */
 
@@ -249,7 +248,6 @@ struct pixel_flat_data * X11_render_present_software(
             sw_rctx->curr_front_buf, sw_rctx->curr_back_buf);
     } else {
         atomic_flag_clear(&sw_rctx->present_pending);
-        sw_rctx->dropped_frames++;
     }
 
     return &sw_rctx->curr_back_buf->pixbuf;
@@ -304,12 +302,6 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         sw_rctx->window_gc = XCB_NONE;
     }
 
-    if (sw_rctx->total_frames != 0) {
-        s_log_verbose("Total dropped frames: %lu/%lu (%lf%%)",
-            sw_rctx->dropped_frames, sw_rctx->total_frames,
-            ((f64)sw_rctx->dropped_frames / (f64)sw_rctx->total_frames) * 100.0
-        );
-    }
 
     sw_rctx->curr_back_buf = sw_rctx->curr_front_buf = NULL;
     sw_rctx->initialized_ = false;

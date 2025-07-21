@@ -102,8 +102,6 @@ struct x11_render_software_ctx {
         const struct x11_extension_store *ext_store;
     } generic_win_info;
 
-    _Atomic u64 total_frames, dropped_frames;
-
     atomic_flag present_pending;
 };
 
