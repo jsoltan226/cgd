@@ -136,13 +136,24 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
             s_log_error("Software-rendered windows don't yet support VSync");
             return NULL;
         }
+
+        if (atomic_flag_test_and_set(&win->render.sw.swap_busy)) {
+            /* Another page flip is in progress, drop this frame */
+            return NULL;
+        }
+
         struct render_present_software_req req = { .ctx = &win->render.sw };
         if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_PRESENT_SOFTWARE, &req))
-        {
+                REQ_OP_RENDER_PRESENT_SOFTWARE,
+                win->render.sw.swap_req_mutex,
+                &req)
+        ) {
             s_log_error("Failed to present frame");
             return NULL;
         }
+
+        atomic_flag_clear(&win->render.sw.swap_busy);
+
         return req.o_new_back_buf;
     case P_WINDOW_ACCELERATION_OPENGL:
     case P_WINDOW_ACCELERATION_VULKAN:
@@ -174,7 +185,7 @@ void p_window_close(struct p_window **win_p)
         /* Window init failed
          * (the thread should have already exited by itself) */
         p_mt_thread_wait(&win->thread);
-    } else if (PostThreadMessage(thread_id, CGD_REQEV_QUIT_, 0, 0) == 0) {
+    } else if (PostThreadMessage(thread_id, CGD_WM_EV_QUIT_, 0, 0) == 0) {
         /* The window is OK, but we could't send it the message
          * to exit gracefully by itself, so we have reach out for
          * more drastic measures (or else the execution will deadlock here) */
@@ -186,6 +197,8 @@ void p_window_close(struct p_window **win_p)
          * successfully sent it the termination message) */
         p_mt_thread_wait(&win->thread);
     }
+
+    s_log_info("terminated thread");
 
     /* The window should already be destroyed by now,
      * but if it isn't, at least try to close it */
@@ -227,7 +240,7 @@ i32 p_window_set_acceleration(struct p_window *win,
         }
         struct render_destroy_software_req req = { .ctx = &win->render.sw };
         if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_DESTROY_SOFTWARE, &req))
+                REQ_OP_RENDER_DESTROY_SOFTWARE, P_MT_MUTEX_NULL, &req))
         {
             s_log_error("The render_destroy_software request failed!");
             return 1;
@@ -254,7 +267,7 @@ i32 p_window_set_acceleration(struct p_window *win,
             .ctx = &win->render.sw
         };
         if (window_thread_request_operation_and_wait(win->win,
-                REQ_OP_RENDER_INIT_SOFTWARE, &req))
+                REQ_OP_RENDER_INIT_SOFTWARE, P_MT_MUTEX_NULL, &req))
         {
             s_log_error("Failed to initialize software rendering");
             return 1;

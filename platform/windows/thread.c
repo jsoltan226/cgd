@@ -66,6 +66,8 @@ i32 p_mt_thread_create(p_mt_thread_t *o,
         FLAGS, THREAD_ADDR_P
     );
 
+    s_log_trace("Created new thread: %d", GetThreadId(*o));
+
     if (*o == NULL) {
         s_log_error("Failed to create thread: %s", strerror(errno));
         return 1;

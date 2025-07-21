@@ -447,10 +447,9 @@ static noreturn void do_abort_v(const char *module_name,
     }
 
     fprintf(err_fp, "[%s] FATAL ERROR: %s: ", module_name, function_name);
-
     vfprintf(err_fp, fmt, vlist);
-
     fprintf(err_fp, "\nFatal error encountered. Calling abort().\n");
+    fflush(err_fp);
 
     s_log_cleanup_all();
 
@@ -573,8 +572,10 @@ static i32 try_init_new_output(enum s_log_level level,
 
 static void destroy_old_output(struct output *o)
 {
-    if (o->type == S_LOG_OUTPUT_FILEPATH)
+    if (o->type == S_LOG_OUTPUT_FILEPATH || o->type == S_LOG_OUTPUT_FILE) {
+        fflush(o->fp);
         fclose(o->fp);
+    }
     memset(o, 0, sizeof(struct output));
 }
 

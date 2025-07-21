@@ -6,9 +6,11 @@
 #endif /* P_INTERNAL_GUARD__ */
 
 #include "../window.h"
+#include "../thread.h"
 #include <core/int.h>
 #include <core/pixel.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
@@ -24,6 +26,9 @@ struct window_render_software_ctx {
     /* The pixel buffers to which everything is rendered */
     struct pixel_flat_data buffers_[2];
     struct pixel_flat_data *back_fb, *front_fb;
+
+    atomic_flag swap_busy;
+    p_mt_mutex_t swap_req_mutex;
 };
 
 struct render_init_software_req {

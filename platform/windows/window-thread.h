@@ -7,6 +7,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windef.h>
+#include <windows.h>
 
 #ifndef P_INTERNAL_GUARD__
 #error This header file is internal to the cgd platform module and is not intended to be used elsewhere
@@ -14,11 +15,16 @@
 
 extern void window_thread_fn(void *arg);
 
+#define CGD_WM_EV_QUIT_ (WM_APP)
+
 enum window_thread_request_type {
-    REQ_OP_QUIT_,
-    REQ_OP_RENDER_INIT_SOFTWARE,
-    REQ_OP_RENDER_PRESENT_SOFTWARE,
-    REQ_OP_RENDER_DESTROY_SOFTWARE,
+    /* Reserved for `CGD_WM_EV_QUIT_` */
+    REQ_OP_MIN__ = WM_APP,
+
+    REQ_OP_RENDER_INIT_SOFTWARE             = WM_APP + 1,
+    REQ_OP_RENDER_PRESENT_SOFTWARE          = WM_APP + 2,
+    REQ_OP_RENDER_DESTROY_SOFTWARE          = WM_APP + 3,
+
     REQ_OP_MAX__
 };
 
@@ -33,7 +39,9 @@ struct window_thread_request {
     HWND window;
 
     enum window_thread_request_type type;
-    _Atomic i32 status;
+
+    p_mt_mutex_t status_mutex;
+    i32 status;
 
     p_mt_cond_t completion_cond;
 
@@ -43,6 +51,6 @@ struct window_thread_request {
 void window_thread_request_operation(struct window_thread_request *req);
 
 i32 window_thread_request_operation_and_wait(HWND win_handle,
-    enum window_thread_request_type type, void *arg);
+    enum window_thread_request_type type, p_mt_mutex_t mutex, void *arg);
 
 #endif /* WINDOW_THREAD_H_ */

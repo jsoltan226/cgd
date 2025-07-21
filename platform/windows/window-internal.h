@@ -21,10 +21,6 @@
 #include <wingdi.h>
 #include <minwindef.h>
 
-
-#define CGD_REQEV_QUIT_ (WM_APP + 1)
-#define CGD_REQEV_RENDER_PRESENT_SOFTWARE (WM_APP + 2)
-
 union window_render_ctx {
     struct window_render_software_ctx sw;
 };

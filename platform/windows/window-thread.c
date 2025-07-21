@@ -55,66 +55,79 @@ void window_thread_fn(void *arg)
 
     /* The message loop */
     MSG msg = { 0 };
-    while (msg.message != WM_APP + REQ_OP_QUIT_) {
-        if (GetMessage(&msg, NULL, 0, 0) < 0) {
-            s_log_fatal("GetMessage() failed: %s", get_last_error_msg());
-        }
-        if (msg.message >= WM_APP && msg.message <= 0xBFFF)
+    i32 GM_ret = 0;
+    while (
+        (GM_ret = GetMessage(&msg, NULL, 0, 0), GM_ret) >= 0 &&
+        (msg.message != CGD_WM_EV_QUIT_)
+    ) {
+        if (msg.message > REQ_OP_MIN__ && msg.message < REQ_OP_MAX__)
             handle_thread_request((void *)msg.wParam);
         else
             DispatchMessage(&msg);
     }
+    if (GM_ret < 0)
+        s_log_fatal("GetMessage() failed: %s", get_last_error_msg());
 
+    s_log_debug("Received quit request, starting cleanup...");
     do_window_cleanup(win);
 
+    s_log_debug("window cleanup OK, calling thread_exit");
     p_mt_thread_exit();
 }
 
 void window_thread_request_operation(struct window_thread_request *req)
 {
     u_check_params(req != NULL && req->window != NULL
-        && req->type >= 0 && req->type < REQ_OP_MAX__);
+        && req->type > REQ_OP_MIN__ && req->type < REQ_OP_MAX__
+        && req->status_mutex != P_MT_MUTEX_NULL);
 
-    atomic_store(&req->status, REQ_STATUS_NOT_STARTED);
+    req->status = REQ_STATUS_NOT_STARTED;
 
-    if (PostMessage(req->window, WM_APP + req->type,
+    if (PostMessage(req->window, req->type,
             (unsigned long long)req, 0) == 0)
     {
         s_log_error("Failed to post message to the window: %s",
             get_last_error_msg());
-        atomic_store(&req->status, REQ_STATUS_FAILURE);
-        if (req->completion_cond != NULL)
-            p_mt_cond_signal(req->completion_cond);
+        req->status = REQ_STATUS_FAILURE;
         return;
     }
 
-    atomic_store(&req->status, REQ_STATUS_PENDING);
+   req->status = REQ_STATUS_PENDING;
 }
 
 i32 window_thread_request_operation_and_wait(HWND win_handle,
-    enum window_thread_request_type type, void *arg)
+    enum window_thread_request_type type, p_mt_mutex_t mutex, void *arg)
 {
     u_check_params(win_handle != NULL && type >= 0 && type < REQ_OP_MAX__);
 
     p_mt_cond_t cond = p_mt_cond_create();
-    p_mt_mutex_t mutex = p_mt_mutex_create();
+    p_mt_mutex_t tmp_mutex_ = P_MT_MUTEX_NULL;
+    if (mutex == P_MT_MUTEX_NULL) {
+        tmp_mutex_ = p_mt_mutex_create();
+        mutex = tmp_mutex_;
+    }
 
     struct window_thread_request req = {
         .window = win_handle,
         .type = type,
         .completion_cond = cond,
-        .arg = arg
+        .arg = arg,
+        .status_mutex = mutex,
+        .status = REQ_STATUS_NOT_STARTED
     };
 
     p_mt_mutex_lock(&mutex);
     {
         window_thread_request_operation(&req);
-        if (atomic_load(&req.status) == REQ_STATUS_PENDING)
+        while (req.status == REQ_STATUS_PENDING)
             p_mt_cond_wait(cond, mutex);
     }
     p_mt_mutex_unlock(&mutex);
 
-    return !(atomic_load(&req.status) == REQ_STATUS_SUCCESS);
+    if (tmp_mutex_ != P_MT_MUTEX_NULL)
+        p_mt_mutex_destroy(&tmp_mutex_);
+
+    return !(req.status == REQ_STATUS_SUCCESS);
 }
 
 static i32 do_window_init(struct p_window *win, const char *title)
@@ -186,11 +199,21 @@ static void handle_thread_request(void *arg)
 {
     struct window_thread_request *const req = arg;
 
-    s_assert(req->status == REQ_STATUS_PENDING,
-        "Invalid value of the request status");
+    /* Check the arg */
+    s_assert(req != NULL, "The request is NULL");
+    s_assert(req->type > REQ_OP_MIN__ && req->type < REQ_OP_MAX__,
+        "Invalid request type %d", req->type);
+    s_assert(req->status_mutex != P_MT_MUTEX_NULL,
+        "The request status mutex is not initialized");
+    p_mt_mutex_lock(&req->status_mutex);
+    {
+        s_assert(req->status == REQ_STATUS_PENDING,
+            "Invalid value of the request status %d, (type: %d)",
+            req->status, req->type);
+    }
+    p_mt_mutex_unlock(&req->status_mutex);
 
-    enum window_thread_request_status status = REQ_STATUS_PENDING;
-
+    enum window_thread_request_status status;
     const union {
         struct render_init_software_req *render_init_software;
         struct render_present_software_req *render_present_software;
@@ -198,6 +221,7 @@ static void handle_thread_request(void *arg)
         void *voidp;
     } a = { .voidp = req->arg };
 
+    /* Actually handle the request */
     switch (req->type) {
     case REQ_OP_RENDER_INIT_SOFTWARE:
         ;
@@ -218,18 +242,21 @@ static void handle_thread_request(void *arg)
         render_destroy_software(a.render_destroy_software->ctx);
         status = REQ_STATUS_SUCCESS;
         break;
-    case REQ_OP_QUIT_:
+    case REQ_OP_MIN__:
     case REQ_OP_MAX__:
     default:
-        s_log_fatal("Invalid request type %d", req->type);
+        s_log_fatal("impossible outcome");
     }
 
     s_log_trace("Handled request type %d with status %d",
         req->type, status);
 
-    atomic_store(&req->status, status);
+    /* Signal completion to the requester */
+    p_mt_mutex_lock(&req->status_mutex);
+    req->status = status;
     if (req->completion_cond != NULL)
         p_mt_cond_signal(req->completion_cond);
+    p_mt_mutex_unlock(&req->status_mutex);
 }
 
 static LRESULT CALLBACK

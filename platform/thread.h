@@ -38,7 +38,10 @@ typedef struct p_mt_mutex * p_mt_mutex_t;
 /* Should be used for static (global) mutexes ONLY.
  * If a static mutex is initialized to this value,
  * it will be autmatically cleaned up when the program exits. */
-#define P_MT_MUTEX_INITIALIZER (void *)-1
+#define P_MT_MUTEX_INITIALIZER ((void *)-1)
+
+/* A value that can be used to invalidate a mutex handle */
+#define P_MT_MUTEX_NULL ((p_mt_mutex_t)(void *)0)
 
 /* Returns a newly allocated mutex. Always succeeds. */
 p_mt_mutex_t p_mt_mutex_create(void);
@@ -67,6 +70,9 @@ void p_mt_mutex_global_cleanup(void);
 /** CONDITION VARIABLES **/
 struct p_mt_cond;
 typedef struct p_mt_cond * p_mt_cond_t;
+
+/* A value that can be used to invalidate a condition variable handle */
+#define P_MT_COND_NULL ((p_mt_cond_t)(void *)0)
 
 /* Returns a new condition variable. Always succeeds. */
 p_mt_cond_t p_mt_cond_create(void);

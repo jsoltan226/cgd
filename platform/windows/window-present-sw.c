@@ -1,4 +1,3 @@
-#include "core/log.h"
 #define P_INTERNAL_GUARD__
 #include "window-present-sw.h"
 #undef P_INTERNAL_GUARD__
@@ -6,9 +5,12 @@
 #include "error.h"
 #undef P_INTERNAL_GUARD__
 #include "../event.h"
+#include "../thread.h"
 #include "../window.h"
+#include <core/log.h>
 #include <core/util.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
@@ -51,6 +53,9 @@ i32 render_init_software(struct window_render_software_ctx *ctx,
 
     ctx->win_handle = win_handle;
 
+    atomic_flag_clear(&ctx->swap_busy);
+    ctx->swap_req_mutex = p_mt_mutex_create();
+
     return 0;
 
 err:
@@ -61,6 +66,9 @@ err:
 struct pixel_flat_data * render_present_software(
     struct window_render_software_ctx *ctx)
 {
+    s_assert(atomic_flag_test_and_set(&ctx->swap_busy),
+        "The busy flag must be set during a swap!");
+
     /* Swap the buffers */
     struct pixel_flat_data *const tmp = ctx->back_fb;
     ctx->back_fb = ctx->front_fb;
@@ -109,6 +117,14 @@ void render_destroy_software(struct window_render_software_ctx *ctx)
 {
     if (!ctx->initialized_)
         return;
+
+    if (ctx->swap_req_mutex != P_MT_MUTEX_NULL) {
+        p_mt_mutex_lock(&ctx->swap_req_mutex);
+        (void) atomic_flag_test_and_set(&ctx->swap_busy);
+        p_mt_mutex_unlock(&ctx->swap_req_mutex);
+        p_mt_mutex_destroy(&ctx->swap_req_mutex);
+        atomic_flag_clear(&ctx->swap_busy);
+    }
 
     ctx->initialized_ = false;
 

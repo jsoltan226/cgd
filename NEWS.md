@@ -54,3 +54,35 @@
         that were randomly happening on windows
     * Fixed some typos ("WINWIN32_LEAN_AND_MEAN" -> "WIN32_LEAN_AND_MEAN")
     * Removed the useless `<vulkan/*.h>` includes in `tests/render-test.c`
+
+* Ironed out the bugs in the new `platform/windows/window` implementation
+    * Fixed the crash that would always occur on program exit:
+        * In `window_thread_fn`, `GetMessage` now gets called inside the `while` condition check
+            fixing a bug where the `REQ_OP_QUIT_` event would get through to `handle_thread_request`
+            causing an abort (in `p_window_close`)
+    * Fixed a race condition that would occur due to improper use of condition variables
+        in `window_thread_request_operation_and_wait` and `window_thread_fn`:
+        * The `status` variable is now protected my the mutex that's used with the cond.
+            Previosly `status` was `_Atomic` and the mutex didn't protect anything.
+            This caused a rare race condition where the request would be completed and `status` would get set
+            right inbetween the `if (status == REQ_STATUS_PENDING)` and `p_mt_cond_wait(...)` lines,
+            causing a deadlock.
+    * Fixed the incorrect initialization of an atomic variable leading to a rare crash
+        * The (now changed) `_Atomic` `status` variable would get initialized to 0
+            with a non-atomic write, then it would get atomically set to the proper value.
+            However, if the non-atomic write got "published" to the other thread AFTER the atomic write,
+            the variable in the window thread would get set to 0 and cause an assetion failure.
+            This is not a problem anymore as `status` is now handled completely differently, see the previous point
+    * Added a `REQ_OP_MIN__` value for easier verification of the validitity of an `enum window_thread_request_status` value
+    * The mutex used in `p_window_swap_buffers` will now be reused between calls
+        instead of being created and destroyed on each request
+    * Some other minor changes:
+        * `r_flush` now treats a `NULL` return value from `p_window_swap_buffers` as just a dropped frame
+            instead of a fatal error
+            * As a result, removed the `dropped_frames` counter from `platform/linux/window-x11-present-sw`
+                and made it return `NULL` on failure (instead of the old back buffer)
+        * Removed the old definitions for `CGD_REQ_EV_*` as I was confusing them with the new ones in my code
+        * Added proper `NULL` values for `p_mt_mutex`es and `p_mt_cond`s
+        * Fixed some minor bugs in `core/log.c` because they were bothering me during debugging:
+            * Fixed the error stream not being flushed by `do_abort_v`
+            * Fixed the file output not being flushed for `S_LOG_OUTPUT_FILE` outputs in `destroy_old_output`

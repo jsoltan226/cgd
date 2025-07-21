@@ -28,6 +28,8 @@ struct r_ctx {
         p_mt_cond_t cond;
         p_mt_mutex_t mutex;
     } thread_info;
+
+    u64 total_frames, dropped_frames;
 };
 
 extern void renderer_main(void *arg);
