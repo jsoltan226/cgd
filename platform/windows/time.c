@@ -2,7 +2,6 @@
 #include "core/util.h"
 #include <core/int.h>
 #include <core/log.h>
-#include <stdlib.h>
 #include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -17,7 +16,7 @@
 #define MODULE_NAME "time"
 
 static volatile atomic_flag frequency_initialized = ATOMIC_FLAG_INIT;
-static _Atomic LARGE_INTEGER frequency;
+static _Atomic u64 frequency;
 
 void p_time(timestamp_t *o)
 {
@@ -51,7 +50,7 @@ void p_time_get_ticks(timestamp_t *o)
         /* This function always succeeds on Windows XP or later */
         (void) QueryPerformanceFrequency(&tmp);
 
-        atomic_store(&frequency, tmp);
+        atomic_store(&frequency, tmp.QuadPart);
     }
 
     LARGE_INTEGER counter;
@@ -59,8 +58,7 @@ void p_time_get_ticks(timestamp_t *o)
     (void) QueryPerformanceCounter(&counter);
 
     /* Convert to nanoseconds based on the clock resolution (frequency) */
-    u64 ns = (counter.QuadPart * 1000000000LL) /
-        atomic_load(&frequency).QuadPart;
+    u64 ns = (counter.QuadPart * 1000000000LL) / atomic_load(&frequency);
 
     /* Fill the timestamp struct */
     o->s = ns / 1000000000LL;

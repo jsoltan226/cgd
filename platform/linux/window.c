@@ -1,6 +1,6 @@
-#define P_INTERNAL_GUARD__
+#define P_WINDOW_FLAG_LIST_DEF__
 #include "../window.h"
-#undef P_INTERNAL_GUARD__
+#undef P_WINDOW_FLAG_LIST_DEF__
 #include "../event.h"
 #include <core/int.h>
 #include <core/log.h>
@@ -218,8 +218,14 @@ static i32 check_flags(const u32 flags)
             while (flag_a != 1U << index_a) index_a++;
             while (flag_b != 1U << index_b) index_b++;
 
+
+#define X_(name, id) #name,
+            static const char *const flag_strings[P_WINDOW_MAX_N_FLAGS_] = {
+                P_WINDOW_FLAG_LIST
+            };
+#undef X_
             s_log_error("Mutually exclusive flags: \"%s\" and \"%s\"",
-                p_window_flag_strings[index_a], p_window_flag_strings[index_b]);
+                flag_strings[index_a], flag_strings[index_b]);
             ret++;
         }
     }

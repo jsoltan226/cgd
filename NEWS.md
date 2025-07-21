@@ -23,3 +23,10 @@
     * Added documentation for `struct window_thread_request`, `struct window_render_software_ctx` and `struct p_window`
     * Fixed some regular writes to `_Atomic` variables in `platform/linux/window-x11`
     * `tests/bin/window-test.exe` was run 500 times without encountering any errors! FINALLY!
+
+* Minor improvements & bug fixes
+    * Fixed `ASAN_FLAGS` not being appended to `SO_LDFLAGS` in the `build-tests` and `build-tests-release` targets in the `Makefile`
+    * Fixed an error when compiling with clang caused by the use of an `_Atomic LARGE_INTEGER`
+        which clang doesn't allow since `LARGE_INTEGER` is not a primitive type
+    * Added more documentation in `platform/windows/window`, `platform/windows/window-thread` and `platform/windows/window-present-sw`
+    * Cleaned up the confusing definintions, guards and undefinitions from `platform/window.h`

@@ -51,7 +51,7 @@ i32 render_software_request_init_and_wait(HWND win_handle,
             P_MT_MUTEX_NULL, &req);
 }
 
-struct pixel_flat_data * render_software_swap_buffers_and_request_presentation(
+struct pixel_flat_data * render_software_swap_and_request_present(
     HWND target_window, struct window_render_software_ctx *ctx
 )
 {
@@ -148,6 +148,7 @@ static i32 do_render_init_software(struct window_render_software_ctx *ctx,
     ctx->swap_mutex = p_mt_mutex_create();
     ctx->swap_done = false;
 
+    /* Init the bitmap buffers */
     const u32 w = win_info->client_area.w, h = win_info->client_area.h;
     if (create_rgb_bitmap_buffer(w, h, &ctx->window_thread_data_.buffers[0]) ||
         create_rgb_bitmap_buffer(w, h, &ctx->window_thread_data_.buffers[1])
@@ -163,6 +164,8 @@ static i32 do_render_init_software(struct window_render_software_ctx *ctx,
     ctx->back_buf = &ctx->window_thread_data_.buffers[0];
     ctx->front_buf = &ctx->window_thread_data_.buffers[1];
 
+    /* Select the new front buffer bitmap as the memdc's object,
+     * keeping the old "default" bitmap to enable clean destruction of the DC */
     ctx->window_thread_data_.memdc_old_bitmap =
         SelectObject(ctx->window_thread_data_.memdc, ctx->front_buf->bmp);
     if (ctx->window_thread_data_.memdc_old_bitmap == NULL)
@@ -191,6 +194,7 @@ static i32 do_render_present_software(struct window_render_software_ctx *ctx,
         s_assert(ctx->swap_done,
             "The buffers must be swapped before attempting presentation!");
 
+        /* Get the window's device context */
         HDC win_dc = GetDC(target_window);
         if (win_dc == NULL) {
             ret = 1;
@@ -210,7 +214,7 @@ static i32 do_render_present_software(struct window_render_software_ctx *ctx,
             goto present_end;
         }
 
-        /* Present the new front buffer */
+        /* Present the new front buffer (memdc -> win_dc) */
         ret = !BitBlt(win_dc, 0, 0,
             ctx->front_buf->w,
             ctx->front_buf->h,

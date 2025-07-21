@@ -30,6 +30,7 @@ static i32 create_window(const char *title, u32 flags,
     const struct p_window_info *info,
     HWND *o_win_handle, RECT *o_win_rect);
 static void destroy_window(HWND *win_handle_p);
+
 static void handle_thread_request(void *arg);
 
 static LRESULT CALLBACK

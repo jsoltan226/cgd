@@ -20,20 +20,43 @@
 #include <windows.h>
 #include <wingdi.h>
 
+/* This is the moudule responsible for presenting software-rendered frames
+ * to the window when `P_WINDOW_ACCELERATION_NONE` is used. */
+
+/* Here are the definitions for the arguments of each `window_thread_request`
+ * related to this module.
+ *
+ * To use them, pass a pointer to such a struct as the `arg` field
+ * in the `struct window_thread_request`.
+ *
+ * Note that the pointers must be valid throughout the entire duration
+ * of the request & operation! So be careful when allocating them on the stack.
+ */
+
 struct render_init_software_req {
+    /* The context to be initialized */
     struct window_render_software_ctx *ctx;
+
+    /* The win_info struct containing the window's dimensions.
+     * Used to determine the sizes of the buffers that are to be created. */
     const struct p_window_info *win_info;
 };
 struct render_present_software_req {
+    /* The context containing the ALREADY SWAPPED buffers to be presented */
     struct window_render_software_ctx *ctx;
+
+    /* The window to which the frame will be presented */
     HWND target_window;
 };
 struct render_destroy_software_req {
+    /* The context to be destroyed */
     struct window_render_software_ctx *ctx;
 };
 
+/* The struct encapulating everything related to presenting
+ * a software-rendered frame. */
 struct window_render_software_ctx {
-    _Atomic bool initialized_;
+    _Atomic bool initialized_; /* Sanity check to avoid double-frees */
 
     /* This data should only be read from/written to by the window thread
      * while performing a requested `RENDER_*_SOFTWARE` operation */
@@ -63,25 +86,53 @@ struct window_render_software_ctx {
         HBITMAP memdc_old_bitmap;
     } window_thread_data_;
 
+    /* The front and back buffer pointers (the ones that get swapped).
+     * Guarded by `swap_mutex`. */
     struct window_render_software_buf *front_buf, *back_buf;
+
+    /* The variable that's set to signal that the buffers have just been swapped
+     * and the new front buffer is ready for scanout.
+     *
+     * Requesting a presentation without first swapping the buffers
+     * will trigger an assertion failure.
+     *
+     * Also guarded by `swap_mutex`. */
+    bool swap_done;
+
+    /* The mutex protecting the buffer swap operation */
+    p_mt_mutex_t swap_mutex;
 
     /* The back buffer "representation" returned to the user */
     struct pixel_flat_data user_ret;
-
-    p_mt_mutex_t swap_mutex;
-    bool swap_done;
 };
 
+/* A wrapper around the `render_init_software` operation.
+ * It sends a request to `win_handle` to initialize `ctx`
+ * with the parameter `info`.
+ * It will wait until the request is complete
+ * and return 0 on success and non-zero on failure. */
 i32 render_software_request_init_and_wait(HWND win_handle,
     struct window_render_software_ctx *ctx, const struct p_window_info *info);
 
-struct pixel_flat_data * render_software_swap_buffers_and_request_presentation(
+/* A function that will first swap the buffers in `ctx`,
+ * and then send a `render_present_software` request to `target_window`.
+ * It will return as soon as possible (asynchronously) with the new back buffer,
+ * or with `NULL` if the request couldn't be sent (dropped frame).
+ *
+ * To check the result of the presentation itself watch out
+ * for `P_EVENT_PAGE_FLIP` events in your event loop. */
+struct pixel_flat_data * render_software_swap_and_request_present(
     HWND target_window, struct window_render_software_ctx *ctx
 );
 
+/* A wrapper around the `render_destroy_software` operation.
+ * It sends a request to `win_handle` to destroy `ctx`. */
 void render_software_request_destruction_and_wait(HWND win_handle,
     struct window_render_software_ctx *ctx);
 
+/* This module's handler for it's `window_thread_request` operations.
+ * Used only by the window thread to determine which internal
+ * function of this module to call when receiving a request. */
 enum window_thread_request_status render_software_handle_window_thread_request(
     enum window_thread_request_type req_type, void *arg
 );

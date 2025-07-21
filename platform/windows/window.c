@@ -1,6 +1,8 @@
 #include "../event.h"
 #include "../thread.h"
+#define P_WINDOW_FLAG_LIST_DEF__
 #include "../window.h"
+#undef P_WINDOW_FLAG_LIST_DEF__
 #include <core/log.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -144,9 +146,8 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
             return NULL;
         }
 
-        return render_software_swap_buffers_and_request_presentation(
-                win->win_handle, &win->render.sw
-        );
+        return render_software_swap_and_request_present(win->win_handle,
+                &win->render.sw);
     case P_WINDOW_ACCELERATION_OPENGL:
     case P_WINDOW_ACCELERATION_VULKAN:
         s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
@@ -338,8 +339,13 @@ static i32 check_flags(const u32 flags)
             while (flag_a != 1U << index_a) index_a++;
             while (flag_b != 1U << index_b) index_b++;
 
+#define X_(name, id) #name,
+            static const char *const flag_strings[P_WINDOW_MAX_N_FLAGS_] = {
+                P_WINDOW_FLAG_LIST
+            };
+#undef X_
             s_log_error("Mutually exclusive flags: \"%s\" and \"%s\"",
-                p_window_flag_strings[index_a], p_window_flag_strings[index_b]);
+                flag_strings[index_a], flag_strings[index_b]);
             ret++;
         }
     }

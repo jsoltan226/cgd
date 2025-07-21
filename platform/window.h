@@ -76,14 +76,11 @@ enum p_window_flags {
 #undef X_
 
 #define P_WINDOW_MAX_N_FLAGS_ (sizeof(enum p_window_flags) * 8)
-#define X_(name, id) [id] = #name,
-static const char *const p_window_flag_strings[P_WINDOW_MAX_N_FLAGS_] = {
-    P_WINDOW_FLAG_LIST
-};
-#undef X_
-#ifndef P_INTERNAL_GUARD__
+
+#ifndef P_WINDOW_FLAG_LIST_DEF__
 #undef P_WINDOW_MAX_N_FLAGS_
-#endif /* P_INTERNAL_GUARD__ */
+#undef P_WINDOW_FLAG_LIST
+#endif /* P_WINDOW_FLAG_LIST_DEF__ */
 
 enum p_window_acceleration {
     P_WINDOW_ACCELERATION_UNSET_ = -1,
@@ -137,5 +134,4 @@ void p_window_get_info(const struct p_window *win, struct p_window_info *out);
 i32 p_window_set_acceleration(struct p_window *win,
     enum p_window_acceleration new_acceleration_mode);
 
-#undef P_WINDOW_FLAG_LIST
 #endif /* P_WINDOW_H_ */
