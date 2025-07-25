@@ -88,7 +88,7 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
 
     /* Reset the window struct, just in case */
     memset(win, 0, sizeof(struct window_x11));
-    atomic_store(&win->exists, true);
+    atomic_store(&win->exists_, true);
 
     /* Check the parameters for compatibility with the 1980s-like
      * X11 protocol constraints */

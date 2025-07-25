@@ -58,8 +58,7 @@ static i32 opengl_test(void)
         goto_error("Failed to create OpenGL context. Stop.");
 
     struct p_opengl_functions GL = { 0 };
-    if (p_opengl_get_functions(gl_ctx, &GL))
-        goto_error("Failed to retrieve OpenGL function pointers. Stop.");
+    p_opengl_get_functions(gl_ctx, &GL);
 
     struct p_event ev;
 
@@ -67,7 +66,7 @@ static i32 opengl_test(void)
     GL.glClearColor(0.0f, 0.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
-    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -80,7 +79,7 @@ static i32 opengl_test(void)
     GL.glClearColor(1.0f, 0.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
-    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -93,7 +92,7 @@ static i32 opengl_test(void)
     GL.glClearColor(0.0f, 1.f, 0.f, 0.f);
     GL.glClear(GL_COLOR_BUFFER_BIT);
     p_opengl_swap_buffers(gl_ctx, win);
-    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    (void) p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     p_time_sleep(1);
     while (p_event_poll(&ev)) {
         if (ev.type == P_EVENT_PAGE_FLIP) {
@@ -115,7 +114,7 @@ static i32 software_test(void)
 {
     s_log_info("Initializing the software rendering test...");
     struct pixel_flat_data *back_buf =
-        p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+        p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     if (back_buf == NULL)
         goto_error("Failed to swap buffers. Stop.");
     const u32 size = back_buf->w * back_buf->h * sizeof(pixel_t);
@@ -124,7 +123,7 @@ static i32 software_test(void)
 
     /* Fill the buffer with white pixels */
     memset(back_buf->buf, (u8)255, size);
-    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     if (back_buf == NULL)
         goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
@@ -137,7 +136,7 @@ static i32 software_test(void)
 
     /* Fill the buffer with black pixels */
     memset(back_buf->buf, (u8)0, size);
-    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     if (back_buf == NULL)
         goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
@@ -151,7 +150,7 @@ static i32 software_test(void)
     /* Fill just the first half of the buffer with white pixels */
     memset(back_buf->buf, (u8)0, size);
     memset(back_buf->buf, (u8)255, size / 2);
-    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     if (back_buf == NULL)
         goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);
@@ -165,7 +164,7 @@ static i32 software_test(void)
     /* Fill the second first half of the buffer with white pixels */
     memset(back_buf->buf, (u8)255, size);
     memset(back_buf->buf, (u8)0, size / 2);
-    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_VSYNC);
+    back_buf = p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW);
     if (back_buf == NULL)
         goto_error("Failed to swap buffers. Stop.");
     p_time_sleep(1);

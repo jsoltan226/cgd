@@ -30,3 +30,14 @@
         which clang doesn't allow since `LARGE_INTEGER` is not a primitive type
     * Added more documentation in `platform/windows/window`, `platform/windows/window-thread` and `platform/windows/window-present-sw`
     * Cleaned up the confusing definintions, guards and undefinitions from `platform/window.h`
+
+* Implemented `platform/opengl` on Windows
+    * Implemented an OpenGL loader for windows
+        * Prepares the window
+        * Loads the Windows GL (WGL) library (`opengl32.dll`)
+        * Creates and binds WGL context
+        * Tries to look up the given OpenGL functions inside `opengl32.dll`
+        * If that fails, uses `wglGetProcAddress` instead
+        * simpler than I thought it would be
+    * `platform/windows/window-present-sw.c`: Fixed the bitmap `biHeight` parameter being initialized incorrectly
+        causing all frames to be renderer upside-down

@@ -123,13 +123,11 @@ err:
     return NULL;
 }
 
-i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
+void p_opengl_get_functions(struct p_opengl_ctx *ctx,
     struct p_opengl_functions *o)
 {
-    if (ctx == NULL || o == NULL) return -1;
-
+    u_check_params(ctx != NULL && o != NULL);
     memcpy(o, &ctx->functions, sizeof(struct p_opengl_functions));
-    return 0;
 }
 
 void p_opengl_swap_buffers(struct p_opengl_ctx *ctx, struct p_window *win)
@@ -168,8 +166,10 @@ void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
 
     terminate_egl(&ctx->egl);
 
-    if (ctx->bound_win != NULL)
-        p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
+    if (ctx->bound_win != NULL) {
+        if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_))
+            s_log_error("Failed to unset the window acceleration mode");
+    }
 
     memset(ctx, 0, sizeof(struct p_opengl_ctx));
     u_nfree(ctx_p);
@@ -442,7 +442,7 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
 
 #define X_(return_type, name, ...)                                  \
     o->_voidp_##name = eglGetProcAddress(#name);                    \
-    if (o->name == NULL) {                                          \
+    if (o->_voidp_##name == NULL) {                                 \
         s_log_error("Failed to load OpenGL function %s", #name);    \
         return 1;                                                   \
     }                                                               \
@@ -453,9 +453,6 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
 #undef X_
 
     s_log_verbose("Successfully loaded %u OpenGL function(s).", n_loaded);
-#ifdef CGD_BUILDTYPE_RELEASE
-    (void) n_loaded;
-#endif /* CGD_BUILDTYPE_RELEASE */
 
     return 0;
 }

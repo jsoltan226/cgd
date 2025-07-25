@@ -303,7 +303,7 @@ static i32 create_rgb_bitmap_buffer(u32 w, u32 h,
         .bmiHeader = {
             .biSize = sizeof(BITMAPINFOHEADER),
             .biWidth = w,
-            .biHeight = h,
+            .biHeight = -h,
             .biPlanes = 1,
             .biBitCount = 32,
             .biCompression = BI_RGB, /* uncompressed RGB image */

@@ -30,9 +30,8 @@ struct p_opengl_functions {
  * In case of failure, NULL is returned. */
 struct p_opengl_ctx * p_opengl_create_context(struct p_window *win);
 
-/* Retrieve the OpenGL function pointers from `ctx` into `o`.
- * Returns 0 on success and non-zero on failure. */
-i32 p_opengl_get_functions(struct p_opengl_ctx *ctx,
+/* Retrieve the OpenGL function pointers from `ctx` into `o`. */
+void p_opengl_get_functions(struct p_opengl_ctx *ctx,
     struct p_opengl_functions *o);
 
 /* Swap the buffers in `ctx` and perform a page flip on the window `win`.
