@@ -31,6 +31,9 @@ struct p_window {
 
     _Atomic bool thread_started_;
     p_mt_thread_t thread; /* The window thread */
+    /* A pointer to the variable that tells the window thread
+     * when to exit */
+    _Atomic bool *thread_running_p;
 
     RECT window_rect; /* The position and dimensions of the whole window */
 
@@ -73,6 +76,10 @@ struct window_init {
         /* The adjusted and converted-to-the-win32-stupid-format rect
          * containing the (initial) position and dimensions of the window */
         RECT window_rect;
+
+        /* A pointer to the variable that tells the window thread
+         * when to exit */
+        _Atomic bool *running_p;
     } out;
 
     /* Temporary thread sync/communication objects */

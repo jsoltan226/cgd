@@ -1,4 +1,3 @@
-#include <string.h>
 #define WINDOW_THREAD__
 #define P_INTERNAL_GUARD__
 #include "window-present-sw.h"
@@ -15,6 +14,7 @@
 #include "../window.h"
 #include <core/log.h>
 #include <core/util.h>
+#include <string.h>
 #include <stdbool.h>
 #include <stdatomic.h>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -37,9 +37,12 @@ static i32 create_rgb_bitmap_buffer(u32 w, u32 h,
 static void destroy_rgb_bitmap_buffer(struct window_render_software_buf *buf);
 
 i32 render_software_request_init_and_wait(HWND win_handle,
-    struct window_render_software_ctx *ctx, const struct p_window_info *win_info
-)
+    struct window_render_software_ctx *ctx,
+    const struct p_window_info *win_info)
 {
+    u_check_params(win_handle != NULL &&
+        ctx != NULL && atomic_load(&ctx->initialized_));
+
     struct render_init_software_req req = {
         .ctx = ctx,
         .win_info = win_info,
@@ -47,16 +50,15 @@ i32 render_software_request_init_and_wait(HWND win_handle,
 
     return
         window_thread_request_operation_and_wait(win_handle,
-            REQ_OP_RENDER_INIT_SOFTWARE,
-            P_MT_MUTEX_NULL, &req);
+            REQ_OP_RENDER_INIT_SOFTWARE, &req, P_MT_MUTEX_NULL);
 }
 
-struct pixel_flat_data * render_software_swap_and_request_present(
-    HWND target_window, struct window_render_software_ctx *ctx
-)
+struct pixel_flat_data *
+render_software_swap_and_request_present(HWND win_handle,
+    struct window_render_software_ctx *ctx)
 {
-    u_check_params(target_window != NULL && ctx != NULL &&
-        atomic_load(&ctx->initialized_));
+    u_check_params(win_handle != NULL &&
+        ctx != NULL && atomic_load(&ctx->initialized_));
 
     p_mt_mutex_lock(&ctx->swap_mutex);
     {
@@ -79,16 +81,16 @@ struct pixel_flat_data * render_software_swap_and_request_present(
         /* These structs are only written to here
          * and they're protected by the mutex and `swap_done` flag,
          * so we don't have to worry about their previous values */
-        ctx->front_buf->present_req_arg.target_window = target_window;
+        ctx->front_buf->present_req_arg.target_window = win_handle;
         ctx->front_buf->present_req_arg.ctx = ctx;
 
         struct window_thread_request *const req = &ctx->front_buf->present_req;
         req->type = REQ_OP_RENDER_PRESENT_SOFTWARE;
         req->arg = &ctx->front_buf->present_req_arg;
-        req->win_handle = target_window;
-        req->status_mutex = ctx->swap_mutex;
         req->status = REQ_STATUS_NOT_STARTED;
+        req->request_mutex = ctx->swap_mutex;
         req->completion_cond = P_MT_COND_NULL;
+        req->win_handle = win_handle;
 
         window_thread_request_operation(req);
     }
@@ -100,11 +102,12 @@ struct pixel_flat_data * render_software_swap_and_request_present(
 void render_software_request_destruction_and_wait(HWND win_handle,
     struct window_render_software_ctx *ctx)
 {
+    u_check_params(win_handle != NULL &&
+        ctx != NULL && atomic_load(&ctx->initialized_));
+
     struct render_destroy_software_req req = { .ctx = ctx };
-    (void) window_thread_request_operation_and_wait(
-        win_handle, REQ_OP_RENDER_DESTROY_SOFTWARE,
-        P_MT_MUTEX_NULL, &req
-    );
+    (void) window_thread_request_operation_and_wait(win_handle,
+        REQ_OP_RENDER_DESTROY_SOFTWARE, &req, P_MT_MUTEX_NULL);
 }
 
 enum window_thread_request_status render_software_handle_window_thread_request(

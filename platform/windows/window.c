@@ -7,7 +7,6 @@
 #include <core/util.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
-#include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
@@ -57,6 +56,8 @@ struct p_window * p_window_open(const char *title,
 
     atomic_store(&win->exists_, true);
     atomic_store(&win->init_ok_, false);
+    win->win_handle = NULL;
+    win->thread_running_p = NULL;
 
     s_assert(g_instance_handle != NULL,
         "Global instance handle not initialized!");
@@ -114,8 +115,10 @@ struct p_window * p_window_open(const char *title,
 
     atomic_store(&win->init_ok_, true);
 
-    win->win_handle = init.out.win_handle;
+    /* Read the retured data */
     memcpy(&win->window_rect, &init.out.window_rect, sizeof(RECT));
+    win->win_handle = init.out.win_handle;
+    win->thread_running_p = init.out.running_p;
 
     /* Initialize anything acceleration-specific */
     if (initialize_acceleration(win, flags))
@@ -172,12 +175,14 @@ void p_window_close(struct p_window **win_p)
 
     s_log_verbose("Destroying window...");
 
-    if (atomic_exchange(&win->thread_started_, false) ||
-        !atomic_load(&win->init_ok_))
-    {
+    if (win->win_handle != NULL && (
+            atomic_exchange(&win->thread_started_, false) ||
+            !atomic_load(&win->init_ok_)
+        )
+    ) {
         p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
 
-        if (PostMessage(win->win_handle, CGD_WM_EV_QUIT_, 0, 0) == 0) {
+        if (SendMessage(win->win_handle, CGD_WM_EV_QUIT_, 0, 0)) {
             /* The window is OK, but we could't send it the message
              * to exit gracefully by itself, so we have reach out for
              * more drastic measures (or else the execution will deadlock here)
@@ -239,7 +244,7 @@ i32 p_window_set_acceleration(struct p_window *win,
         }
         struct render_destroy_software_req req = { .ctx = &win->render.sw };
         if (window_thread_request_operation_and_wait(win->win_handle,
-                REQ_OP_RENDER_DESTROY_SOFTWARE, P_MT_MUTEX_NULL, &req)
+                REQ_OP_RENDER_DESTROY_SOFTWARE, &req, P_MT_MUTEX_NULL)
         ) {
             s_log_error("The render_destroy_software request failed!");
             return 1;
@@ -265,7 +270,7 @@ i32 p_window_set_acceleration(struct p_window *win,
             .ctx = &win->render.sw
         };
         if (window_thread_request_operation_and_wait(win->win_handle,
-                REQ_OP_RENDER_INIT_SOFTWARE, P_MT_MUTEX_NULL, &req)
+                REQ_OP_RENDER_INIT_SOFTWARE, &req, P_MT_MUTEX_NULL)
         ) {
             s_log_error("Failed to initialize software rendering");
             return 1;

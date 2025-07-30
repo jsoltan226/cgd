@@ -108,22 +108,23 @@ struct window_render_software_ctx {
 
 /* A wrapper around the `render_init_software` operation.
  * It sends a request to `win_handle` to initialize `ctx`
- * with the parameter `info`.
+ * with the parameter `win_info`.
  * It will wait until the request is complete
  * and return 0 on success and non-zero on failure. */
 i32 render_software_request_init_and_wait(HWND win_handle,
-    struct window_render_software_ctx *ctx, const struct p_window_info *info);
+    struct window_render_software_ctx *ctx,
+    const struct p_window_info *win_info);
 
 /* A function that will first swap the buffers in `ctx`,
- * and then send a `render_present_software` request to `target_window`.
+ * and then send a `render_present_software` request to `win_handle`.
  * It will return as soon as possible (asynchronously) with the new back buffer,
  * or with `NULL` if the request couldn't be sent (dropped frame).
  *
  * To check the result of the presentation itself watch out
  * for `P_EVENT_PAGE_FLIP` events in your event loop. */
-struct pixel_flat_data * render_software_swap_and_request_present(
-    HWND target_window, struct window_render_software_ctx *ctx
-);
+struct pixel_flat_data *
+render_software_swap_and_request_present(HWND win_handle,
+    struct window_render_software_ctx *ctx);
 
 /* A wrapper around the `render_destroy_software` operation.
  * It sends a request to `win_handle` to destroy `ctx`. */

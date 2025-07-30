@@ -67,7 +67,6 @@ extern void window_thread_fn(void *arg);
  * Note that `REQ_OP_MIN__` and `REQ_OP_MAX__` are not valid request IDs! */
 enum window_thread_request_type {
     /* `WM_APP` is reserved for `CGD_WM_EV_QUIT_` */
-
     REQ_OP_MIN__ = WM_APP + 1,
 
     /* Implemented by `platform/windows/window-present-sw` */
@@ -109,7 +108,7 @@ struct window_thread_request {
 
     /* The mutex that protects the status variable
      * and (if used) the condition variable */
-    p_mt_mutex_t status_mutex;
+    p_mt_mutex_t request_mutex;
 
     /* The condition variable that will be signalled once the request
      * is fulfilled. This parameter is optional -
@@ -138,15 +137,15 @@ void window_thread_request_operation(struct window_thread_request *req);
  *
  *  - `win_handle` is the window to which the request will be sent
  *  - `type` must be a valid request ID (see `enum window_thread_request_type`)
+ *  - `arg` should be set to whatever your specific request needs
  *  - `mutex` is optional - it's the mutex that will be used to wait
  *      on the request cond (passed in as `status_mutex`).
  *      Can be `NULL`; in that case the function will create a temporary one
  *      and use it instead.
  *      You should pass in your own one if you
  *      reuse it between requests - for optimisation.
- *  - `arg` should be set to whatever your specific request needs */
+ */
 i32 window_thread_request_operation_and_wait(HWND win_handle,
-    enum window_thread_request_type type, p_mt_mutex_t mutex, void *arg
-);
+    enum window_thread_request_type type, void *arg, p_mt_mutex_t mutex);
 
 #endif /* WINDOW_THREAD_H_ */
