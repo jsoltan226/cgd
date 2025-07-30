@@ -13,12 +13,6 @@ int cgd_main(int argc, char **argv)
     struct platform_ctx platform_ctx = { 0 };
     struct gui_ctx gui_ctx = { 0 };
 
-#ifdef CGD_BUILDTYPE_RELEASE
-    s_configure_log_level(S_LOG_INFO);
-#else
-    s_configure_log_level(S_LOG_DEBUG);
-#endif /* CGD_BUILDTYPE_RELEASE */
-
     s_log_verbose("Starting platform init...");
     if (do_platform_init(argc, (const char *const *)argv, &platform_ctx)) {
         s_log_error("Platform init failed. Stop.");

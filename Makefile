@@ -94,6 +94,7 @@ DEPS = $(patsubst %.o,%.d,$(OBJS))
 
 _main_obj = $(OBJDIR)/main.c.o
 _entry_point_obj = $(OBJDIR)/entry-point.c.o
+_test_entry_point_obj = $(OBJDIR)/test-entry-point.c.o
 
 # Executables
 EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
@@ -154,6 +155,13 @@ $(OBJDIR)/%.c.o: $(PLATFORM_SRCDIR)/$(PLATFORM)/%.c Makefile
 	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
+# Special compilation targets
+$(_test_entry_point_obj): CFLAGS += \
+	-DCGD_P_ENTRY_POINT_DEFAULT_NO_LOG_FILE=1 -DCGD_P_ENTRY_POINT_DEFAULT_VERBOSE_LOG_SETUP=0 -O0
+$(_test_entry_point_obj): $(PLATFORM_SRCDIR)/$(PLATFORM)/entry-point.c Makefile $(OBJDIR)
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
 
 # Test preparation targets
 test-hooks: asset-load-test-hook
@@ -166,7 +174,7 @@ asset-load-test-hook:
 # Test execution targets
 run-tests: tests
 
-tests: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE
+tests: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
 tests: build-tests test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
@@ -187,7 +195,7 @@ tests: build-tests test-hooks
 	fi; \
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
 
-tests-release: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE
+tests-release: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
 tests-release: build-tests-release test-hooks
 	@n_passed=0; \
 	$(ECHO) -n > $(TEST_LOGFILE); \
@@ -212,19 +220,19 @@ tests-release: build-tests-release test-hooks
 # Test compilation targets
 build-tests: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
 build-tests: LDFLAGS += $(ASAN_FLAGS)
-build-tests: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests
+build-tests: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_test_entry_point_obj) compile-tests
 
 build-tests-release: CFLAGS = -O3 -Werror -flto -DNDEBUG -DCGD_BUILDTYPE_RELEASE
 build-tests-release: LDFLAGS += -flto
-build-tests-release: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_entry_point_obj) compile-tests-release
+build-tests-release: $(STATIC_TESTS) $(OBJDIR) $(BINDIR) $(TEST_BINDIR) $(TEST_LIB) $(_test_entry_point_obj) compile-tests-release
 
 compile-tests: $(TEST_EXES)
 
 compile-tests-release: $(TEST_EXES)
 
-$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile tests/log-util.h
-	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_entry_point_obj)"
-	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_entry_point_obj)
+$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX): $(TEST_SRC_DIR)/%.c Makefile tests/log-util.h $(_test_entry_point_obj)
+	@$(PRINTF) "CCLD	%-30s %-30s\n" "$@" "<= $< $(TEST_LIB) $(_test_entry_point_obj)"
+	@$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS) $(TEST_LIB) $(LIBS) $(_test_entry_point_obj)
 
 $(STATIC_TESTS):
 	@$(CPP) $(STATIC_TESTS) >/dev/null
