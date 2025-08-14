@@ -10,6 +10,7 @@
 #include <core/spinlock.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <semaphore.h>
 #include <xcb/xcb.h>
 #include <xcb/shm.h>
 #include <xcb/present.h>
@@ -33,7 +34,7 @@ enum x11_render_software_fb_type {
 #endif /* X11_RENDER_SOFTWARE_FB_TYPE_LIST_DEF__ */
 
 struct x11_render_software_ctx {
-    bool initialized_;
+    _Atomic bool initialized_;
     xcb_gcontext_t window_gc;
 
     struct x11_render_software_buf {
@@ -103,6 +104,7 @@ struct x11_render_software_ctx {
     } generic_win_info;
 
     atomic_flag present_pending;
+    sem_t present_pending_wait;
 };
 
 struct x11_render_software_malloced_present_thread_arg {

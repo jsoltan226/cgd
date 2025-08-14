@@ -18,3 +18,12 @@
         presentation and doesn't block until any results of the actual page flip are available.
     * Fixed a bunch of typos in `platform/window.h` & generally improved the documentation of `p_window_swap_buffers`
     * Fixed the `timestamp_delta` macro in `platform/ptime.h`
+
+* Fixed the ridiculous logic of the linux implementation of `p_window_swap_buffers`
+    * Replaced `if (param_invalid) return FAIL` with `u_check_params` where applicable
+    * Implemented the `P_WINDOW_SWAP_BUFFERS_FAIL` return value in all window implementations except `window-dri`
+    * Fixed the `vsync_supported` field in `struct p_window_info` not being changed properly in the linux `p_window_set_acceleration`
+    * Actually properly handled the destruction of buffers in `platform/linux/window-x11-present-sw`
+        (waiting for a signal that the buffers are no longer being used instead of just nuking them no matter what)
+    * Fixed a bunch of typos all over `platform/linux/window*`
+    * Implemented the change in the `p_window` API in `render/rctx.c`

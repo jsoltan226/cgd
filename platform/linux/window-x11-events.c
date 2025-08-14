@@ -155,8 +155,9 @@ static void handle_ge_event(struct window_x11 *win,
         if (acceleration != P_WINDOW_ACCELERATION_NONE
             || !atomic_load(&shared_buf_data->present.initialized_))
         {
-            s_log_error("Present event received while "
-                "no X11_SWFB_PRESENT_PIXMAPs are in use");
+            s_log_debug("Present event received while "
+                "no X11_SWFB_PRESENT_PIXMAPs are in use; ignoring");
+            break;
         }
         handle_present_event(win, ge_ev);
         break;

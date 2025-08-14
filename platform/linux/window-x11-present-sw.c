@@ -22,6 +22,7 @@
 #include <stdatomic.h>
 #include <signal.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <xcb/xcb.h>
@@ -121,9 +122,11 @@ i32 X11_render_init_software(struct x11_render_software_ctx *sw_rctx,
     bool *o_vsync_supported)
 {
     *o_vsync_supported = false;
-    sw_rctx->initialized_ = true;
+    atomic_store(&sw_rctx->initialized_, true);
     atomic_flag_clear(&sw_rctx->present_pending);
     spinlock_init(&sw_rctx->swap_lock);
+    s_assert(sem_init(&sw_rctx->present_pending_wait, false, 1) == 0,
+        "impossible outcome");
 
     /* Create the window's graphics context (GC) */
     sw_rctx->window_gc = xcb->xcb_generate_id(conn);
@@ -194,10 +197,12 @@ struct pixel_flat_data * X11_render_present_software(
 )
 {
     /* We assume that `present_mode` has already been validated */
+    u_check_params(atomic_load(&sw_rctx->initialized_));
 
     if (atomic_flag_test_and_set(&sw_rctx->present_pending)) {
-        /* Another page flip is already in progress; drop this frame */
-        return NULL;
+        s_log_trace("Another page flip is already in progress; "
+            "droping this frame");
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
     }
     /* Reset after the page flip completes */
 
@@ -256,12 +261,31 @@ struct pixel_flat_data * X11_render_present_software(
 void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     xcb_connection_t *conn, xcb_window_t win_handle, const struct libxcb *xcb)
 {
-    if (sw_rctx == NULL || !sw_rctx->initialized_)
+    s_log_debug("%s", __func__);
+    if (sw_rctx == NULL || !atomic_exchange(&sw_rctx->initialized_, false))
         return;
 
-    if (atomic_flag_test_and_set(&sw_rctx->present_pending))
-        s_log_warn("Forcing buffer destruction while it might be in use");
-    atomic_flag_clear(&sw_rctx->present_pending);
+    if (atomic_flag_test_and_set(&sw_rctx->present_pending)) {
+        s_log_debug("Buffer still in use; waiting...");
+
+        struct timespec wait_timeout;
+        if (clock_gettime(CLOCK_REALTIME, &wait_timeout)) {
+            s_log_fatal("Failed to get the current time: %s",
+                strerror(errno));
+        }
+        /* Set the timeout to 1 second from now */
+        wait_timeout.tv_sec += 1;
+        i32 ret = 0;
+        while (
+            ret = sem_timedwait(&sw_rctx->present_pending_wait, &wait_timeout),
+            ret == EINTR
+        );
+        if (ret == ETIMEDOUT) {
+            s_log_error("Timed out while waiting for presentation completion; "
+                "destroying buffer while it might still be in use");
+        } else if (ret != 0)
+            s_log_fatal("impossible outcome");
+    }
 
     if (atomic_load(&sw_rctx->shared_buf_data.present.initialized_)) {
         destroy_present_shared_data(&sw_rctx->shared_buf_data.present,
@@ -302,9 +326,7 @@ void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
         sw_rctx->window_gc = XCB_NONE;
     }
 
-
     sw_rctx->curr_back_buf = sw_rctx->curr_front_buf = NULL;
-    sw_rctx->initialized_ = false;
 }
 
 void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
@@ -315,6 +337,16 @@ void X11_render_software_finish_frame(struct x11_render_software_ctx *sw_rctx,
         .type = P_EVENT_PAGE_FLIP,
         .info.page_flip_status = status
     });
+
+    i32 val = 0;
+    if (sem_getvalue(&sw_rctx->present_pending_wait, &val))
+        s_log_fatal("impossible outcome");
+
+    if (val == 0) {
+        if (sem_post(&sw_rctx->present_pending_wait) == 0)
+            s_log_fatal("impossible outcome");
+            /* My god do I HATE the semaphore API */
+    }
 }
 
 static i32 software_init_buffer_malloced(
@@ -726,16 +758,9 @@ static void destroy_malloced_shared_data(
 
     struct timespec thread_timeout;
     if (clock_gettime(CLOCK_REALTIME, &thread_timeout)) {
-        s_log_error("Failed to get the current time: %s",
+        s_log_fatal("Failed to get the current time: %s",
             strerror(errno));
-        /* Give the thread 0.1s to clean itself up */
-        usleep(100000);
-        s_log_warn("Killing the listener thread...");
-        pthread_kill(shared_data->present_thread, SIGKILL);
-
-        goto thread_terminated;
     }
-
     /* Set the timeout to 1 second from now */
     thread_timeout.tv_sec += 1;
 
@@ -751,12 +776,11 @@ static void destroy_malloced_shared_data(
             "Killing the thread...", strerror(ret));
         pthread_kill(shared_data->present_thread, SIGKILL);
     } /* else OK */
-thread_terminated:
 
     shared_data->present_thread = 0;
     atomic_store(&shared_data->present_thread_ready, false);
 
-    /* Possible errors: EBUSY - The mutex is currently locked. P. */
+    /* Possible errors: EBUSY - The mutex is currently locked. */
     if (pthread_mutex_destroy(&shared_data->present_request_mutex) != 0) {
         s_log_error("Couldn't clean up the present request mutex "
             "because it's still locked");
@@ -836,6 +860,7 @@ static void destroy_present_shared_data(
     xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
+    s_log_debug("%s", __func__);
     if (!atomic_load(&shared_data->initialized_))
         return;
     atomic_store(&shared_data->initialized_, false);
@@ -858,6 +883,7 @@ static void destroy_present_shared_data(
             s_log_error("xcb_present_select_input_checked failed");
             u_nfree(&e);
         }
+        s_log_debug("xcb_present_select_input_checked done");
     }
 
     atomic_store(&shared_data->serial, 0);

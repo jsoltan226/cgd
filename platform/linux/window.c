@@ -137,10 +137,12 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
         return window_dri_swap_buffers(&win->dri, present_mode);
     case WINDOW_TYPE_FBDEV:
         return window_fbdev_swap_buffers(&win->fbdev, present_mode);
-    case WINDOW_TYPE_DUMMY: return NULL;
+    case WINDOW_TYPE_DUMMY:
+        s_log_error("Dummy windows don't support buffer swapping!");
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
     }
 
-    return NULL;
+    s_log_fatal("impossible outcome");
 }
 
 i32 p_window_set_acceleration(struct p_window *win,

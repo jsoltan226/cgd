@@ -266,7 +266,7 @@ kill_thread:
 struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
     const enum p_window_present_mode present_mode)
 {
-    if (win == NULL) return NULL;
+    u_check_params(win != NULL);
 
     /* If another page flip is in progress, wait for it to finish */
     pthread_mutex_lock(&win->listener.buf_mutex);
@@ -286,7 +286,7 @@ struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
         if (post_sem_if_blocked(&win->listener.page_flip_pending)) {
             s_log_error("Failed to post the page flip semaphore");
             pthread_mutex_unlock(&win->listener.buf_mutex);
-            return NULL;
+            return P_WINDOW_SWAP_BUFFERS_FAIL;
         }
         break;
     case P_WINDOW_PRESENT_NOW:

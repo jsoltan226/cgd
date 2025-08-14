@@ -62,11 +62,6 @@ static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
 
 static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags);
 
-static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
-    const struct libxcb *xcb);
-static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
-    const struct libxcb *xcb);
-
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
     xcb_connection_t *conn, const struct libxcb *xcb);
 
@@ -303,18 +298,29 @@ struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
 {
     u_check_params(win != NULL);
 
-    if (win->generic_info_p->gpu_acceleration != P_WINDOW_ACCELERATION_NONE)
+    switch (win->generic_info_p->gpu_acceleration) {
+    case P_WINDOW_ACCELERATION_NONE:
+        if (present_mode == P_WINDOW_PRESENT_VSYNC &&
+            !win->generic_info_p->vsync_supported)
+        {
+            s_log_error("VSync is not supported in "
+                "this X11 window configuration");
+            return P_WINDOW_SWAP_BUFFERS_FAIL;
+        }
+        return X11_render_present_software(&win->render.sw,
+            win->conn, &win->xcb, present_mode);
+    case P_WINDOW_ACCELERATION_OPENGL:
         return NULL;
-
-    if (present_mode == P_WINDOW_PRESENT_VSYNC &&
-        !win->generic_info_p->vsync_supported)
-    {
-        s_log_error("VSync is not supported in this X11 window configuration");
-        return NULL;
+    case P_WINDOW_ACCELERATION_VULKAN:
+        s_log_error("Vulkan acceleration is not implemented yet");
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
+    case P_WINDOW_ACCELERATION_UNSET_:
+        s_log_error("Attempt to swap buffers while the acceleration is unset");
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
+    default:
+        s_log_fatal("Invalid acceleration mode: %d",
+            win->generic_info_p->gpu_acceleration);
     }
-
-    return X11_render_present_software(&win->render.sw,
-        win->conn, &win->xcb, present_mode);
 }
 
 i32 window_X11_register_keyboard(struct window_x11 *win,
@@ -402,13 +408,14 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
         win->generic_info_p->gpu_acceleration;
     win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
 
+    bool new_vsync_supported = false;
+
     switch (old_acceleration) {
         case P_WINDOW_ACCELERATION_NONE:
             X11_render_destroy_software(&win->render.sw,
                 win->conn, win->win_handle, &win->xcb);
             break;
         case P_WINDOW_ACCELERATION_OPENGL:
-            render_destroy_egl(&win->render.egl, &win->xcb);
             break;
         case P_WINDOW_ACCELERATION_UNSET_: /* previously unset, do nothing */
             break;
@@ -417,6 +424,9 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
             /* Shouldn't be possible */
             break;
     }
+
+    if (win->xcb.xcb_flush(win->conn) <= 0)
+        s_log_error("xcb_flush failed!");
 
     switch (new_val) {
     case P_WINDOW_ACCELERATION_UNSET_:
@@ -427,17 +437,14 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
                 win->generic_info_p->client_area.h,
                 win->screen->root_depth, win->max_request_size,
                 win->win_handle, &win->ext_store, win->conn, &win->xcb,
-                &win->generic_info_p->vsync_supported))
+                &new_vsync_supported))
         {
             s_log_error("Failed to set up the window for software rendering.");
             return 1;
         }
         break;
     case P_WINDOW_ACCELERATION_OPENGL:
-        if (render_init_egl(&win->render.egl, &win->xcb)) {
-            s_log_error("Failed to set up the window for EGL rendering.");
-            return 1;
-        }
+        new_vsync_supported = true;
         break;
     case P_WINDOW_ACCELERATION_VULKAN:
         s_log_error("Vulkan acceleration not implemented yet.");
@@ -447,7 +454,11 @@ i32 window_X11_set_acceleration(struct window_x11 *win,
         return 1;
     }
 
+    if (win->xcb.xcb_flush(win->conn) <= 0)
+        s_log_error("xcb_flush failed!");
+
     win->generic_info_p->gpu_acceleration = new_val;
+    win->generic_info_p->vsync_supported = new_vsync_supported;
     return 0;
 }
 
@@ -797,21 +808,6 @@ static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
 
     s_log_error("No GPU acceleration mode could be initialized.");
     return 1;
-}
-
-static i32 render_init_egl(struct x11_render_egl_ctx *egl_rctx,
-    const struct libxcb *xcb)
-{
-    (void) xcb;
-    egl_rctx->initialized_ = true;
-    return 0;
-}
-
-static void render_destroy_egl(struct x11_render_egl_ctx *egl_rctx,
-    const struct libxcb *xcb)
-{
-    (void) xcb;
-    egl_rctx->initialized_ = false;
 }
 
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,

@@ -48,13 +48,14 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
         ctx->win_info.client_area.w, ctx->win_info.client_area.h,
         ctx->win_info.vsync_supported);
 
-    ctx->curr_buf = p_window_swap_buffers(ctx->win,
+    struct pixel_flat_data *ret = p_window_swap_buffers(ctx->win,
         ctx->win_info.vsync_supported ?
             P_WINDOW_PRESENT_VSYNC :
             P_WINDOW_PRESENT_NOW
     );
-    if (ctx->curr_buf == NULL)
+    if (ret == P_WINDOW_SWAP_BUFFERS_FAIL)
         goto_error("Failed to swap buffers");
+    ctx->curr_buf = ret;
     u_rect_from_pixel_data(ctx->curr_buf, &ctx->pixels_rect);
 
     ctx->current_color = BLACK_PIXEL;
@@ -123,7 +124,8 @@ void r_flush(struct r_ctx *ctx)
     );
     ctx->total_frames++;
 
-    if (new_buf == NULL)
+    s_assert(new_buf != NULL, "wtf");
+    if (new_buf == P_WINDOW_SWAP_BUFFERS_FAIL)
         ctx->dropped_frames++;
     else
         ctx->curr_buf = new_buf;
@@ -132,6 +134,8 @@ void r_flush(struct r_ctx *ctx)
 void r_reset(struct r_ctx *ctx)
 {
     u_check_params(ctx != NULL);
+    s_assert(ctx->curr_buf != NULL && ctx->curr_buf->buf != NULL,
+        "Attempt to write to a NULL buffer");
     memset(ctx->curr_buf->buf, 0,
         ctx->curr_buf->w * ctx->curr_buf->h * sizeof(pixel_t)
     );
