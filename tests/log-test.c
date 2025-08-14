@@ -18,6 +18,10 @@ i32 cgd_main(i32 argc, char **argv)
 
     s_log_verbose("log test start");
 
+    const enum s_log_level old_level = s_get_log_level();
+    if (old_level > S_LOG_VERBOSE)
+        s_configure_log_level(S_LOG_VERBOSE);
+
     /* Test the ringbuffer */
     struct ringbuffer *membuf = ringbuffer_init(S_LOG_MINIMAL_MEMBUF_SIZE);
     s_assert(membuf != NULL, "ringbuffer init failed");
@@ -60,24 +64,29 @@ i32 cgd_main(i32 argc, char **argv)
     if (strncmp(membuf->buf + offset, TEST_STRING, S_LOG_MINIMAL_MEMBUF_SIZE))
         goto_error("membuf wrap-around test failed");
 
-    old_output_cfg.flag_copy = true;
+    if (old_level <= S_LOG_VERBOSE)
+        old_output_cfg.flag_copy = true;
+
     if (s_configure_log_output(S_LOG_VERBOSE, &old_output_cfg, NULL))
         goto_error("Failed to set S_LOG_VERBOSE output back to the default");
 
     ringbuffer_destroy(&membuf);
 
     s_configure_log_line(S_LOG_VERBOSE, old_line, NULL);
+    s_configure_log_level(old_level);
 
     s_log_verbose("log test end");
 
     return EXIT_SUCCESS;
 
 err:
+    s_configure_log_level(old_level);
     if (old_line != NULL) {
         s_configure_log_line(S_LOG_VERBOSE, old_line, NULL);
     }
     if (old_output_cfg.type == S_LOG_OUTPUT_FILE) {
-        old_output_cfg.flag_copy = true;
+        if (old_level <= S_LOG_VERBOSE)
+            old_output_cfg.flag_copy = true;
         (void) s_configure_log_output(S_LOG_VERBOSE, &old_output_cfg, NULL);
     }
     if (membuf != NULL) {

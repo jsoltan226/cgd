@@ -27,3 +27,10 @@
         (waiting for a signal that the buffers are no longer being used instead of just nuking them no matter what)
     * Fixed a bunch of typos all over `platform/linux/window*`
     * Implemented the change in the `p_window` API in `render/rctx.c`
+
+* Fixed a bunch of `tests/`
+    * Fixed `log-test` failing if the `S_LOG_LEVEL` environment variable was set to higher than `S_LOG_VERBOSE`
+    * Fixed `test_log_setup` (from `tests/log-util.h`) overriding the log level set by the platform entry point
+    * Adapted `tests/render-test` to the changes in `platform/window`
+    * Fixed `tests/window-test` using micro-second sleep (`p_time_usleep`)
+        where it should've been using milli-second sleep (`p_time_msleep`)

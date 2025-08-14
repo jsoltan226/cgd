@@ -52,7 +52,7 @@ int cgd_main(int argc, char **argv)
     u32 counter = 0;
     while ((ev.type != P_EVENT_PAGE_FLIP || ev.info.page_flip_status != 0)
         && counter < 100) {
-        p_time_usleep(1);
+        p_time_msleep(1);
         p_event_poll(&ev);
         counter++;
     }
@@ -67,7 +67,7 @@ int cgd_main(int argc, char **argv)
         while ((ev.type != P_EVENT_PAGE_FLIP || ev.info.page_flip_status != 0)
             && counter < 100)
         {
-            p_time_usleep(1);
+            p_time_msleep(1);
             p_event_poll(&ev);
             counter++;
         }

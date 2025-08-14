@@ -66,7 +66,6 @@ static i32 test_log_setup(void)
         fprintf(stderr, "Failed to configure log output. Stop.\n");
         return 1;
     }
-    s_configure_log_level(S_LOG_TRACE);
 
     const char *old_line = NULL;
     s_configure_log_line(S_LOG_INFO, "%s\n", &old_line);
