@@ -146,20 +146,21 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     case P_WINDOW_ACCELERATION_NONE:
         if (present_mode != P_WINDOW_PRESENT_NOW) {
             s_log_error("Software-rendered windows don't yet support VSync");
-            return NULL;
+            return P_WINDOW_SWAP_BUFFERS_FAIL;
         }
 
         return render_software_swap_and_request_present(win->win_handle,
                 &win->render.sw);
     case P_WINDOW_ACCELERATION_OPENGL:
-    case P_WINDOW_ACCELERATION_VULKAN:
-        s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
-            "on the Windows platform.");
         return NULL;
+    case P_WINDOW_ACCELERATION_VULKAN:
+        s_log_error("Vulkan acceleration isn't yet implemented "
+            "on the Windows platform.");
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
     case P_WINDOW_ACCELERATION_UNSET_:
         s_log_error("Attempt to swap buffers "
             "of a window with unset acceleration");
-        return NULL;
+        return P_WINDOW_SWAP_BUFFERS_FAIL;
     default:
         s_log_fatal("Invalid window acceleration mode (%d)",
             win->info.gpu_acceleration);
@@ -182,7 +183,9 @@ void p_window_close(struct p_window **win_p)
     ) {
         p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_);
 
-        if (SendMessage(win->win_handle, CGD_WM_EV_QUIT_, 0, 0)) {
+        if (SendMessage(win->win_handle,
+                CGD_WM_EV_QUIT_, (unsigned long long)win->thread_running_p, 0))
+        {
             /* The window is OK, but we could't send it the message
              * to exit gracefully by itself, so we have reach out for
              * more drastic measures (or else the execution will deadlock here)
@@ -251,8 +254,9 @@ i32 p_window_set_acceleration(struct p_window *win,
         }
         break;
     case P_WINDOW_ACCELERATION_OPENGL:
+        break;
     case P_WINDOW_ACCELERATION_VULKAN:
-        s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
+        s_log_error("Vulkan acceleration isn't yet implemented "
             "on the Windows platform.");
         /* Fall-through */
     default:
@@ -277,8 +281,9 @@ i32 p_window_set_acceleration(struct p_window *win,
         }
         break;
     case P_WINDOW_ACCELERATION_OPENGL:
+        break;
     case P_WINDOW_ACCELERATION_VULKAN:
-        s_log_error("Vulkan & OpenGL acceleration aren't yet implemented "
+        s_log_error("Vulkan acceleration isn't yet implemented "
             "on the Windows platform.");
         return 1;
     default:

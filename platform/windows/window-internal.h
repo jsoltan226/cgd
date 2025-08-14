@@ -48,7 +48,7 @@ struct p_window {
     /* The handle to the window created & owned by the window thread */
     HWND win_handle;
 
-    _Atomic bool init_ok_; /* Used to mark successfull window creation */
+    _Atomic bool init_ok_; /* Used to mark successful window initialization */
 };
 
 /* The struct used to communicate with the window thread

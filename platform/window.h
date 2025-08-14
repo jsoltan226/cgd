@@ -33,10 +33,10 @@ struct p_window;
     /* A warning is logged by `p_window_open` if vsync is not supported,    \
      * but the initialization will still proceed.                           \
      *                                                                      \
-     * If vsync is to be enabled in the future, call `p_window_get_meta`    \
+     * If vsync is to be enabled in the future, call `p_window_get_info`    \
      * to check whether it's actually supported.                            \
      *                                                                      \
-     * Obviously it's mututally exclusive with the previous flag.           \
+     * Obviously it's mutually exclusive with the previous flag.            \
      *                                                                      \
      * This is the default. */                                              \
     X_(P_WINDOW_VSYNC_SUPPORT_OPTIONAL, 16)                                 \
@@ -90,22 +90,54 @@ enum p_window_acceleration {
     P_WINDOW_ACCELERATION_MAX_
 };
 
-/* Opens a new window named `title`,
+/* Opens a new window named `title` (UTF-8),
  * with position and dimensions given in `area`,
  * and additional configuration parameters `flags`.
  *
  * Returns a handle to the new window on success,
  * and `NULL` on failure.
+ *
  */
 struct p_window * p_window_open(const char *title,
     const rect_t *area, u32 flags);
 
-/* Only works for windows that use software rendering.
- * Returns the current back buffer on success and `NULL` on failure. */
+/* A value to indicate the failure of `p_window_swap_buffers` */
+#define P_WINDOW_SWAP_BUFFERS_FAIL ((struct pixel_flat_data *)(void *)-1)
+
+/* Used to specify the presentation timing in `p_window_swap_buffers` */
 enum p_window_present_mode {
+    /* If using this mode,
+     * the frame will be presented on the next monitor vsync. */
     P_WINDOW_PRESENT_VSYNC = 0,
+
+    /* If using this mode,
+     * the frame will be presented as soon as possible
+     * which may cause tearing. */
     P_WINDOW_PRESENT_NOW = 1,
 };
+
+/* Request a presentation of a frame to the window `win`.
+ *
+ * Return value:
+ *  On success:
+ *      If the window's acceleration mode is `P_WINDOW_ACCELERATION_NONE`
+ *      (i.e. the window uses software rendering) and the operation succeeds,
+ *      then the return value is the new back buffer.
+ *
+ *      For any other acceleration mode, a successful swap returns `NULL`.
+ *
+ *  On failure:
+ *      Returns `P_WINDOW_SWAP_BUFFERS_FAIL`.
+ *
+ * Parameters:
+ *  - `win` - The window whose buffers are to be swapped
+ *  - `present_mode` - Specifies the timing of the frame presentation.
+ *      See `enum p_window_present_mode`.
+ *
+ * Note that this function is non-blocking and only *requests* a presentation
+ * from the operating system. To view the results of the actual page flip,
+ * watch out for `P_EVENT_PAGE_FLIP` events in the main loop.
+ */
 struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     const enum p_window_present_mode present_mode);
 

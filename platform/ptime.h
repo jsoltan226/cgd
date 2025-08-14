@@ -12,6 +12,7 @@ typedef struct timestamp {
 #define timestamp_delta(o, t0, t1) do {     \
     (o).ns = (t1).ns - (t0).ns;             \
     (o).s = (t1).s - (t0).s;                \
+    (o).s -= ((o).ns < 0);                  \
     (o).ns += ((o).ns < 0) * 1000000000L;   \
 } while (0)
 

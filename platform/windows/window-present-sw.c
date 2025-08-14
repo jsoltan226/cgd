@@ -63,8 +63,9 @@ render_software_swap_and_request_present(HWND win_handle,
     p_mt_mutex_lock(&ctx->swap_mutex);
     {
         if (ctx->swap_done) {
+            /* Another page flip in progress; drop frame */
             p_mt_mutex_unlock(&ctx->swap_mutex);
-            return NULL; /* Another page flip in progress; drop frame */
+            return P_WINDOW_SWAP_BUFFERS_FAIL;
         }
 
         /* Swap the buffers */
