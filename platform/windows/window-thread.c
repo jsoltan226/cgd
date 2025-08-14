@@ -1,3 +1,6 @@
+#include <minwindef.h>
+#include <string.h>
+#include <windef.h>
 #define P_INTERNAL_GUARD__
 #include "window-thread.h"
 #undef P_INTERNAL_GUARD__
@@ -24,6 +27,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windows.h>
+#include <windowsx.h>
 #include <errhandlingapi.h>
 
 #define MODULE_NAME "window-thread"
@@ -31,6 +35,12 @@
 struct window_thread_global_data {
     HWND win_handle;
     _Atomic bool running;
+
+    struct window_moving_ctx {
+        bool is_moving;
+        POINT start_cursor;
+        POINT start_window;
+    } moving;
 };
 
 static i32 create_window(const char *title, u32 flags,
@@ -40,6 +50,11 @@ static i32 create_window(const char *title, u32 flags,
 static void destroy_window(HWND *win_handle_p);
 
 static void handle_thread_request(void *arg);
+
+static void start_move(HWND win_handle, struct window_moving_ctx *ctx);
+static void handle_move(HWND win_handle, struct window_moving_ctx *ctx);
+static void cancel_move(HWND win_handle, struct window_moving_ctx *ctx);
+static void end_move(struct window_moving_ctx *ctx);
 
 static LRESULT CALLBACK
 window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -51,6 +66,7 @@ void window_thread_fn(void *arg)
     struct window_thread_global_data global_data = {
         .win_handle = NULL,
         .running = ATOMIC_VAR_INIT(false),
+        .moving = { 0 },
     };
     i32 result = 0;
 
@@ -296,26 +312,184 @@ window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CLOSE:
         p_event_send(&(struct p_event) { .type = P_EVENT_QUIT });
         return 0;
+    case CGD_WM_EV_QUIT_:
+        s_assert(global_data_p != NULL,
+            "The global data pointer must be initialized by now");
+        atomic_store(&global_data_p->running, false);
+        PostQuitMessage(0);
+        return 0;
     case WM_ENTERMENULOOP:
     case WM_ENTERSIZEMOVE:
         s_assert(global_data_p != NULL,
-            "The global data pointer must be initialized by this point");
+            "The global data pointer must be initialized by now");
         s_log_warn("in_sizemove -> true");
+        return 0;
         break;
     case WM_EXITMENULOOP:
     case WM_EXITSIZEMOVE:
         s_assert(global_data_p != NULL,
-            "The global data pointer must be initialized by this point");
+            "The global data pointer must be initialized by now");
         s_log_warn("in_sizemove -> false");
-        break;
-    case CGD_WM_EV_QUIT_:
-        s_assert(global_data_p != NULL,
-            "The global data pointer must be initialized by this point");
-        atomic_store(&global_data_p->running, false);
-        PostQuitMessage(0);
         return 0;
+        break;
+    case WM_SYSCOMMAND:
+        switch (wParam & 0xFFF0) {
+            case SC_MOVE:
+                s_assert(global_data_p != NULL,
+                    "The global data pointer must be initialized by now");
+                start_move(global_data_p->win_handle, &global_data_p->moving);
+                return 0;
+            case SC_SIZE:
+                /* We don't (yet) support resizing */
+                return 0;
+            default:
+                break;
+        }
+        break;
+    case WM_MOUSEMOVE:
+        s_assert(global_data_p != NULL,
+            "The global data pointer must be initialized by now");
+        if (global_data_p->moving.is_moving)
+            handle_move(global_data_p->win_handle, &global_data_p->moving);
+        break;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+        s_assert(global_data_p != NULL,
+            "The global data pointer must be initialized by now");
+        if (global_data_p->moving.is_moving) {
+            WORD vk_code = LOWORD(wParam);
+            if (vk_code == VK_ESCAPE)
+                cancel_move(global_data_p->win_handle, &global_data_p->moving);
+            else if (vk_code == VK_RETURN)
+                end_move(&global_data_p->moving);
+            return 0;
+        }
+        break;
+    case WM_NCLBUTTONUP:
+    case WM_LBUTTONUP:
+    case WM_CAPTURECHANGED:
+        s_assert(global_data_p != NULL,
+            "The global data pointer must be initialized by now");
+        if (global_data_p->moving.is_moving)
+            end_move(&global_data_p->moving);
+        break;
     default:
         break;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+static void start_move(HWND win_handle, struct window_moving_ctx *ctx)
+{
+    if (ctx->is_moving)
+        return;
+
+    ctx->is_moving = true;
+    if (GetCursorPos(&ctx->start_cursor) == 0)
+        goto_error("Failed to get the cursor position: %s",
+            get_last_error_msg());
+
+    RECT tmp_window_rect = { 0 };
+    if (GetWindowRect(win_handle, &tmp_window_rect) == 0)
+        goto_error("Failed to get the window rect: %s", get_last_error_msg());
+    ctx->start_window.x = tmp_window_rect.left;
+    ctx->start_window.y = tmp_window_rect.top;
+
+    (void) SetCapture(win_handle);
+
+    return;
+
+err:
+    memset(&ctx->start_cursor, 0, sizeof(POINT));
+    memset(&ctx->start_window, 0, sizeof(POINT));
+    ctx->is_moving = false;
+}
+
+static void handle_move(HWND win_handle, struct window_moving_ctx *ctx)
+{
+    if (!ctx->is_moving)
+        return;
+
+    POINT cursor_pos = { 0 };
+    if (GetCursorPos(&cursor_pos) == 0) {
+        s_log_error("Failed to get the cursor position: %s",
+            get_last_error_msg());
+        return;
+    }
+
+    /* How to change the window's position in the Z-order
+     * (whether to put it above every other window, below, etc.
+     * We don't care about that. */
+    const HWND INSERT_AFTER = NULL;
+
+    /* The window's new position */
+    const int X = ctx->start_window.x + (cursor_pos.x - ctx->start_cursor.x);
+    const int Y = ctx->start_window.y + (cursor_pos.y - ctx->start_cursor.y);
+
+    /* The new width and height. We don't want to resize the window,
+     * so we ignore these */
+    const int CX = 0, CY = 0;
+
+    /* The flags that configure the behavior of `SetWindowPos`.
+     * What we want is for the window to be moved, and that's it.
+     *
+     * We don't care about reordering it's Z-position either,
+     * since that's done by default by the OS, and we don't want
+     * our window to be resized at all (we don't even support that lol).
+     *
+     * Also, for some reason, not setting `SWP_NOZORDER` makes the OS
+     * "ignore" the new window's position and keeps drawing it in the same place
+     * as though it wasn't moved, despite `GetWindowRect` saying otherwise.
+     *
+     * And btw if you don't set `SWP_NOSIZE`, the window will be automatically
+     * resized to the size of the button menu (maximize, minimize, close),
+     * despite the window NOT SUPPORTING resizing. This also means that
+     * you won't be able to resize it back to it's original shape.
+     *
+     * Thank you, Win32 API, for not causing any headaches.
+     */
+    const UINT FLAGS = SWP_NOSIZE | SWP_NOZORDER;
+
+    s_log_trace("New window pos: %d %d", X, Y);
+    if (SetWindowPos(win_handle, INSERT_AFTER, X, Y, CX, CY, FLAGS) == 0)
+    {
+        s_log_error("Failed to set the window's position to [%d, %d]: %s",
+            X, Y, get_last_error_msg());
+    }
+}
+
+static void cancel_move(HWND win_handle, struct window_moving_ctx *ctx)
+{
+    if (!ctx->is_moving)
+        return;
+
+    /* See the above `handle_move` for more detail */
+    const HWND INSERT_AFTER = NULL;
+    const int X = ctx->start_window.x;
+    const int Y = ctx->start_window.y;
+    const int CX = 0, CY = 0;
+    const UINT FLAGS = SWP_NOSIZE | SWP_NOZORDER;
+    s_log_trace("New window pos: %d %d", X, Y);
+
+    if (SetWindowPos(win_handle, INSERT_AFTER, X, Y, CX, CY, FLAGS) == 0)
+    {
+        s_log_error("Failed to set the window's position to [%d, %d]: %s",
+            X, Y, get_last_error_msg());
+    }
+
+    if (ReleaseCapture() == 0)
+        s_log_error("ReleaseCapture failed: %s", get_last_error_msg());
+
+    ctx->is_moving = false;
+}
+
+static void end_move(struct window_moving_ctx *ctx)
+{
+    if (!ctx->is_moving)
+        return;
+
+    if (ReleaseCapture() == 0)
+        s_log_error("ReleaseCapture failed: %s", get_last_error_msg());
+
+    ctx->is_moving = false;
 }
