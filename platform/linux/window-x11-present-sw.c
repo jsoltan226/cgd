@@ -261,7 +261,6 @@ struct pixel_flat_data * X11_render_present_software(
 void X11_render_destroy_software(struct x11_render_software_ctx *sw_rctx,
     xcb_connection_t *conn, xcb_window_t win_handle, const struct libxcb *xcb)
 {
-    s_log_debug("%s", __func__);
     if (sw_rctx == NULL || !atomic_exchange(&sw_rctx->initialized_, false))
         return;
 
@@ -442,12 +441,18 @@ static i32 software_init_buffer_pixmap(
 
     buffer_o->pixmap = xcb->xcb_generate_id(conn);
 
-    /* This request never fails */
-    (void) xcb->shm.xcb_shm_create_pixmap(
+    /* Create a pixmap with the shared memory segment */
+    xcb_void_cookie_t vc = xcb->shm.xcb_shm_create_pixmap_checked(
         conn, buffer_o->pixmap, win_info->win_handle,
         win_info->win_w, win_info->win_h, win_info->root_depth,
         buffer_o->shm_info.shmseg, 0
     );
+    xcb_generic_error_t *e = xcb->xcb_request_check(conn, vc);
+    if (e != NULL) {
+        s_log_error("Failed to create the shm pixmap");
+        u_nfree(&e);
+        return 1;
+    }
 
     pixbuf_o->w = win_info->win_w;
     pixbuf_o->h = win_info->win_h;
@@ -568,6 +573,7 @@ static i32 software_present_pixmap(
     const u32 NOTIFIES_LEN = 0;
     const xcb_present_notify_t *NOTIFIES = NULL;
 
+    /* Any errors are handled in the event loop */
     (void) xcb->present.xcb_present_pixmap(conn,
         win_info->win_handle, buf->pixmap,
         SERIAL, VALID_PIXMAP_REGION, WINDOW_UPDATE_REGION,
@@ -860,7 +866,6 @@ static void destroy_present_shared_data(
     xcb_window_t win_handle, xcb_connection_t *conn, const struct libxcb *xcb
 )
 {
-    s_log_debug("%s", __func__);
     if (!atomic_load(&shared_data->initialized_))
         return;
     atomic_store(&shared_data->initialized_, false);
@@ -883,7 +888,6 @@ static void destroy_present_shared_data(
             s_log_error("xcb_present_select_input_checked failed");
             u_nfree(&e);
         }
-        s_log_debug("xcb_present_select_input_checked done");
     }
 
     atomic_store(&shared_data->serial, 0);
@@ -901,12 +905,10 @@ static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     shm_o->shmaddr = (void *)-1;
     shm_o->shmseg = -1;
 
+    const u64 seg_size = w * h * sizeof(pixel_t);
+
     /* Create the shmseg */
-    shm_o->shmid = shmget(
-        IPC_PRIVATE,
-        w * h * sizeof(pixel_t),
-        IPC_CREAT | 0600
-    );
+    shm_o->shmid = shmget(IPC_PRIVATE, seg_size, IPC_CREAT | 0600);
     if ((i32)shm_o->shmid == -1)
         goto_error("Failed to create shared memory: %s", strerror(errno));
 
@@ -914,6 +916,9 @@ static i32 attach_shm(xcb_shm_segment_info_t *shm_o, u32 w, u32 h,
     shm_o->shmaddr = shmat(shm_o->shmid, NULL, 0);
     if (shm_o->shmaddr == (void *)-1)
         goto_error("Failed to attach shared memory: %s", strerror(errno));
+
+    /* Fill the shmseg (pixel buffer) with zeroes */
+    memset(shm_o->shmaddr, 0, seg_size);
 
     shm_o->shmseg = xcb->xcb_generate_id(conn);
 
@@ -940,7 +945,12 @@ static void detach_shm(xcb_shm_segment_info_t *shm,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
     if (xcb->shm.loaded_) {
-        (void) xcb->shm.xcb_shm_detach(conn, shm->shmseg); /* Never fails */
+        xcb_void_cookie_t vc = xcb->shm.xcb_shm_detach(conn, shm->shmseg);
+        xcb_generic_error_t *e = xcb->xcb_request_check(conn, vc);
+        if (e) {
+            u_nfree(&e);
+            s_log_error("xcb_shm_detach failed!");
+        }
         if (xcb->xcb_flush(conn) <= 0)
             s_log_error("xcb_flush failed!");
     }
@@ -1026,7 +1036,8 @@ first_run_entry:
                 WIDTH, height, DST_X, y, LEFT_PAD, DEPTH,
                 data_len, data);
         }
-        (void) xcb->xcb_flush(conn);
+        if (xcb->xcb_flush(conn))
+            s_log_error("xcb_flush failed!");
 
         s_log_trace("THREAD: done presenting %p", sd->present_request_buffer);
         s_log_trace("THREAD: present_pending -> false");

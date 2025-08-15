@@ -18,6 +18,7 @@
 #define LIBDRM_LIBNAME "libdrm"
 #define LIBDRM_FUNCTIONS_LIST                                               \
     X_(drmModeResPtr, drmModeGetResources, int fd)                          \
+    X_(int, drmGetCap, int fd, uint64_t capability, uint64_t *value)        \
     X_(int, drmSetMaster, int fd)                                           \
     X_(drmModeConnectorPtr, drmModeGetConnector, int fd, uint32_t conn_id)  \
     X_(void, drmModeFreeConnector, drmModeConnectorPtr ptr)                 \
@@ -111,27 +112,32 @@ struct drm_device {
 
     u32 width, height;
     u32 refresh_rate;
+    bool async_page_flip_supported;
 
     bool initialized_;
 };
 
 struct software_render_ctx {
-    u32 handle;
-    u32 stride;
-    u32 width, height;
-    bool dumb_created;
+    struct software_render_buf {
+        bool initialized_;
 
-    u32 fb_id;
-    bool fb_added;
+        u32 handle;
+        u32 stride;
+        u32 width, height;
+        bool dumb_created;
 
-    u8 *map;
-    u64 map_size;
-    bool fb_mapped;
+        u32 fb_id;
+        bool fb_added;
 
-    struct pixel_flat_data front_buf, back_buf;
+        u8 *map;
+        u64 map_size;
+        bool fb_mapped;
 
+        struct pixel_flat_data user_ret;
+    } buffers[2], *front_buf, *back_buf;
     bool initialized_;
 };
+
 struct egl_render_ctx {
     struct gbm_device *device;
     struct gbm_surface *surface;

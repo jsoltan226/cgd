@@ -34,3 +34,22 @@
     * Adapted `tests/render-test` to the changes in `platform/window`
     * Fixed `tests/window-test` using micro-second sleep (`p_time_usleep`)
         where it should've been using milli-second sleep (`p_time_msleep`)
+
+## NEWS for 15.08.2025
+* Fixed broken functionality in `platform/linux/window-dri` and made all `p_window_open` implementations initialize the pixel buffers to 0
+    * Fixed incorrect handling of async page flips in `platform/linux/window-dri` -
+        now the code actually checks that the driver supports them
+    * Fixed `render_init_software` in `platform/linux/window-dri` using only 1 dumb buffer (it should've been 2)
+    * Made `render_prepare_frame_*` in `platform/linux/window-dri` only take in what they need as arguments
+    * Made `window_dri_swap_buffers` return errors correctly
+    * Fixed the incorrect assumption that `xcb_shm_create_pixmap` never generates any errors
+    * Made the behavior of `p_window_*` more consistent:
+        * `p_window_set_acceleration` (and consequently `p_window_open`) will now in all cases initialize the window's pixel buffers to 0
+            - In `P_WINDOW_ACCELERATION_OPENGL` this is done by rendering 1 empty frame before `p_opengl_create_context` returns.
+                This also makes it so that in the linux `window-dri` the modeset happens in `p_opengl_create_context`
+                and not in the user's first call to `p_window_swap_buffers`.
+            - In `P_WINDOW_ACCELERATION_NONE` this is simply done by using `calloc` instead of `malloc`
+                (or simply `memset`ing the buffer to 0 if some other method of allocation is used).
+        * `p_window_swap_buffers` will now always return `P_WINDOW_SWAP_BUFFERS_FAIL` on error (finally)
+        * `p_window_swap_buffers` will only perform the actual buffer swap on success
+    * Refactored `tests/bin/render-test`

@@ -149,6 +149,7 @@ struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
             return P_WINDOW_SWAP_BUFFERS_FAIL;
         }
 
+        /* The buffer pointers are only swapped on success */
         return render_software_swap_and_request_present(win->win_handle,
                 &win->render.sw);
     case P_WINDOW_ACCELERATION_OPENGL:

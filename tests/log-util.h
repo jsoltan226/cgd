@@ -26,8 +26,14 @@ static void test_log_cleanup(void) {
     s_configure_log_line(S_LOG_INFO, old_line, NULL);
 
     if (log_fp != NULL) {
-        fflush(log_fp);
-        fclose(log_fp);
+        if (fflush(log_fp)) {
+            fprintf(stderr, "%s: Failed to flush the log file: %s\n",
+                __func__, strerror(errno));
+        }
+        if (fclose(log_fp)) {
+            fprintf(stderr, "%s: Failed to close the log file: %s\n",
+                __func__, strerror(errno));
+        }
         log_fp = NULL;
     }
 }
@@ -46,7 +52,10 @@ static i32 test_log_setup(void)
     }
 
     if (atexit(test_log_cleanup)) {
-        fclose(log_fp);
+        if (fclose(log_fp)) {
+            fprintf(stderr, "%s: Failed to close the log file: %s\n",
+                __func__, strerror(errno));
+        }
         log_fp = NULL;
         fprintf(stderr, "%s: Failed to atexit() the log cleanup function: %s\n",
             __func__, strerror(errno));

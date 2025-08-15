@@ -134,8 +134,11 @@ i32 window_fbdev_open(struct window_fbdev *win,
      * on the console */
     win->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (win->tty_fd != -1) {
-        (void) tty_keyboard_set_term_raw_mode(win->tty_fd,
-            &win->orig_term_config, NULL);
+        if (tty_keyboard_set_term_raw_mode(win->tty_fd,
+            &win->orig_term_config, NULL))
+        {
+            s_log_warn("Failed to set the tty to raw mode");
+        }
     }
 
     /* Test the vsync ioctl */
@@ -236,24 +239,36 @@ kill_thread:
     if (win->tty_fd != -1) {
         /* Restore the terminal configuration */
         (void) tcsetattr(win->tty_fd, TCSANOW, &win->orig_term_config);
+        struct termios tmp;
+        if (tcgetattr(win->tty_fd, &tmp))
+            s_log_error("Failed to get the current terminal configuration: %s",
+                strerror(errno));
+        if (memcmp(&win->orig_term_config, &tmp, sizeof(struct termios)))
+            s_log_error("Failed to restore the original tty configuration");
 
         /* Discard any characters written on stdin
          * (Clear the command line) */
-        (void) tcflush(win->tty_fd, TCIOFLUSH);
+        if (tcflush(win->tty_fd, TCIOFLUSH))
+            s_log_error("Failed to flush the terminal: %s", strerror(errno));
 
         /* Close the tty file descriptor */
-        close(win->tty_fd);
+        if (close(win->tty_fd))
+            s_log_error("Failed to close the tty fd: %s", strerror(errno));
         win->tty_fd = -1;
     }
 
     /* Unmap and close the device */
     if (win->mem != NULL) {
-        munmap(win->mem, win->mem_size);
+        if (munmap(win->mem, win->mem_size)) {
+            s_log_error("Failed to unmap the framebuffer device: %s",
+                strerror(errno));
+        }
         win->mem = NULL;
         win->mem_size = 0;
     }
     if (win->fd != -1) {
-        close(win->fd);
+        if (close(win->fd))
+            s_log_error("Failed to close the fbdev fd: %s", strerror(errno));
         win->fd = -1;
     }
 
@@ -268,35 +283,37 @@ struct pixel_flat_data * window_fbdev_swap_buffers(struct window_fbdev *win,
 {
     u_check_params(win != NULL);
 
-    /* If another page flip is in progress, wait for it to finish */
+    /* If another page flip request is in progress, wait for it to finish */
     pthread_mutex_lock(&win->listener.buf_mutex);
-
-    /* We can just swap the pointers themselves since the metadata
-     * (width and height) is the same for both buffers */
-    pixel_t *new_back_buffer = win->front_buffer.buf;
-    win->front_buffer.buf = win->back_buffer.buf;
-    win->back_buffer.buf = new_back_buffer;
-
-    /* If vsync is on, let the listener thread do the rendering
-     * when it receives a vblank event.
-     * Otherwise, just copy the front buffer to the screen. */
-    switch (present_mode) {
-    case P_WINDOW_PRESENT_VSYNC:
-        atomic_store(&win->listener.front_buffer_p, &win->front_buffer);
-        if (post_sem_if_blocked(&win->listener.page_flip_pending)) {
-            s_log_error("Failed to post the page flip semaphore");
-            pthread_mutex_unlock(&win->listener.buf_mutex);
-            return P_WINDOW_SWAP_BUFFERS_FAIL;
+    {
+        /* If vsync is on, let the listener thread do the rendering
+         * when it receives a vblank event.
+         * Otherwise, just copy the front buffer to the screen. */
+        switch (present_mode) {
+        case P_WINDOW_PRESENT_VSYNC:
+            atomic_store(&win->listener.front_buffer_p, &win->front_buffer);
+            if (post_sem_if_blocked(&win->listener.page_flip_pending)) {
+                s_log_error("Failed to post the page flip semaphore");
+                pthread_mutex_unlock(&win->listener.buf_mutex);
+                return P_WINDOW_SWAP_BUFFERS_FAIL;
+            }
+            break;
+        case P_WINDOW_PRESENT_NOW:
+            write_to_fb(win->mem, win->stride,
+                &win->generic_info_p->display_rect,
+                &win->generic_info_p->client_area,
+                &win->front_buffer);
+            break;
         }
-        break;
-    case P_WINDOW_PRESENT_NOW:
-        write_to_fb(win->mem, win->stride,
-            &win->generic_info_p->display_rect,
-            &win->generic_info_p->client_area,
-            &win->front_buffer);
-        break;
-    }
 
+        /* Only swap the buffers on successful presentation */
+        /* We can just swap the pixel data pointers themselves
+         * since the rest (width and height) stay the same */
+        pixel_t *new_back_buffer = win->front_buffer.buf;
+        win->front_buffer.buf = win->back_buffer.buf;
+        win->back_buffer.buf = new_back_buffer;
+
+    }
     pthread_mutex_unlock(&win->listener.buf_mutex);
 
     return &win->back_buffer;

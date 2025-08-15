@@ -63,7 +63,7 @@
         xcb_generic_error_t **e                                                \
     )                                                                          \
     X_FN_(xcb_generic_event_t *, xcb_wait_for_event, xcb_connection_t *c)      \
-    X_FN_(xcb_void_cookie_t, xcb_send_event,                                   \
+    X_FN_(xcb_void_cookie_t, xcb_send_event_checked,                           \
         xcb_connection_t *conn, uint8_t propagate, xcb_window_t destination,   \
         uint32_t event_mask, const char *event                                 \
     )                                                                          \
@@ -173,7 +173,7 @@
     X_FN_(xcb_void_cookie_t, xcb_shm_detach,                                   \
         xcb_connection_t *c, xcb_shm_seg_t shmseg                              \
     )                                                                          \
-    X_FN_(xcb_void_cookie_t, xcb_shm_create_pixmap,                            \
+    X_FN_(xcb_void_cookie_t, xcb_shm_create_pixmap_checked,                    \
         xcb_connection_t *conn, xcb_pixmap_t pid, xcb_drawable_t drawable,     \
         uint16_t width, uint16_t height, uint8_t depth,                        \
         xcb_shm_seg_t shmseg, uint32_t offset                                  \

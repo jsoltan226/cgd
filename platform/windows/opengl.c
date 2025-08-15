@@ -127,6 +127,15 @@ struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
             "to the current thread: %s", get_last_error_msg());
     ctx->made_current = true;
 
+    /* Render 1 empty frame */
+    ctx->opengl_functions.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    ctx->opengl_functions.glClear(GL_COLOR_BUFFER_BIT);
+    p_opengl_swap_buffers(ctx, win);
+    if (p_window_swap_buffers(win, P_WINDOW_PRESENT_NOW)
+         == P_WINDOW_SWAP_BUFFERS_FAIL)
+    {
+        goto_error("Failed to present the first frame");
+    }
 
     return ctx;
 

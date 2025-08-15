@@ -84,7 +84,8 @@ evdev_find_and_load_devices(enum evdev_type_mask type_mask)
         u_nfree(&namelist[i]);
 
     u_nfree(&namelist);
-    close(dir_fd);
+    if (close(dir_fd))
+        s_log_error("Failed to close the directory fd: %s", strerror(errno));
 
     return v;
 
@@ -95,7 +96,10 @@ err:
         }
         u_nfree(&namelist);
     }
-    if (dir_fd != -1) close(dir_fd);
+    if (dir_fd != -1) {
+        if (close(dir_fd))
+            s_log_error("Failed to close the dir fd: %s", strerror(errno));
+    }
     if (v != NULL) {
         for (u32 i = 0; i < vector_size(v); i++) {
             if (v[i].fd != -1) close(v[i].fd);
@@ -165,7 +169,8 @@ i32 evdev_load(const char *rel_path, struct evdev *out,
 
 err:
     if (out->fd != -1) {
-        close(out->fd);
+        if (close(out->fd))
+            s_log_error("Failed to close the evdev fd: %s", strerror(errno));
         out->fd = -1;
     }
 
@@ -190,7 +195,8 @@ void evdev_destroy(struct evdev *e)
     if (e == NULL || !e->initialized_) return;
 
     if (e->fd < 0) {
-        close(e->fd);
+        if (close(e->fd))
+            s_log_error("Failed to close the evdev fd: %s", strerror(errno));
         e->fd = -1;
     }
 

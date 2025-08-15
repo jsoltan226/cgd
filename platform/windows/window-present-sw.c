@@ -341,6 +341,9 @@ static i32 create_rgb_bitmap_buffer(u32 w, u32 h,
         return 1;
     }
 
+    /* Initialize the pixel buffer with zeroes */
+    memset(o_buf->pixels, 0, w * h * sizeof(pixel_t));
+
     return 0;
 }
 

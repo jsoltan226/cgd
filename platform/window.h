@@ -96,7 +96,6 @@ enum p_window_acceleration {
  *
  * Returns a handle to the new window on success,
  * and `NULL` on failure.
- *
  */
 struct p_window * p_window_open(const char *title,
     const rect_t *area, u32 flags);
@@ -134,9 +133,15 @@ enum p_window_present_mode {
  *  - `present_mode` - Specifies the timing of the frame presentation.
  *      See `enum p_window_present_mode`.
  *
- * Note that this function is non-blocking and only *requests* a presentation
- * from the operating system. To view the results of the actual page flip,
- * watch out for `P_EVENT_PAGE_FLIP` events in the main loop.
+ * Notes:
+ *  - This function is non-blocking and only *requests* a presentation
+ *      from the operating system. To view the results of the actual page flip,
+ *      watch out for `P_EVENT_PAGE_FLIP` events in the main loop.
+ *  - If the function fails, the buffers aren't actually swapped,
+ *      and so the old back buffer can be reused to render a new frame.
+ *  - `p_window_open` ensures that all pixel buffers are initialized to 0,
+ *      so you don't have to present an empty frame at the start
+ *      just to avoid displaying undefined content.
  */
 struct pixel_flat_data * p_window_swap_buffers(struct p_window *win,
     const enum p_window_present_mode present_mode);

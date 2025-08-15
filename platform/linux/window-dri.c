@@ -60,8 +60,10 @@ static void destroy_drm_device(struct drm_device *dev,
 static i32 initialize_acceleration(struct window_dri *win,
     const enum p_window_flags flags);
 
-static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    const struct drm_device *drm_dev, const struct libgbm_functions *gbm);
+static i32 render_init_egl(
+    struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
+    const struct libgbm_functions *gbm
+);
 static void render_destroy_egl(struct egl_render_ctx *egl_rctx,
     const struct libgbm_functions *gbm);
 
@@ -71,11 +73,15 @@ static i32 render_init_software(struct software_render_ctx *sw_rctx,
 static void render_destroy_software(struct software_render_ctx *sw_rctx,
     const struct libdrm_functions *drm, const struct drm_device *drm_dev);
 
-static struct pixel_flat_data *
-render_prepare_frame_software(struct window_dri *win);
-static void render_prepare_frame_egl(struct window_dri *win);
+static struct pixel_flat_data * render_prepare_frame_software(
+    struct software_render_ctx *sw_rctx, const struct p_window_info *win_info
+);
+static i32 render_prepare_frame_egl(
+    struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
+    const struct libdrm_functions *drm, const struct libgbm_functions *gbm
+);
 
-static void render_present_frame(struct window_dri *win, u32 fb_handle,
+static i32 render_present_frame(struct window_dri *win, u32 fb_handle,
     const enum p_window_present_mode present_mode);
 
 #define OK 0
@@ -141,6 +147,7 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area,
     win->listener.drm = &win->drm;
     win->listener.gbm = &win->gbm;
     win->listener.render_ctx = &win->render;
+    s_log_trace("page_flip_pending -> false");
     atomic_store(&win->listener.page_flip_pending, false);
     atomic_store(&win->listener.running, true);
 
@@ -240,19 +247,43 @@ kill_thread:
 struct pixel_flat_data * window_dri_swap_buffers(struct window_dri *win,
     const enum p_window_present_mode present_mode)
 {
-    struct pixel_flat_data *new_back_buf = NULL;
-    u32 fb_id = -1;
-    if (win->generic_info_p->gpu_acceleration == P_WINDOW_ACCELERATION_OPENGL) {
-        render_prepare_frame_egl(win);
+    struct pixel_flat_data *ret = NULL;
+    u32 fb_id = -1; /* The new front buffer, after the swap */
+
+    /* Do acceleration-specific preparations
+     * (like actually swapping the buffers) */
+    switch (win->generic_info_p->gpu_acceleration) {
+    case P_WINDOW_ACCELERATION_NONE:
+        ret = render_prepare_frame_software(&win->render.sw,
+            win->generic_info_p);
+        fb_id = win->render.sw.front_buf->fb_id;
+        break;
+    case P_WINDOW_ACCELERATION_OPENGL:
+        if (render_prepare_frame_egl(&win->render.egl, &win->dev,
+                &win->drm, &win->gbm))
+        {
+            ret = P_WINDOW_SWAP_BUFFERS_FAIL;
+        }
         fb_id = win->render.egl.next_fb_id;
-    } else {
-        new_back_buf = render_prepare_frame_software(win);
-        fb_id = win->render.sw.fb_id;
+        break;
+    case P_WINDOW_ACCELERATION_VULKAN:
+        s_log_error("Vulkan acceleration is not implemented yet.");
+        ret = P_WINDOW_SWAP_BUFFERS_FAIL;
+        break;
+    case P_WINDOW_ACCELERATION_UNSET_:
+        s_log_error("Attempt to swap buffers with unset acceleration mode");
+        ret = P_WINDOW_SWAP_BUFFERS_FAIL;
+        break;
+    default:
+        s_log_fatal("Invalid acceleration mode: %d",
+            win->generic_info_p->gpu_acceleration);
     }
 
-    render_present_frame(win, fb_id, present_mode);
+    /* Request a page flip with the new front buffer */
+    if (render_present_frame(win, fb_id, present_mode))
+        ret = P_WINDOW_SWAP_BUFFERS_FAIL;
 
-    return new_back_buf;
+    return ret;
 }
 
 i32 window_dri_set_acceleration(struct window_dri *win,
@@ -318,6 +349,8 @@ i32 window_dri_set_acceleration(struct window_dri *win,
     }
 
     win->generic_info_p->gpu_acceleration = val;
+    /* All window-dri configurations support vsync */
+    win->generic_info_p->vsync_supported = true;
     return 0;
 }
 
@@ -418,16 +451,22 @@ static VECTOR(struct file) open_available_devices(void)
 
         struct stat s;
         if (fstat(f.fd, &s)) {
-            s_log_error("Can't stat \"%s\" (even after opening): %s",
+            s_log_error("Couldn't stat \"%s\" (even after opening): %s",
                 f.path, strerror(errno));
-            close(f.fd);
+            if (close(f.fd)) {
+                s_log_error("Failed to close \"%s\": %s",
+                    f.path, strerror(errno));
+            }
             u_nfree(&namelist[i]);
             continue;
         }
 
         if (!S_ISCHR(s.st_mode)) {
             /* Not a character device */
-            close(f.fd);
+            if (close(f.fd)) {
+                s_log_error("Failed to close \"%s\": %s",
+                    f.path, strerror(errno));
+            }
             u_nfree(&namelist[i]);
             continue;
         }
@@ -499,6 +538,17 @@ static i32 select_and_init_device(VECTOR(struct file) files,
             destroy_drm_device(&tmp_dev, drm);
             continue;
         }
+
+        /* Check async page flip support */
+        u64 cap_value = 0;
+        if (drm->drmGetCap(tmp_dev.fd, DRM_CAP_ASYNC_PAGE_FLIP, &cap_value)) {
+            s_log_error("Failed to query DRM capabilities: %s",
+                strerror(errno));
+            destroy_drm_device(&tmp_dev, drm);
+            continue;
+        }
+        s_log_debug("Async page flip support: %lli", cap_value);
+        tmp_dev.async_page_flip_supported = cap_value || 0;
 
         /* (Try to) become the DRM master */
         if (drm->drmSetMaster(tmp_dev.fd)) {
@@ -644,7 +694,10 @@ static void destroy_drm_device(struct drm_device *dev,
         drm->drmModeFreeCrtc(dev->crtc);
         dev->crtc = NULL;
     }
-    (void) drm->drmDropMaster(dev->fd);
+    if (drm->drmDropMaster(dev->fd))
+        s_log_error("Failed to release the DRM device (drmDropMaster): %s",
+            strerror(errno));
+
     if (dev->conn != NULL) {
         drm->drmModeFreeConnector(dev->conn);
         dev->conn = NULL;
@@ -655,7 +708,10 @@ static void destroy_drm_device(struct drm_device *dev,
         dev->res = NULL;
     }
     if (dev->fd != -1) {
-        close(dev->fd);
+        if (close(dev->fd)) {
+            s_log_error("Failed to close the DRM device fd: %s",
+                strerror(errno));
+        }
         dev->fd = -1;
     }
 
@@ -736,8 +792,10 @@ static i32 initialize_acceleration(struct window_dri *win,
     return 1;
 }
 
-static i32 render_init_egl(struct egl_render_ctx *egl_rctx,
-    const struct drm_device *drm_dev, const struct libgbm_functions *gbm)
+static i32 render_init_egl(
+    struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
+    const struct libgbm_functions *gbm
+)
 {
     memset(egl_rctx, 0, sizeof(struct egl_render_ctx));
     egl_rctx->initialized_ = true;
@@ -793,65 +851,70 @@ static i32 render_init_software(struct software_render_ctx *sw_rctx,
     const struct drm_device *drm_dev, const struct libdrm_functions *drm,
     const rect_t *win_rect)
 {
-    i32 ret = 0;
     memset(sw_rctx, 0, sizeof(struct software_render_ctx));
     sw_rctx->initialized_ = true;
+    i32 ret = 0;
 
-    /* Create the buffer */
-    struct drm_mode_create_dumb create_dumb_req = {
-        .width = drm_dev->width,
-        .height = drm_dev->height,
-        .bpp = 32,
-        .flags = 0,
-    };
-    ret = drm->drmIoctl(drm_dev->fd,
-        DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb_req);
-    if (ret != 0)
-        goto_error("Failed to create dumb buffer: %s", strerror(errno));
+    for (u32 i = 0; i < 2; i++) {
+        struct software_render_buf *const buf = &sw_rctx->buffers[i];
 
-    sw_rctx->handle = create_dumb_req.handle;
-    sw_rctx->stride = create_dumb_req.pitch;
-    sw_rctx->width = drm_dev->width;
-    sw_rctx->height = drm_dev->height;
-    sw_rctx->dumb_created = true;
+        /* Create the buffer */
+        struct drm_mode_create_dumb create_dumb_req = {
+            .width = drm_dev->width,
+            .height = drm_dev->height,
+            .bpp = 32,
+            .flags = 0,
+        };
+        ret = drm->drmIoctl(drm_dev->fd,
+            DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb_req);
+        if (ret != 0)
+            goto_error("Failed to create dumb buffer: %s", strerror(errno));
 
-    /* Create the framebuffer object in the DRM */
-    ret = drm->drmModeAddFB(drm_dev->fd, drm_dev->width, drm_dev->height,
-        24, 32, sw_rctx->stride, sw_rctx->handle, &sw_rctx->fb_id);
-    if (ret != 0)
-        goto_error("Failed to create the framebuffer object: %s",
-            strerror(errno));
-    sw_rctx->fb_added = true;
+        buf->handle = create_dumb_req.handle;
+        buf->stride = create_dumb_req.pitch;
+        buf->width = drm_dev->width;
+        buf->height = drm_dev->height;
+        buf->dumb_created = true;
 
-    /* Prepare the buffer for mapping */
-    struct drm_mode_map_dumb map_dumb_req = { .handle = sw_rctx->handle };
-    ret = drm->drmIoctl(drm_dev->fd,
-        DRM_IOCTL_MODE_MAP_DUMB, &map_dumb_req);
-    if (ret != 0)
-        goto_error("Failed to prepare dumb buffer for mapping: %s",
-            strerror(errno));
+        /* Create the framebuffer object in the DRM */
+        ret = drm->drmModeAddFB(drm_dev->fd, drm_dev->width, drm_dev->height,
+            24, 32, buf->stride, buf->handle, &buf->fb_id);
+        if (ret != 0)
+            goto_error("Failed to create the framebuffer object: %s",
+                strerror(errno));
+        buf->fb_added = true;
 
-    /* Finally, map the buffer */
-    sw_rctx->map_size = drm_dev->width * drm_dev->height * sizeof(pixel_t);
-    sw_rctx->map = mmap(NULL, sw_rctx->map_size, PROT_READ | PROT_WRITE,
-        MAP_SHARED, drm_dev->fd, map_dumb_req.offset);
-    if (sw_rctx->map == MAP_FAILED)
-        goto_error("Failed to map dumb buffer: %s", strerror(errno));
-    sw_rctx->fb_mapped = true;
+        /* Prepare the buffer for mapping */
+        struct drm_mode_map_dumb map_dumb_req = { .handle = buf->handle };
+        ret = drm->drmIoctl(drm_dev->fd,
+            DRM_IOCTL_MODE_MAP_DUMB, &map_dumb_req);
+        if (ret != 0)
+            goto_error("Failed to prepare dumb buffer for mapping: %s",
+                strerror(errno));
 
-    /* Allocate the window pixel buffers */
-    sw_rctx->front_buf.w = sw_rctx->back_buf.w = win_rect->w;
-    sw_rctx->front_buf.h = sw_rctx->back_buf.h = win_rect->h;
+        /* Finally, map the buffer */
+        buf->map_size = buf->stride * drm_dev->height;
+        buf->map = mmap(NULL, buf->map_size, PROT_READ | PROT_WRITE,
+            MAP_SHARED, drm_dev->fd, map_dumb_req.offset);
+        if (buf->map == MAP_FAILED)
+            goto_error("Failed to map dumb buffer: %s", strerror(errno));
+        buf->fb_mapped = true;
 
-    const u64 buf_size = win_rect->w * win_rect->h * sizeof(pixel_t);
-    sw_rctx->front_buf.buf = malloc(buf_size);
-    sw_rctx->back_buf.buf = malloc(buf_size);
-    if (sw_rctx->front_buf.buf == NULL || sw_rctx->back_buf.buf == NULL)
-        goto_error("Failed to allocate the window pixel buffers");
+        /* Allocate the window pixel buffers */
+        buf->user_ret.w = win_rect->w;
+        buf->user_ret.h = win_rect->h;
 
-    /* Set the dumb framebuffer as the scanout buffer */
+        buf->user_ret.buf = calloc(win_rect->w * win_rect->h, sizeof(pixel_t));
+        if (buf->user_ret.buf == NULL)
+            goto_error("Failed to allocate the window pixel buffer");
+    }
+
+    sw_rctx->back_buf = &sw_rctx->buffers[0];
+    sw_rctx->front_buf = &sw_rctx->buffers[1];
+
+    /* Set the back dumb framebuffer as the scanout buffer */
     ret = drm->drmModeSetCrtc(drm_dev->fd, drm_dev->crtc->crtc_id,
-        sw_rctx->fb_id, 0, 0, &drm_dev->conn->connector_id, 1,
+        sw_rctx->back_buf->fb_id, 0, 0, &drm_dev->conn->connector_id, 1,
         drm_dev->mode);
     if (ret != 0)
         goto_error("Failed to set CRTC: %s", strerror(errno));
@@ -868,60 +931,63 @@ static void render_destroy_software(struct software_render_ctx *sw_rctx,
 {
     if (!sw_rctx->initialized_) return;
 
-    if (sw_rctx->back_buf.buf != NULL)
-        u_nfree(&sw_rctx->back_buf.buf);
-    if (sw_rctx->front_buf.buf != NULL)
-        u_nfree(&sw_rctx->front_buf.buf);
+    for (u32 i = 0; i < 2; i++) {
+        struct software_render_buf *const buf = &sw_rctx->buffers[i];
 
-    if (sw_rctx->fb_mapped) {
-        munmap(sw_rctx->map, sw_rctx->map_size);
-        sw_rctx->map = NULL;
-        sw_rctx->fb_mapped = false;
+        if (buf->user_ret.buf != NULL)
+            u_nfree(&buf->user_ret.buf);
+        buf->user_ret.w = buf->user_ret.h = 0;
+
+        if (buf->fb_mapped) {
+            munmap(buf->map, buf->map_size);
+            buf->map = NULL;
+            buf->fb_mapped = false;
+        }
+
+        if (buf->fb_added) {
+            drm->drmModeRmFB(drm_dev->fd, buf->fb_id);
+            buf->fb_id = -1;
+            buf->fb_added = false;
+        }
+
+        if (buf->dumb_created) {
+            struct drm_mode_destroy_dumb destroy_dumb_req = {
+                .handle = buf->handle,
+            };
+            i32 ret = drm->drmIoctl(drm_dev->fd,
+                DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb_req);
+            if (ret != 0)
+                s_log_error("Failed to destroy dumb buffer: %s", strerror(errno));
+
+            buf->handle = 0;
+            buf->dumb_created = false;
+        }
     }
 
-    if (sw_rctx->fb_added) {
-        drm->drmModeRmFB(drm_dev->fd, sw_rctx->fb_id);
-        sw_rctx->fb_id = -1;
-        sw_rctx->fb_added = false;
-    }
-
-    if (sw_rctx->dumb_created) {
-        struct drm_mode_destroy_dumb destroy_dumb_req = {
-            .handle = sw_rctx->handle,
-        };
-        i32 ret = drm->drmIoctl(drm_dev->fd,
-            DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb_req);
-        if (ret != 0)
-            s_log_error("Failed to destroy dumb buffer: %s", strerror(errno));
-
-        sw_rctx->handle = 0;
-        sw_rctx->dumb_created = false;
-    }
-
-    memset(sw_rctx, 0, sizeof(struct software_render_ctx));
+    sw_rctx->front_buf = sw_rctx->back_buf = NULL;
+    sw_rctx->initialized_ = false;
 }
 
-static struct pixel_flat_data *
-render_prepare_frame_software(struct window_dri *win)
+static struct pixel_flat_data * render_prepare_frame_software(
+    struct software_render_ctx *sw_rctx, const struct p_window_info *win_info
+)
 {
-    struct software_render_ctx *sw_rctx = &win->render.sw;
-
     /* Swap the buffers */
-    pixel_t *const tmp = sw_rctx->front_buf.buf;
-    sw_rctx->front_buf.buf = sw_rctx->back_buf.buf;
-    sw_rctx->back_buf.buf = tmp;
+    struct software_render_buf *const tmp = sw_rctx->front_buf;
+    sw_rctx->front_buf = sw_rctx->back_buf;
+    sw_rctx->back_buf = tmp;
 
     /* Clip the window rect to be within the screen */
-    const rect_t win_rect = win->generic_info_p->client_area;
+    const rect_t win_rect = win_info->client_area;
     rect_t dst = win_rect;
-    rect_clip(&dst, &win->generic_info_p->display_rect);
+    rect_clip(&dst, &win_info->display_rect);
 
     /* "Project" the changes made to dst onto src */
     rect_t src = {
         .x = dst.x - win_rect.x,
         .y = dst.y - win_rect.y,
-        .w = sw_rctx->front_buf.w + (dst.w - win_rect.w),
-        .h = sw_rctx->front_buf.h + (dst.h - win_rect.h),
+        .w = dst.w,
+        .h = dst.h
     };
 
     /* Convert src and dst to bytes (instead of pixels) */
@@ -931,10 +997,10 @@ render_prepare_frame_software(struct window_dri *win)
     dst.w *= sizeof(pixel_t);
 
     /* C Pointer arithmetic is useless & stupid, change my mind */
-    u8 *const restrict dst_mem = (u8 *)sw_rctx->map;
-    const u8 *const restrict src_mem = (u8 *)sw_rctx->front_buf.buf;
+    u8 *const restrict dst_mem = (u8 *)sw_rctx->front_buf->map;
+    const u8 *const restrict src_mem = (u8 *)sw_rctx->front_buf->user_ret.buf;
     const u32 src_stride = src.w;
-    const u32 dst_stride = sw_rctx->stride;
+    const u32 dst_stride = sw_rctx->front_buf->stride;
 
     /* Finally, copy the window buffer to the screen */
     for (u32 y = 0; y < src.h; y++) {
@@ -954,85 +1020,94 @@ render_prepare_frame_software(struct window_dri *win)
         );
     }
 
-    return &sw_rctx->back_buf;
+    return &sw_rctx->back_buf->user_ret;
 }
 
-static void render_prepare_frame_egl(struct window_dri *win)
+static i32 render_prepare_frame_egl(
+    struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
+    const struct libdrm_functions *drm, const struct libgbm_functions *gbm
+)
 {
-    struct egl_render_ctx *const egl_rctx = &win->render.egl;
 
     /* Sanity checks */
     if (atomic_load(&egl_rctx->front_buffer_in_use)) {
         s_log_error("Another frame is being displayed right now! "
             "Dropping this one!");
-        return;
+        return 1;
     }
     atomic_store(&egl_rctx->front_buffer_in_use, true);
 
     if (!atomic_load(&egl_rctx->buffers_swapped)) {
         s_log_error("Attempt to present framebuffer without first swapping it; "
             "dropping this frame.");
-        return;
+        return 1;
     }
     atomic_store(&egl_rctx->buffers_swapped, false);
 
-    if (!win->gbm.gbm_surface_has_free_buffers(egl_rctx->surface)) {
+    if (!gbm->gbm_surface_has_free_buffers(egl_rctx->surface)) {
         s_log_error("GBM surface has no free buffers left; dropping frame.");
-        return;
+        return 1;
     }
 
     /* Get the new front buffer... */
-    struct gbm_bo *bo =
-        win->gbm.gbm_surface_lock_front_buffer(egl_rctx->surface);
-    s_assert(bo != NULL, "Failed to lock GBM front buffer");
+    struct gbm_bo *bo = gbm->gbm_surface_lock_front_buffer(egl_rctx->surface);
+    if (bo == NULL) {
+        s_log_error("Failed to lock GBM front buffer; dropping frame.");
+        return 1;
+    }
     egl_rctx->next_bo = bo;
 
     /* ...And add it to our CRTC */
-    const u32 stride = win->gbm.gbm_bo_get_stride(bo);
-    const u32 handle = win->gbm.gbm_bo_get_handle(bo).u32;
-    i32 ret = win->drm.drmModeAddFB(win->dev.fd,
-        win->dev.width, win->dev.height, 24, 32, stride, handle,
+    const u32 stride = gbm->gbm_bo_get_stride(bo);
+    const u32 handle = gbm->gbm_bo_get_handle(bo).u32;
+    i32 ret = drm->drmModeAddFB(drm_dev->fd,
+        drm_dev->width, drm_dev->height, 24, 32, stride, handle,
         &egl_rctx->next_fb_id);
     if (ret != 0) {
         s_log_error("Failed to add framebuffer: %s. Dropping this frame.",
             strerror(errno));
-        win->gbm.gbm_surface_release_buffer(egl_rctx->surface, bo);
+        gbm->gbm_surface_release_buffer(egl_rctx->surface, bo);
         egl_rctx->curr_bo = NULL;
         atomic_store(&egl_rctx->front_buffer_in_use, false);
-        return;
+        return 1;
     }
 
     /* If this is the first frame drawn, set the CRTC */
     if (!egl_rctx->crtc_set) {
-        ret = win->drm.drmModeSetCrtc(win->dev.fd, win->dev.crtc->crtc_id,
-            egl_rctx->next_fb_id, 0, 0, &win->dev.conn->connector_id, 1,
-            win->dev.mode);
+        ret = drm->drmModeSetCrtc(drm_dev->fd, drm_dev->crtc->crtc_id,
+            egl_rctx->next_fb_id, 0, 0, &drm_dev->conn->connector_id, 1,
+            drm_dev->mode);
         if (ret != 0) {
             s_log_error("Failed to set the CRTC: %s. Dropping this frame.",
                 strerror(errno));
-            win->gbm.gbm_surface_release_buffer(egl_rctx->surface, bo);
+            gbm->gbm_surface_release_buffer(egl_rctx->surface, bo);
             egl_rctx->curr_bo = NULL;
             atomic_store(&egl_rctx->front_buffer_in_use, false);
-            return;
+            return 1;
         }
         egl_rctx->crtc_set = true;
     }
+
+    return 0;
 }
 
-static void render_present_frame(struct window_dri *win, u32 fb_handle,
+static i32 render_present_frame(struct window_dri *win, u32 fb_handle,
     const enum p_window_present_mode present_mode)
 {
     if (atomic_load(&win->listener.page_flip_pending)) {
         s_log_warn("Another page flip already scheduled! Dropping this frame.");
-        return;
+        return 1;
     }
+    s_log_trace("page_flip_pending -> true");
     atomic_store(&win->listener.page_flip_pending, true);
 
     u32 flags = 0;
-    if (present_mode == P_WINDOW_PRESENT_VSYNC)
-        flags |= DRM_MODE_PAGE_FLIP_EVENT;
-    else if (present_mode == P_WINDOW_PRESENT_NOW)
+    flags |= DRM_MODE_PAGE_FLIP_EVENT;
+    if (present_mode == P_WINDOW_PRESENT_NOW &&
+        win->dev.async_page_flip_supported)
+    {
         flags |= DRM_MODE_PAGE_FLIP_ASYNC;
+    }
 
     i32 ret = win->drm.drmModePageFlip(win->dev.fd, win->dev.crtc->crtc_id,
         fb_handle, flags, &win->listener);
@@ -1041,10 +1116,13 @@ static void render_present_frame(struct window_dri *win, u32 fb_handle,
 
         /* Interrupt the listener thread */
         (void) pthread_kill(win->listener.thread, SIGUSR1);
-        return;
+        return 1;
     }
 
-    //s_log_trace("Scheduled page flip for next VBlank");
+    s_log_trace("Scheduled %s page flip",
+        (flags & DRM_MODE_PAGE_FLIP_ASYNC) ? "asynchronous" : "vsynced");
+
+    return 0;
 }
 
 static void render_finish_frame(struct window_dri_listener_thread *listener,
@@ -1088,6 +1166,7 @@ static void render_finish_frame(struct window_dri_listener_thread *listener,
     }
 
     /* Inform everyone about the page flip */
+    s_log_trace("page_flip_pending -> false");
     atomic_store(&listener->page_flip_pending, false);
 
     const struct p_event ev = {
@@ -1250,5 +1329,6 @@ static void cleanup_page_flip_handler(int fd, unsigned int frame,
         }
     }
 
+    s_log_trace("page_flip_pending -> false");
     atomic_store(&listener->page_flip_pending, false);
 }

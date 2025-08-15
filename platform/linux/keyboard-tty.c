@@ -70,11 +70,20 @@ void tty_keyboard_destroy(struct keyboard_tty *kb)
 {
     if (kb->fd >= 0) {
         if (kb->is_orig_termios_initialized_) {
-            tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
-            s_log_debug("Restored original terminal configuration");
+            /* Restore the terminal configuration */
+            (void) tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
+            struct termios tmp;
+            if (tcgetattr(kb->fd, &tmp))
+                s_log_error("Failed to get the current tty configuration: %s",
+                    strerror(errno));
+            if (memcmp(&kb->orig_termios, &tmp, sizeof(struct termios)))
+                s_log_error("Failed to restore the original tty configuration");
+            else
+                s_log_debug("Restored original terminal configuration");
         }
 
-        close(kb->fd);
+        if (close(kb->fd))
+            s_log_error("Failed to close the tty fd: %s", strerror(errno));
     }
     memset(kb, 0, sizeof(struct keyboard_tty));
     kb->fd = -1;
@@ -87,7 +96,11 @@ i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
     struct termios tmp = { 0 };
 
     /* Get the terminal configuration */
-    tcgetattr(fd, orig_termios_o);
+    if (tcgetattr(fd, orig_termios_o)) {
+        s_log_error("Failed to get the current terminal configuration: %s",
+            strerror(errno));
+        return 1;
+    }
 
     /* Save terminal configuration before modifying it
      * so that it can be restored during cleanup */
@@ -99,11 +112,15 @@ i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
      * instead of a per-line basis */
     tmp.c_lflag &= ~(ICANON | ECHO);
     tmp.c_iflag &= ~(IXON | ICRNL);
-    tcsetattr(fd, TCSANOW, &tmp);
+    (void) tcsetattr(fd, TCSANOW, &tmp);
 
     /* Make sure that the changes were all successfully applied */
     struct termios chk = { 0 };
-    tcgetattr(fd, &chk);
+    if (tcgetattr(fd, &chk)) {
+        s_log_error("Failed to get the current terminal configuration: %s",
+            strerror(errno));
+        return 1;
+    }
     if (memcmp(&tmp, &chk, sizeof(struct termios))) {
         s_log_error("Failed to set tty to raw mode: %s", strerror(errno));
         return 1;
@@ -119,11 +136,14 @@ static i32 tty_keyboard_next_key(struct keyboard_tty *kb)
 
     char c;
     if (read(kb->fd, &c, 1) != 1)
-        return -1; /* Either `read()` failed (-1) or no more data is available (0 [bytes read]) */
+        return -1; /* Either `read()` failed (-1)
+                      or no more data is available (0 [bytes read]) */
 
     if (c == es_ESC_chr) {
         kb->esc_seq_buf[0] = es_ESC_chr;
-        read(kb->fd, kb->esc_seq_buf + 1, MAX_ESC_SEQUENCE_LEN - 1);
+        if (read(kb->fd, kb->esc_seq_buf + 1, MAX_ESC_SEQUENCE_LEN - 1) <= 0)
+            return -1; /* Same as above */
+
         return parse_buffered_sequence(kb->esc_seq_buf);
     }
 

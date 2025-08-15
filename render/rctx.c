@@ -71,11 +71,6 @@ struct r_ctx * r_ctx_init(struct p_window *win, enum r_type type, u32 flags)
 
     ctx->total_frames = ctx->dropped_frames = 0;
 
-    /* Render 1 empty frame on init
-     * to avoid junk uninitialized data being displayed */
-    r_reset(ctx);
-    r_flush(ctx);
-
     return ctx;
 
 err:

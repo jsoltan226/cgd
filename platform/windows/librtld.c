@@ -177,7 +177,9 @@ void p_librtld_close(struct p_lib **lib_p)
     struct p_lib *lib = *lib_p;
 
     if (lib->module_handle != NULL) {
-        FreeLibrary(lib->module_handle);
+        if (FreeLibrary(lib->module_handle) == 0)
+            s_log_error("Failed to free the library \"%s\": %s",
+                lib->dll_name ? lib->dll_name : "<N/A>", get_last_error_msg());
         lib->module_handle = NULL;
     }
     if (lib->dll_name != NULL) {

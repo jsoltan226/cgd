@@ -118,7 +118,8 @@ i32 render_software_request_init_and_wait(HWND win_handle,
 /* A function that will first swap the buffers in `ctx`,
  * and then send a `render_present_software` request to `win_handle`.
  * It will return as soon as possible (asynchronously) with the new back buffer,
- * or with `NULL` if the request couldn't be sent (dropped frame).
+ * or with `P_WINDOW_SWAP_BUFFERS_FAIL` if the request couldn't be sent.
+ * In case of failures, buffers are not swapped.
  *
  * To check the result of the presentation itself watch out
  * for `P_EVENT_PAGE_FLIP` events in your event loop. */
