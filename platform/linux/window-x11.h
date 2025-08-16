@@ -9,6 +9,7 @@
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <xcb/xcb.h>
@@ -25,6 +26,41 @@
 #define P_INTERNAL_GUARD__
 #include "window-x11-present-sw.h"
 #undef P_INTERNAL_GUARD__
+
+struct x11_registered_input_obj {
+    _Atomic bool active_;
+
+#define X11_INPUT_REG_TYPES_LIST    \
+    X_(X11_INPUT_REG_MOUSE)         \
+    X_(X11_INPUT_REG_KEYBOARD)      \
+
+    enum x11_registered_input_obj_type {
+        X11_INPUT_REG_MIN_ = -1,
+#define X_(name) name,
+        X11_INPUT_REG_TYPES_LIST
+#undef X_
+        X11_INPUT_REG_MAX_,
+    } type;
+
+    union x11_registered_input_obj_data {
+        struct mouse_x11 *mouse;
+        struct keyboard_x11 *keyboard;
+        void *_voidp_;
+    } data;
+    static_assert(sizeof(union x11_registered_input_obj_data) <= sizeof(void *),
+        "The size of the x11_registered_input_obj_data union must be "
+        "small enough to enable passing it by value"
+    );
+
+    pthread_mutex_t mutex;
+
+    bool dereg_notify;
+    pthread_cond_t dereg_ack_cond;
+};
+
+#ifndef X11_INPUT_REG_TYPES_LIST_DEF__
+#undef X11_INPUT_REG_TYPES_LIST
+#endif /* X11_INPUT_REG_TYPES_LIST_DEF__ */
 
 struct x11_render_egl_ctx {
     _Atomic bool initialized_;
@@ -90,21 +126,9 @@ struct window_x11 {
          * receive keyboard and mouse input from the server */
         struct x11_extension xinput_ext_data;
 
-        /* The keyboard that will be receiving any keyboard input events.
-         * Used to interface with `p_keyboard`. */
-        struct keyboard_x11 *_Atomic registered_keyboard;
-        /* These are used to notify the listener thread that the keyboard
-         * is no longer usable and events shouldn't be written to it */
-        _Atomic bool keyboard_deregistration_notify;
-        pthread_cond_t keyboard_deregistration_ack;
-
-        /* The mouse that will be receiving any mouse input events.
-         * Used to interface with `p_mouse`. */
-        struct mouse_x11 *_Atomic registered_mouse;
-        /* These are used to notify the listener thread that the mouse
-         * is no longer usable and events shouldn't be written to it */
-        _Atomic bool mouse_deregistration_notify;
-        pthread_cond_t mouse_deregistration_ack;
+        /* The keyboard & mouse that will be receiving the input events */
+        struct x11_registered_input_obj
+            registered_input_objs[X11_INPUT_REG_MAX_];
 
         /* The handles to the "master" X11 devices - virtual devices
          * that combine input from all physical ("slave") devices */
@@ -129,13 +153,12 @@ void window_X11_close(struct window_x11 *x11);
 struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
     enum p_window_present_mode present_mode);
 
-i32 window_X11_register_keyboard(struct window_x11 *win,
-    struct keyboard_x11 *kb);
-i32 window_X11_register_mouse(struct window_x11 *win,
-    struct mouse_x11 *mouse);
-
-void window_X11_deregister_keyboard(struct window_x11 *win);
-void window_X11_deregister_mouse(struct window_x11 *win);
+i32 window_X11_register_input_obj(struct window_x11 *win,
+    enum x11_registered_input_obj_type type,
+    union x11_registered_input_obj_data data
+);
+i32 window_X11_deregister_input_obj(struct window_x11 *win,
+    enum x11_registered_input_obj_type type);
 
 i32 window_X11_set_acceleration(struct window_x11 *win,
     enum p_window_acceleration new_val);

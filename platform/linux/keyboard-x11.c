@@ -32,8 +32,9 @@ i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
 
     kb->win = win;
 
-    if (window_X11_register_keyboard(win, kb))
-        goto_error("Failed to register the keyboard");
+    const union x11_registered_input_obj_data kb_obj_data = { .keyboard = kb };
+    if (window_X11_register_input_obj(win, X11_INPUT_REG_KEYBOARD, kb_obj_data))
+        goto_error("Failed to register the keyboard input object");
 
     return 0;
 
@@ -56,7 +57,7 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb)
 {
     if (kb == NULL) return;
 
-    window_X11_deregister_keyboard(kb->win);
+    window_X11_deregister_input_obj(kb->win, X11_INPUT_REG_KEYBOARD);
 
     memset(kb, 0, sizeof(struct keyboard_x11));
 }

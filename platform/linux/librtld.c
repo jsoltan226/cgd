@@ -160,7 +160,10 @@ void p_librtld_close(struct p_lib **lib_p)
     struct p_lib *lib = *lib_p;
 
     if (lib->handle != NULL) {
-        dlclose(lib->handle);
+        if (dlclose(lib->handle)) {
+            s_log_error("Failed to dlclose \"%s\": %s",
+                lib->so_name ? lib->so_name : "<N/A>", dlerror());
+        }
         lib->handle = NULL;
     }
     if (lib->so_name != NULL) {

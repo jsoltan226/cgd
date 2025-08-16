@@ -100,7 +100,7 @@ static i32 setup_log(FILE **o_out_log_fp, FILE **o_err_log_fp,
         .type = S_LOG_OUTPUT_FILE,
         .out.file = out_log_fp,
         .flag_copy = true,
-        .flag_strip_esc_sequences = true,
+        .flag_strip_esc_sequences = out_log_fp != stdout,
     };
     i32 ret = s_configure_log_outputs(S_LOG_STDOUT_MASKS, &output_cfg);
     if (ret != 0) {
@@ -109,6 +109,7 @@ static i32 setup_log(FILE **o_out_log_fp, FILE **o_err_log_fp,
     }
 
     output_cfg.out.file = err_log_fp;
+    output_cfg.flag_strip_esc_sequences = err_log_fp != stderr;
     ret = s_configure_log_outputs(S_LOG_STDERR_MASKS, &output_cfg);
     if (ret != 0) {
         fprintf(stderr, "Failed to configure %d stderr log output(s)\n", ret);

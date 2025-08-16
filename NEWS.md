@@ -36,13 +36,13 @@
         where it should've been using milli-second sleep (`p_time_msleep`)
 
 ## NEWS for 15.08.2025
-* Fixed broken functionality in `platform/linux/window-dri` and made all `p_window_open` implementations initialize the pixel buffers to 0
+* Fixed broken functionality in `platform/linux/window-dri` and improved the consistency of the `p_window` API
     * Fixed incorrect handling of async page flips in `platform/linux/window-dri` -
         now the code actually checks that the driver supports them
     * Fixed `render_init_software` in `platform/linux/window-dri` using only 1 dumb buffer (it should've been 2)
     * Made `render_prepare_frame_*` in `platform/linux/window-dri` only take in what they need as arguments
     * Made `window_dri_swap_buffers` return errors correctly
-    * Fixed the incorrect assumption that `xcb_shm_create_pixmap` never generates any errors
+    * Fixed not checking the return values of some I/O functions and X requests
     * Made the behavior of `p_window_*` more consistent:
         * `p_window_set_acceleration` (and consequently `p_window_open`) will now in all cases initialize the window's pixel buffers to 0
             - In `P_WINDOW_ACCELERATION_OPENGL` this is done by rendering 1 empty frame before `p_opengl_create_context` returns.
@@ -53,3 +53,16 @@
         * `p_window_swap_buffers` will now always return `P_WINDOW_SWAP_BUFFERS_FAIL` on error (finally)
         * `p_window_swap_buffers` will only perform the actual buffer swap on success
     * Refactored `tests/bin/render-test`
+    * Fixed no log file by default on windows
+
+## NEWS for 16.08.2025
+* Refactored the mouse & keyboard code in `platform/linux/window-x11`
+    * Instead of duplicating the identical `registered_mouse_*` and `registered_keyboard_*` everywhere,
+        registered stuff is now handled as a generic `x11_registered_input_obj`.
+        This basically means that if the need arises for a new class of X11 input devices,
+        they can be easily added without all the clobber.
+        This change also greatly improved the general readability & maintainability of `window-x11`.
+    * Refactored some of the code impacted by the aforementioned change in `handle_event` in `platform/linux/window-x11-events`
+    * Fixed the incorrect use of `pthread_cond`s in `window_X11_(de)register_*`
+    * Fixed escape sequences being stripped even when the log output is `stdout/stderr` in `platform/linux/entry-point`
+    * Fixed not checking the return values of some X11 requests and I/O functions specifically in `platform/linux/window-x11`

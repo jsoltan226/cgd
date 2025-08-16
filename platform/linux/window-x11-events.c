@@ -123,15 +123,28 @@ static void handle_event(struct window_x11 *win, xcb_generic_event_t *ev)
         break;
     }
 
-end:
+end:;
 
     /* If we get a notification that the keyboard and/or mouse
      * are being deregistered, acknowledge it */
-    if (atomic_load(&win->input.keyboard_deregistration_notify))
-        pthread_cond_signal(&win->input.keyboard_deregistration_ack);
+    for (u32 i = 0; i < X11_INPUT_REG_MAX_; i++) {
+        struct x11_registered_input_obj *const obj =
+            &win->input.registered_input_objs[i];
+        if (!atomic_load(&obj->active_))
+            continue;
 
-    if (atomic_load(&win->input.mouse_deregistration_notify))
-        pthread_cond_signal(&win->input.mouse_deregistration_ack);
+        s_assert(pthread_mutex_lock(&obj->mutex) == 0,
+            "impossible outcome");
+        {
+            if (obj->dereg_notify) {
+                s_log_trace("Deregistration of object ID %d", i);
+                obj->dereg_notify = false;
+                (void) pthread_cond_broadcast(&obj->dereg_ack_cond);
+            }
+        }
+        s_assert(pthread_mutex_unlock(&obj->mutex) == 0,
+            "impossible outcome");
+    }
 }
 
 static void handle_ge_event(struct window_x11 *win,
@@ -180,23 +193,21 @@ static void handle_xi2_event(struct window_x11 *win,
         xcb_ge_generic_event_t *generic;
     } ev = { .generic = ge_ev };
 
-    const bool keyboard_unusable =
-        !(win->input.registered_keyboard) ||
-        atomic_load(&win->input.keyboard_deregistration_notify);
+    struct x11_registered_input_obj *const keyboard_obj =
+        &win->input.registered_input_objs[X11_INPUT_REG_KEYBOARD];
+    struct x11_registered_input_obj *const mouse_obj =
+        &win->input.registered_input_objs[X11_INPUT_REG_MOUSE];
+    const bool keyboard_usable = atomic_load(&keyboard_obj->active_);
+    const bool mouse_usable = atomic_load(&mouse_obj->active_);
 
-    /* Used in mouse event cases */
-    const bool mouse_unusable =
-        !(win->input.registered_mouse) ||
-        atomic_load(&win->input.mouse_deregistration_notify);
+    struct mouse_x11 *const mouse = mouse_obj->data.mouse;
+    struct keyboard_x11 *const keyboard = keyboard_obj->data.keyboard;
 
-    struct mouse_x11 *mouse = win->input.registered_mouse;
-    u32 button_bits;
+    u32 button_bits; /* used in mouse event cases */
 
     switch (ge_ev->event_type) {
     case XCB_INPUT_KEY_PRESS:
-        if (keyboard_unusable)
-            break;
-        if (!win->input.registered_keyboard)
+        if (!keyboard_usable)
             break;
 
         const xcb_keysym_t press_keysym = win->xcb.xcb_key_symbols_get_keysym(
@@ -204,12 +215,12 @@ static void handle_xi2_event(struct window_x11 *win,
             ev.key_press->detail,
             0
         );
-        X11_keyboard_store_key_event(win->input.registered_keyboard,
+        X11_keyboard_store_key_event(keyboard,
             press_keysym, KEYBOARD_X11_PRESS);
 
         break;
     case XCB_INPUT_KEY_RELEASE:
-        if (keyboard_unusable)
+        if (!keyboard_usable)
             break;
         if (ev.key_release->deviceid != win->input.master_keyboard_id)
             break;
@@ -219,48 +230,50 @@ static void handle_xi2_event(struct window_x11 *win,
             ev.key_release->detail,
             0
         );
-        X11_keyboard_store_key_event(win->input.registered_keyboard,
+        X11_keyboard_store_key_event(keyboard,
             release_keysym, KEYBOARD_X11_RELEASE);
 
         break;
     case XCB_INPUT_BUTTON_PRESS:
-        if (mouse_unusable)
+        if (!mouse_usable)
             break;
         if (ev.button_press->deviceid != win->input.master_mouse_id)
             break;
 
         button_bits = atomic_load(&mouse->button_bits);
 
-        if (ev.button_press->detail == 1)
-            button_bits |= P_MOUSE_LEFTBUTTONMASK;
-        if (ev.button_press->detail == 2)
-            button_bits |= P_MOUSE_MIDDLEBUTTONMASK;
-        if (ev.button_press->detail == 3)
-            button_bits |= P_MOUSE_RIGHTBUTTONMASK;
+        switch (ev.button_press->detail) {
+            case 1: button_bits |= P_MOUSE_LEFTBUTTONMASK; break;
+            case 2: button_bits |= P_MOUSE_MIDDLEBUTTONMASK; break;
+            case 3: button_bits |= P_MOUSE_RIGHTBUTTONMASK; break;
+            default:
+                break;
+        }
 
         atomic_store(&mouse->button_bits, button_bits);
 
         break;
     case XCB_INPUT_BUTTON_RELEASE:
-        if (mouse_unusable)
+        if (!mouse_usable)
             break;
         if (ev.button_release->deviceid != win->input.master_mouse_id)
             break;
 
         button_bits = atomic_load(&mouse->button_bits);
 
-        if (ev.button_release->detail == 1)
-            button_bits &= ~P_MOUSE_LEFTBUTTONMASK;
-        if (ev.button_release->detail == 2)
-            button_bits &= ~P_MOUSE_MIDDLEBUTTONMASK;
-        if (ev.button_release->detail == 3)
-            button_bits &= ~P_MOUSE_RIGHTBUTTONMASK;
+        switch (ev.button_release->detail) {
+            case 1: button_bits &= ~P_MOUSE_LEFTBUTTONMASK; break;
+            case 2: button_bits &= ~P_MOUSE_MIDDLEBUTTONMASK; break;
+            case 3: button_bits &= ~P_MOUSE_RIGHTBUTTONMASK; break;
+            default:
+                break;
+        }
 
         atomic_store(&mouse->button_bits, button_bits);
 
         break;
     case XCB_INPUT_MOTION:
-        if (mouse_unusable)
+        if (!mouse_usable)
             break;
         if (ev.button_release->deviceid != win->input.master_mouse_id)
             break;

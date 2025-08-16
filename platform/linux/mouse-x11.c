@@ -1,5 +1,6 @@
 #include "../mouse.h"
 #include <core/int.h>
+#include <core/log.h>
 #include <core/pressable-obj.h>
 #include <string.h>
 #include <stdbool.h>
@@ -24,11 +25,15 @@ i32 mouse_X11_init(struct mouse_x11 *mouse, struct window_x11 *win)
     atomic_store(&mouse->x, 0);
     atomic_store(&mouse->y, 0);
     atomic_store(&mouse->button_bits, 0);
+    mouse->win = win;
 
     /* Register mouse to enable X11 mouse event handling */
-    if (window_X11_register_mouse(win, mouse)) return 1;
-
-    mouse->win = win;
+    if (window_X11_register_input_obj(win, X11_INPUT_REG_MOUSE,
+            (union x11_registered_input_obj_data) { .mouse = mouse })
+    ) {
+        s_log_error("Failed to register the mouse input object");
+        return 1;
+    }
 
     return 0;
 }
@@ -52,6 +57,6 @@ void mouse_X11_destroy(struct mouse_x11 *mouse)
 {
     if (mouse == NULL) return;
 
-    window_X11_deregister_mouse(mouse->win);
+    window_X11_deregister_input_obj(mouse->win, X11_INPUT_REG_MOUSE);
     memset(mouse, 0, sizeof(struct mouse_x11));
 }

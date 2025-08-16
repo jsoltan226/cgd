@@ -26,14 +26,13 @@
 #include <xcb/present.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>
+#define X11_INPUT_REG_TYPES_LIST_DEF__
 #define P_INTERNAL_GUARD__
 #include "window-x11.h"
 #undef P_INTERNAL_GUARD__
+#undef X11_INPUT_REG_TYPES_LIST_DEF__
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "mouse-x11.h"
 #undef P_INTERNAL_GUARD__
 #define P_INTERNAL_GUARD__
 #include "window-x11-events.h"
@@ -71,8 +70,23 @@ static i32 get_master_input_devices(
     xcb_connection_t *conn, const struct libxcb *xcb
 );
 
-static void send_dummy_event_to_self(xcb_window_t win,
+static i32 send_dummy_event_to_self(xcb_window_t win,
     xcb_connection_t *conn, const struct libxcb *xcb);
+
+static void init_registered_input_obj(
+    struct x11_registered_input_obj *o,
+    enum x11_registered_input_obj_type type,
+    union x11_registered_input_obj_data data,
+    bool activate
+);
+static void destroy_registered_input_obj(struct x11_registered_input_obj *o,
+    bool check_active);
+
+#define X_(name) #name,
+static const char *const input_object_type_strings[X11_INPUT_REG_MAX_] = {
+    X11_INPUT_REG_TYPES_LIST
+};
+#undef X_
 
 i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
     const char *title, const rect_t *area, const u32 flags)
@@ -220,7 +234,15 @@ void window_X11_close(struct window_x11 *win)
 
             /* Send an event to our window to interrupt the blocking
              * `xcb_wait_for_event` call in the listener thread */
-            send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
+            if (send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb))
+            {
+                s_log_error("Failed to interrupt the listener thread "
+                    "with a dummy event");
+                s_log_warn("Killing the listener thread...");
+                pthread_kill(win->listener.thread, SIGKILL);
+
+                goto thread_terminated;
+            }
             struct timespec thread_timeout;
 
             if (clock_gettime(CLOCK_REALTIME, &thread_timeout)) {
@@ -263,8 +285,10 @@ thread_terminated:
         if (win->input.key_symbols)
             win->xcb.xcb_key_symbols_free(win->input.key_symbols);
 
-        pthread_cond_destroy(&win->input.mouse_deregistration_ack);
-        pthread_cond_destroy(&win->input.keyboard_deregistration_ack);
+        for (u32 i = 0; i < X11_INPUT_REG_MAX_; i++) {
+            destroy_registered_input_obj(&win->input.registered_input_objs[i],
+                true);
+        }
 
         /* Reset the atoms (`win->atoms`) */
         memset(&win->atoms, 0, sizeof(struct window_x11_atoms));
@@ -273,6 +297,12 @@ thread_terminated:
         if (win->win_handle != XCB_NONE && win->conn != NULL) {
             win->xcb.xcb_destroy_window(win->conn, win->win_handle);
             win->win_handle = XCB_NONE;
+        }
+
+        /* Ensure all the previous commands are flushed */
+        if (win->conn != NULL) {
+            if (win->xcb.xcb_flush(win->conn) <= 0)
+                s_log_error("xcb_flush failed!");
         }
 
         /* Reset the info struct pointer (`win->generic_info_p`) */
@@ -323,76 +353,63 @@ struct pixel_flat_data * window_X11_swap_buffers(struct window_x11 *win,
     }
 }
 
-i32 window_X11_register_keyboard(struct window_x11 *win,
-    struct keyboard_x11 *kb)
+i32 window_X11_register_input_obj(
+    struct window_x11 *win,
+    enum x11_registered_input_obj_type type,
+    union x11_registered_input_obj_data data
+)
 {
-    u_check_params(win != NULL && kb != NULL);
+    u_check_params(win != NULL &&
+        type > X11_INPUT_REG_MIN_ && type < X11_INPUT_REG_MAX_ &&
+        data._voidp_ != NULL);
+    struct x11_registered_input_obj *const obj =
+        &win->input.registered_input_objs[type];
 
-    if (atomic_exchange(&win->input.registered_keyboard, kb) != NULL) return 1;
+    if (atomic_load(&obj->active_)) {
+        s_log_error("An X11 input object of type \"%s\" is already registered",
+            input_object_type_strings[type]);
+        return 1;
+    }
 
-    atomic_store(&win->input.registered_keyboard, kb);
+    init_registered_input_obj(obj, type, data, true);
     return 0;
 }
 
-i32 window_X11_register_mouse(struct window_x11 *win, struct mouse_x11 *mouse)
+i32 window_X11_deregister_input_obj(struct window_x11 *win,
+    enum x11_registered_input_obj_type type)
 {
-    u_check_params(win != NULL && mouse != NULL);
+    u_check_params(win != NULL &&
+        type > X11_INPUT_REG_MIN_ && type < X11_INPUT_REG_MAX_);
+    struct x11_registered_input_obj *const obj =
+        &win->input.registered_input_objs[type];
 
-    if (atomic_load(&win->input.registered_mouse) != NULL) return 1;
+    if (!atomic_load(&obj->active_)) {
+        s_log_debug("No input object of type \"%s\" is registered",
+            input_object_type_strings[type]);
+        return 0;
+    }
 
-    atomic_store(&win->input.registered_mouse, mouse);
+    s_assert(pthread_mutex_lock(&obj->mutex) == 0, "impossible outcome");
+    {
+        /* Notify the event thread that the object is
+         * being deregistered and wait for it to acknowledge that */
+        obj->dereg_notify = true;
+        if (send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb)) {
+            s_log_error("Failed to interrupt the listener thread "
+                "with a dummy event. Not deregistering keyboard!");
+            goto lock_end;
+        }
+
+        while (obj->dereg_notify)
+            (void) pthread_cond_wait(&obj->dereg_ack_cond, &obj->mutex);
+
+        atomic_store(&obj->active_, false);
+    }
+    lock_end:
+    s_assert(pthread_mutex_unlock(&obj->mutex) == 0, "impossible outcome");
+
+    destroy_registered_input_obj(obj, false);
     return 0;
-}
-
-void window_X11_deregister_keyboard(struct window_x11 *win)
-{
-    u_check_params(win != NULL);
-
-    if (atomic_load(&win->input.registered_keyboard) != NULL) {
-        /* Notify the event thread that the keyboard is
-         * being deregistered and wait for it to acknowledge that */
-        pthread_mutex_t tmp_mutex;
-        (void) pthread_mutex_init(&tmp_mutex, 0); /* always successful */
-        s_assert(pthread_mutex_lock(&tmp_mutex) == 0,
-            "impossible outcome");
-
-        atomic_store(&win->input.keyboard_deregistration_notify, true);
-        send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-        pthread_cond_wait(&win->input.keyboard_deregistration_ack, &tmp_mutex);
-
-        atomic_store(&win->input.registered_keyboard, NULL);
-        atomic_store(&win->input.keyboard_deregistration_notify, false);
-
-        s_assert(pthread_mutex_unlock(&tmp_mutex) == 0,
-            "impossible outcome");
-        s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
-            "tmp_mutex is busy (race)");
-    }
-}
-
-void window_X11_deregister_mouse(struct window_x11 *win)
-{
-    u_check_params(win != NULL);
-    if (atomic_load(&win->input.registered_mouse) != NULL) {
-        /* Notify the event thread that the mouse is
-         * being deregistered and wait for it to acknowledge that */
-        pthread_mutex_t tmp_mutex;
-        (void) pthread_mutex_init(&tmp_mutex, 0); /* always succeeds */
-        s_assert(pthread_mutex_lock(&tmp_mutex) == 0,
-            "impossible outcome");
-
-        atomic_store(&win->input.mouse_deregistration_notify, true);
-        send_dummy_event_to_self(win->win_handle, win->conn, &win->xcb);
-        pthread_cond_wait(&win->input.mouse_deregistration_ack, &tmp_mutex);
-
-        atomic_store(&win->input.registered_mouse, NULL);
-        atomic_store(&win->input.mouse_deregistration_notify, false);
-
-        s_assert(pthread_mutex_unlock(&tmp_mutex) == 0,
-            "impossible outcome");
-        s_assert(pthread_mutex_destroy(&tmp_mutex) == 0,
-            "tmp_mutex is busy (race)");
-    }
 }
 
 i32 window_X11_set_acceleration(struct window_x11 *win,
@@ -717,14 +734,10 @@ static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
         goto_error("Failed to allocate key symbols");
 
     /* Initialize the interfaces to `p_keyboard` and `p_mouse` */
-    i->registered_keyboard = NULL;
-    /* always succeeds */
-    (void) pthread_cond_init(&i->keyboard_deregistration_ack, NULL);
-    atomic_store(&i->keyboard_deregistration_notify, false);
-
-    i->registered_mouse = NULL;
-    (void) pthread_cond_init(&i->mouse_deregistration_ack, NULL);
-    atomic_store(&i->mouse_deregistration_notify, false);
+    for (u32 type = 0; type < X11_INPUT_REG_MAX_; type++) {
+        init_registered_input_obj(&i->registered_input_objs[type], type,
+            (union x11_registered_input_obj_data) { ._voidp_ = NULL }, false);
+    }
 
     return 0;
 
@@ -867,7 +880,7 @@ static i32 get_master_input_devices(
     return found_mouse && found_keyboard ? 0 : 1;
 }
 
-static void send_dummy_event_to_self(xcb_window_t win,
+static i32 send_dummy_event_to_self(xcb_window_t win,
     xcb_connection_t *conn, const struct libxcb *xcb)
 {
     /* XCB will always copy 32 bytes from `ev` */
@@ -877,8 +890,50 @@ static void send_dummy_event_to_self(xcb_window_t win,
     ev->response_type = XCB_EXPOSE;
     ev->window = win;
 
-    (void) xcb->xcb_send_event(conn, false, win,
+    xcb_void_cookie_t vc = xcb->xcb_send_event_checked(conn, false, win,
             XCB_EVENT_MASK_EXPOSURE, ev_base);
-    if (xcb->xcb_flush(conn) <= 0)
-        s_log_error("xcb_flush failed!");
+    xcb_generic_error_t *e = xcb->xcb_request_check(conn, vc);
+    if (e != NULL) {
+        s_log_error("xcb_send_event failed!");
+        u_nfree(&e);
+        return 1;
+    }
+    s_log_trace("Sent dummy exposure event");
+
+    return 0;
+}
+
+static void init_registered_input_obj(
+    struct x11_registered_input_obj *o,
+    enum x11_registered_input_obj_type type,
+    union x11_registered_input_obj_data data,
+    bool activate
+)
+{
+    u_check_params(type > X11_INPUT_REG_MIN_ && type < X11_INPUT_REG_MAX_);
+    s_assert(!o->active_,
+        "Attempt to initialize an already initialized object");
+
+    o->type = type;
+    o->data = data;
+    o->dereg_notify = false;
+    /* These 2 always succeed */
+    (void) pthread_mutex_init(&o->mutex, NULL);
+    (void) pthread_cond_init(&o->dereg_ack_cond, NULL);
+    atomic_store(&o->active_, activate);
+}
+
+static void destroy_registered_input_obj(struct x11_registered_input_obj *o,
+    bool check_active)
+{
+    if (!atomic_exchange(&o->active_, false) && check_active)
+        return;
+
+    o->type = -1;
+    o->data._voidp_ = NULL;
+    o->dereg_notify = false;
+    s_assert(pthread_cond_destroy(&o->dereg_ack_cond) == 0,
+        "impossible outcome");
+    s_assert(pthread_mutex_destroy(&o->mutex) == 0,
+        "impossible outcome");
 }
