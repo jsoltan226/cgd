@@ -1,3 +1,9 @@
+#define P_INTERNAL_GUARD__
+#include "global.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "error.h"
+#undef P_INTERNAL_GUARD__
 #define S_LOG_LEVEL_LIST_DEF__
 #include <core/log.h>
 #undef S_LOG_LEVEL_LIST_DEF__
@@ -14,12 +20,6 @@
 #include <shellapi.h>
 #include <minwindef.h>
 #include <stringapiset.h>
-#define P_INTERNAL_GUARD__
-#include "global.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "error.h"
-#undef P_INTERNAL_GUARD__
 
 extern int cgd_main(int argc, char **argv);
 

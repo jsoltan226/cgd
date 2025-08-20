@@ -2,7 +2,7 @@
 #define ASSET_PLUGIN_REGISTRY_H_
 
 #ifndef ASSET_PLUGIN_INTERNAL_GUARD__
-#error This header file is internal to the plugin API of the cgd asset-loader module and is not intended to be used elswhere
+#error This header file is internal to the plugin API of the cgd asset-loader module and is not intended to be used elsewhere
 #endif /* ASSET_PLUGIN_INTERNAL_GUARD__ */
 
 #include "plugin.h"

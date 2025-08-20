@@ -25,32 +25,30 @@ static void SIGTERM_handler(i32 sig_num);
 
 i32 p_event_poll(struct p_event *o)
 {
-    if (atomic_load(&g_caught_SIGTERM)) {
+    if (atomic_exchange(&g_caught_SIGTERM, false))
         p_event_send(&(const struct p_event) { .type = P_EVENT_QUIT });
-        atomic_store(&g_caught_SIGTERM, false);
-    }
 
     u_check_params(o != NULL);
     u32 n_events = 0;
 
     p_mt_mutex_lock(&g_event_queue_mutex);
+    {
+        if (g_event_queue == NULL)
+            setup_event_queue(true);
 
-    if (g_event_queue == NULL)
-        setup_event_queue(true);
+        n_events = vector_size(g_event_queue);
+        if (n_events == 0)
+            goto ret;
 
-    n_events = vector_size(g_event_queue);
-    if (n_events == 0)
-        goto ret;
+        memcpy(o,
+            (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
+            sizeof(struct p_event)
+        );
+        vector_pop_back(&g_event_queue);
 
-    memcpy(o,
-        (u8 *)vector_end(g_event_queue) - sizeof(struct p_event),
-        sizeof(struct p_event)
-    );
-    vector_pop_back(&g_event_queue);
-
-    if (o->type == P_EVENT_QUIT)
-        s_log_verbose("Caught QUIT event");
-
+        if (o->type == P_EVENT_QUIT)
+            s_log_verbose("Caught QUIT event");
+    }
 ret:
     p_mt_mutex_unlock(&g_event_queue_mutex);
     return n_events;

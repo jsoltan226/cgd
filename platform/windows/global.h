@@ -1,6 +1,7 @@
-#ifndef P_INTERNAL_GUARD__
-#error This header file is internal to the cgd platform module and is not intended to be used elsewhere
-#endif /* P_INTERNAL_GUARD__ */
+#ifndef P_GLOBAL_H_
+#define P_GLOBAL_H_
+
+#include <platform/common/guard.h>
 
 #include <stdlib.h>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -11,3 +12,5 @@
 
 extern volatile HINSTANCE g_instance_handle;
 extern volatile int g_n_cmd_show;
+
+#endif /* P_GLOBAL_H_ */

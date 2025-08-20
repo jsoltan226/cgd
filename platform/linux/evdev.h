@@ -1,6 +1,7 @@
 #ifndef EVDEV_H_
 #define EVDEV_H_
 
+#include <platform/common/guard.h>
 #include <core/int.h>
 #include <core/util.h>
 #include <core/vector.h>

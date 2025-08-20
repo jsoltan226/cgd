@@ -1,6 +1,8 @@
 #ifndef WINDOW_THREAD_H_
 #define WINDOW_THREAD_H_
 
+#include <platform/common/guard.h>
+
 #include "../thread.h"
 #include <core/int.h>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -8,10 +10,6 @@
 #endif /* WIN32_LEAN_AND_MEAN */
 #include <windef.h>
 #include <windows.h>
-
-#ifndef P_INTERNAL_GUARD__
-#error This header file is internal to the cgd platform module and is not intended to be used elsewhere
-#endif /* P_INTERNAL_GUARD__ */
 
 /* This header file defines the API around the window thread -
  * the thread that owns and manages the window and its related objects.

@@ -1,19 +1,16 @@
 #ifndef LIBXCB_RTLD_H_
 #define LIBXCB_RTLD_H_
 
-#include <xcb/bigreq.h>
-#include <xcb/present.h>
-#include <xcb/shm.h>
-#include <xcb/xcbext.h>
-#ifndef P_INTERNAL_GUARD__
-#error This header file is internal to the cgd platform module and is not intended to be used elsewhere
-#endif /* P_INTERNAL_GUARD__ */
+#include <platform/common/guard.h>
 
 #include <core/int.h>
 #include <stdbool.h>
 #include <xcb/xcb.h>
+#include <xcb/shm.h>
 #include <xcb/xproto.h>
 #include <xcb/xinput.h>
+#include <xcb/xcbext.h>
+#include <xcb/bigreq.h>
 #include <xcb/present.h>
 #include <xcb/xcb_image.h>
 #include <xcb/xcb_icccm.h>

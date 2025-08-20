@@ -1,6 +1,8 @@
 #ifndef WINDOW_X11_RENDER_SW_H_
 #define WINDOW_X11_RENDER_SW_H_
 
+#include <platform/common/guard.h>
+
 #include "../window.h"
 #define P_INTERNAL_GUARD__
 #include "libxcb-rtld.h"

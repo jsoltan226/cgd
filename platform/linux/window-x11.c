@@ -4,6 +4,9 @@
 #include <core/util.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
+#define P_INTERNAL_GUARD__
+#include <platform/common/util-window.h>
+#undef P_INTERNAL_GUARD__
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -58,8 +61,6 @@ static i32 set_window_properties(struct window_x11_atoms *atoms,
 static i32 init_xi2_input(struct window_x11_input *i, xcb_window_t win,
     const struct x11_extension_store *ext_store,
     xcb_connection_t *conn, const struct libxcb *xcb);
-
-static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags);
 
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,
     xcb_connection_t *conn, const struct libxcb *xcb);
@@ -190,8 +191,14 @@ i32 window_X11_open(struct window_x11 *win, struct p_window_info *info,
      * This populates `win->render` as well as
      *  the `gpu_acceleration` and `vsync_supported` fields in
      * `win->generic_info_p`. */
-    if (init_acceleration(win, flags))
+    const pc_window_set_acceleration_fn_t set_acceleration_fn =
+        (pc_window_set_acceleration_fn_t)window_X11_set_acceleration;
+
+    if (pc_window_initialize_acceleration_from_flags(set_acceleration_fn,
+            win, flags))
+    {
         goto_error("Failed to initialize GPU acceleration");
+    }
 
     /* Flush all the commands that are still queued */
     if (win->xcb.xcb_flush(win->conn) <= 0)
@@ -748,79 +755,6 @@ err:
     return 1;
 
 #undef libxcb_error
-}
-
-static i32 init_acceleration(struct window_x11 *win, enum p_window_flags flags)
-{
-    /* Decide which acceleration modes to try
-     * and which are required to succeed */
-    const bool try_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_VULKAN);
-    const bool warn_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
-    const bool require_vulkan = (flags & P_WINDOW_REQUIRE_VULKAN) || 0;
-
-    const bool try_opengl = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_OPENGL);
-    const bool warn_opengl = (flags & P_WINDOW_PREFER_ACCELERATED) || 0;
-    const bool require_opengl = (flags & P_WINDOW_REQUIRE_OPENGL)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
-
-    const bool try_software = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_NO_ACCELERATION);
-
-    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
-    if (try_vulkan) {
-        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_VULKAN)) {
-            if (require_vulkan) {
-                s_log_error("Failed to initialize Vulkan.");
-                return 1;
-            } else if (warn_vulkan && try_opengl) {
-                s_log_warn("Failed to initialize Vulkan. "
-                    "Falling back to OpenGL.");
-            } else if (warn_vulkan && try_software) {
-                s_log_warn("Failed to initialize Vulkan. "
-                    "Falling back to software rendering.");
-            } else if (warn_vulkan) {
-                s_log_warn("Failed to initialize Vulkan.");
-            }
-        } else {
-            s_log_verbose("OK initializing Vulkan acceleration.");
-            return 0;
-        }
-    }
-
-    if (try_opengl) {
-        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL)) {
-            if (require_opengl) {
-                s_log_error("Failed to initialize OpenGL.");
-                return 1;
-            } else if (warn_opengl && try_software) {
-                s_log_warn("Failed to initialize OpenGL. "
-                    "Falling back to software.");
-            } else if (warn_opengl) {
-                s_log_warn("Failed to initialize OpenGL.");
-            }
-        } else {
-            s_log_verbose("OK initializing OpenGL acceleration.");
-            return 0;
-        }
-    }
-
-    if (try_software) {
-        if (window_X11_set_acceleration(win, P_WINDOW_ACCELERATION_NONE)) {
-            s_log_error("Failed to initialize software rendering.");
-            return 1;
-        } else {
-            s_log_verbose("OK initializing software rendering.");
-            return 0;
-        }
-    }
-
-    s_log_error("No GPU acceleration mode could be initialized.");
-    return 1;
 }
 
 static i32 intern_atom(const char *atom_name, xcb_atom_t *o,

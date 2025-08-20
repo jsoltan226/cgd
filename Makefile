@@ -3,7 +3,7 @@ PLATFORM ?= linux
 PREFIX ?= /usr
 
 ifeq ($(PREFIX), /data/data/com.termux/files/usr)
-TERMUX=1
+TERMUX := 1
 endif
 
 # Compiler and flags
@@ -16,20 +16,20 @@ ifeq ($(PLATFORM), linux)
 INCLUDES += -I$(PREFIX)/include/libdrm
 endif
 
-COMMON_CFLAGS = -std=c11 -Wall -Wpedantic -Wextra -I. -pipe -fPIC $(INCLUDES)
+COMMON_CFLAGS := -std=c11 -Wall -Wpedantic -Wextra -I. -pipe -fPIC $(INCLUDES)
 DEPFLAGS ?= -MMD -MP
 
 LDFLAGS ?= -pie
 ifeq ($(PLATFORM), windows)
 LDFLAGS += -municode -mwindows
 endif
-SO_LDFLAGS = -shared
+SO_LDFLAGS := -shared
 ifeq ($(PLATFORM), linux)
-ASAN_FLAGS = -fsanitize=address
+ASAN_FLAGS := -fsanitize=address
 #-fsanitize=thread
 endif
 ifeq ($(PLATFORM), windows)
-ASAN_FLAGS =
+ASAN_FLAGS :=
 endif
 
 LIBS ?= -lm
@@ -43,64 +43,66 @@ ifeq ($(PLATFORM), linux)
 LIBS += -pthread
 endif
 
-STRIP?=strip
-STRIPFLAGS?=-g -s
+STRIP ?= strip
+STRIPFLAGS ?= -g -s
 
 # Shell commands
-ECHO = echo
-PRINTF = printf
-RM = rm -f
-TOUCH = touch -c
-EXEC = exec
-MKDIR = mkdir -p
-RMRF = rm -rf
-7Z = 7z
+ECHO := echo
+PRINTF := printf
+RM := rm -f
+TOUCH := touch -c
+EXEC := exec
+MKDIR := mkdir -p
+RMRF := rm -rf
+7Z := 7z
 
 # Executable file Prefix/Suffix
-EXEPREFIX =
-EXESUFFIX =
+EXEPREFIX :=
+EXESUFFIX :=
 ifeq ($(PLATFORM),windows)
-EXESUFFIX = .exe
+EXESUFFIX := .exe
 endif
 
-SO_PREFIX =
-SO_SUFFIX = .so
+SO_PREFIX :=
+SO_SUFFIX := .so
 ifeq ($(PLATFORM),windows)
-SO_SUFFIX = .dll
+SO_SUFFIX := .dll
 endif
 
 # Directories
-OBJDIR = obj
-BINDIR = bin
-TEST_SRC_DIR = tests
-TEST_BINDIR = $(TEST_SRC_DIR)/$(BINDIR)
-PLATFORM_SRCDIR = platform
+OBJDIR := obj
+BINDIR := bin
+TEST_SRC_DIR := tests
+TEST_BINDIR := $(TEST_SRC_DIR)/$(BINDIR)
+PLATFORM_SRCDIR := platform
+PLATFORM_COMMON_SRCDIR := $(PLATFORM_SRCDIR)/common
 
 # Test sources and objects
-TEST_SRCS = $(wildcard $(TEST_SRC_DIR)/*.c)
-TEST_EXES = $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
-TEST_LOGFILE = $(TEST_SRC_DIR)/testlog.txt
+TEST_SRCS := $(wildcard $(TEST_SRC_DIR)/*.c)
+TEST_EXES := $(patsubst $(TEST_SRC_DIR)/%.c,$(TEST_BINDIR)/$(EXEPREFIX)%$(EXESUFFIX),$(TEST_SRCS))
+TEST_LOGFILE := $(TEST_SRC_DIR)/testlog.txt
 
-STATIC_TESTS=core/static-tests.h
+STATIC_TESTS := core/static-tests.h
 
 # Sources and objects
-PLATFORM_SRCS = $(wildcard $(PLATFORM_SRCDIR)/$(PLATFORM)/*.c)
+PLATFORM_SRCS := $(wildcard $(PLATFORM_SRCDIR)/$(PLATFORM)/*.c)
+PLATFORM_COMMON_SRCS := $(wildcard $(PLATFORM_COMMON_SRCDIR)/*.c)
 
-_all_srcs=$(wildcard */*.c) $(wildcard *.c)
-SRCS = $(filter-out $(TEST_SRCS),$(_all_srcs)) $(PLATFORM_SRCS)
+_all_srcs := $(wildcard */*.c) $(wildcard *.c)
+SRCS := $(filter-out $(TEST_SRCS),$(_all_srcs)) $(PLATFORM_SRCS) $(PLATFORM_COMMON_SRCS)
 
-OBJS = $(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
-DEPS = $(patsubst %.o,%.d,$(OBJS))
+OBJS := $(patsubst %.c,$(OBJDIR)/%.c.o,$(shell basename -a $(SRCS)))
+DEPS := $(patsubst %.o,%.d,$(OBJS))
 
-_main_obj = $(OBJDIR)/main.c.o
-_entry_point_obj = $(OBJDIR)/entry-point.c.o
-_test_entry_point_obj = $(OBJDIR)/test-entry-point.c.o
+_main_obj := $(OBJDIR)/main.c.o
+_entry_point_obj := $(OBJDIR)/entry-point.c.o
+_test_entry_point_obj := $(OBJDIR)/test-entry-point.c.o
 
 # Executables
-EXE = $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
-TEST_LIB = $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
-TEST_LIB_OBJS = $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
-EXEARGS =
+EXE := $(BINDIR)/$(EXEPREFIX)main$(EXESUFFIX)
+TEST_LIB := $(TEST_BINDIR)/$(SO_PREFIX)libmain_test$(SO_SUFFIX)
+TEST_LIB_OBJS := $(filter-out $(_main_obj) $(_entry_point_obj),$(OBJS))
+EXEARGS :=
 
 .PHONY: all trace release strip clean mostlyclean update run br tests tests-release build-tests compile-tests build-tests-release compile-tests-release run-tests debug-run bdr test-hooks
 .NOTPARALLEL: all trace release br bdr build-tests build-tests-release
@@ -155,6 +157,10 @@ $(OBJDIR)/%.c.o: $(PLATFORM_SRCDIR)/$(PLATFORM)/%.c Makefile
 	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
 	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
 
+$(OBJDIR)/%.c.o: $(PLATFORM_COMMON_SRCDIR)/%.c Makefile
+	@$(PRINTF) "CC 	%-30s %-30s\n" "$@" "<= $<"
+	@$(CC) $(DEPFLAGS) $(COMMON_CFLAGS) $(CFLAGS) -c -o $@ $<
+
 # Special compilation targets
 $(_test_entry_point_obj): CFLAGS += \
 	-DCGD_P_ENTRY_POINT_DEFAULT_NO_LOG_FILE=1 -DCGD_P_ENTRY_POINT_DEFAULT_VERBOSE_LOG_SETUP=0 -O0
@@ -194,6 +200,11 @@ tests: build-tests test-hooks
 		$(PRINTF) "$(GREEN)"; \
 	fi; \
 	$(PRINTF) "%s/%s$(COL_RESET) tests passed.\n" "$$n_passed" "$$n_total";
+
+# ANSI escape sequences (for printing colored text)
+GREEN := \033[0;32m
+RED := \033[0;31m
+COL_RESET := \033[0m
 
 tests-release: CFLAGS = -g -O0 -Wall -DCGD_ENABLE_TRACE $(ASAN_FLAGS)
 tests-release: build-tests-release test-hooks

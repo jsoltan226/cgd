@@ -11,6 +11,9 @@
 #include <core/pixel.h>
 #include <core/shapes.h>
 #include <core/vector.h>
+#define P_INTERNAL_GUARD__
+#include <platform/common/util-window.h>
+#undef P_INTERNAL_GUARD__
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -56,9 +59,6 @@ static drmModeCrtcPtr find_crtc(i32 fd, drmModeResPtr res,
 
 static void destroy_drm_device(struct drm_device *dev,
     const struct libdrm_functions *drm);
-
-static i32 initialize_acceleration(struct window_dri *win,
-    const enum p_window_flags flags);
 
 static i32 render_init_egl(
     struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
@@ -138,8 +138,14 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area,
         info->client_area.y = (info->display_rect.h - info->client_area.h) / 2;
 
     /* Initialize the GPU acceleration */
-    if (initialize_acceleration(win, flags))
+    const pc_window_set_acceleration_fn_t set_acceleration_fn =
+        (pc_window_set_acceleration_fn_t)window_dri_set_acceleration;
+
+    if (pc_window_initialize_acceleration_from_flags(set_acceleration_fn,
+            win, flags))
+    {
         goto_error("Failed to initialize GPU acceleration");
+    }
 
     /* Initialize the listener thread */
     win->listener.fd_p = &win->dev.fd;
@@ -718,80 +724,6 @@ static void destroy_drm_device(struct drm_device *dev,
     dev->width = dev->height = dev->refresh_rate = 0;
 }
 
-static i32 initialize_acceleration(struct window_dri *win,
-    const enum p_window_flags flags)
-{
-    /* Decide which acceleration modes to try
-     * and which are required to succeed */
-    const bool try_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_VULKAN);
-    const bool warn_vulkan = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
-    const bool require_vulkan = (flags & P_WINDOW_REQUIRE_VULKAN) || 0;
-
-    const bool try_opengl = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED)
-        || (flags & P_WINDOW_REQUIRE_OPENGL);
-    const bool warn_opengl = (flags & P_WINDOW_PREFER_ACCELERATED) || 0;
-    const bool require_opengl = (flags & P_WINDOW_REQUIRE_OPENGL)
-        || (flags & P_WINDOW_REQUIRE_ACCELERATED);
-
-    const bool try_software = (flags & P_WINDOW_PREFER_ACCELERATED)
-        || (flags & P_WINDOW_NO_ACCELERATION);
-
-    win->generic_info_p->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
-    if (try_vulkan) {
-        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_VULKAN)) {
-            if (require_vulkan) {
-                s_log_error("Failed to initialize Vulkan.");
-                return 1;
-            } else if (warn_vulkan && try_opengl) {
-                s_log_warn("Failed to initialize Vulkan. "
-                    "Falling back to OpenGL.");
-            } else if (warn_vulkan && try_software) {
-                s_log_warn("Failed to initialize Vulkan. "
-                    "Falling back to software rendering.");
-            } else if (warn_vulkan) {
-                s_log_warn("Failed to initialize Vulkan.");
-            }
-        } else {
-            s_log_verbose("OK initializing Vulkan acceleration.");
-            return 0;
-        }
-    }
-
-    if (try_opengl) {
-        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL)) {
-            if (require_opengl) {
-                s_log_error("Failed to initialize OpenGL.");
-                return 1;
-            } else if (warn_opengl && try_software) {
-                s_log_warn("Failed to initialize OpenGL. "
-                    "Falling back to software.");
-            } else if (warn_opengl) {
-                s_log_warn("Failed to initialize OpenGL.");
-            }
-        } else {
-            s_log_verbose("OK initializing OpenGL acceleration.");
-            return 0;
-        }
-    }
-
-    if (try_software) {
-        if (window_dri_set_acceleration(win, P_WINDOW_ACCELERATION_NONE)) {
-            s_log_error("Failed to initialize software rendering.");
-            return 1;
-        } else {
-            s_log_verbose("OK initializing software rendering.");
-            return 0;
-        }
-    }
-
-    s_log_error("No GPU acceleration mode could be initialized.");
-    return 1;
-}
-
 static i32 render_init_egl(
     struct egl_render_ctx *egl_rctx, const struct drm_device *drm_dev,
     const struct libgbm_functions *gbm
@@ -1030,12 +962,11 @@ static i32 render_prepare_frame_egl(
 {
 
     /* Sanity checks */
-    if (atomic_load(&egl_rctx->front_buffer_in_use)) {
+    if (atomic_exchange(&egl_rctx->front_buffer_in_use, true)) {
         s_log_error("Another frame is being displayed right now! "
             "Dropping this one!");
         return 1;
     }
-    atomic_store(&egl_rctx->front_buffer_in_use, true);
 
     if (!atomic_load(&egl_rctx->buffers_swapped)) {
         s_log_error("Attempt to present framebuffer without first swapping it; "

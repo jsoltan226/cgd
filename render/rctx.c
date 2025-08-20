@@ -91,9 +91,11 @@ void r_ctx_destroy(struct r_ctx **ctx_p)
         p_mt_mutex_destroy(&ctx->thread_info.mutex);
     }
 
+    const f32 ratio = ctx->total_frames != 0 ?
+        ((f32)ctx->dropped_frames / (f32)ctx->total_frames) :
+        0.0f;
     s_log_verbose("Dropped frames: %lu/%lu (%f%%)",
-        ctx->dropped_frames, ctx->total_frames,
-        ((f32)ctx->dropped_frames / (f32)ctx->total_frames) * 100.0f);
+        ctx->dropped_frames, ctx->total_frames, ratio);
 
     u_nzfree(ctx_p);
 }

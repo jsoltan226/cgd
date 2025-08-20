@@ -24,18 +24,19 @@
 #define P_INTERNAL_GUARD__
 #include "window-dummy.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include <platform/common/util-window.h>
+#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "window"
 
-static i32 check_flags(const u32 flags);
-static void set_default_flags(u32 *flags);
 static enum window_type detect_environment(void);
 
 struct p_window * p_window_open(const char *title,
     const rect_t *area, u32 flags)
 {
-    u_check_params(area != NULL && check_flags(flags) == 0);
-    set_default_flags(&flags);
+    u_check_params(area != NULL && pc_window_check_flags(flags) == 0);
+    pc_window_set_default_flags(&flags);
 
     struct p_window *win = calloc(1, sizeof(struct p_window));
     s_assert(win != NULL, "calloc() failed for struct window!");
@@ -193,72 +194,6 @@ i32 p_window_set_acceleration(struct p_window *win,
     }
 
     return 1;
-}
-
-static i32 check_flags(const u32 flags)
-{
-    static const enum p_window_flags contradicting_pairs[][2] = {
-        { P_WINDOW_TYPE_NORMAL,  P_WINDOW_TYPE_DUMMY },
-        { P_WINDOW_TYPE_DUMMY, P_WINDOW_REQUIRE_ACCELERATED },
-        { P_WINDOW_TYPE_DUMMY, P_WINDOW_REQUIRE_VULKAN },
-        { P_WINDOW_TYPE_DUMMY, P_WINDOW_REQUIRE_OPENGL },
-        { P_WINDOW_PREFER_ACCELERATED, P_WINDOW_REQUIRE_ACCELERATED },
-        { P_WINDOW_PREFER_ACCELERATED, P_WINDOW_REQUIRE_OPENGL },
-        { P_WINDOW_PREFER_ACCELERATED, P_WINDOW_REQUIRE_VULKAN },
-        { P_WINDOW_REQUIRE_ACCELERATED, P_WINDOW_REQUIRE_VULKAN },
-        { P_WINDOW_REQUIRE_ACCELERATED, P_WINDOW_REQUIRE_OPENGL },
-        { P_WINDOW_REQUIRE_VULKAN, P_WINDOW_REQUIRE_OPENGL },
-        { P_WINDOW_VSYNC_SUPPORT_REQUIRED, P_WINDOW_VSYNC_SUPPORT_OPTIONAL },
-    };
-    i32 ret = 0;
-    for (u32 i = 0; i < u_arr_size(contradicting_pairs); i++) {
-        const u32 flag_a = contradicting_pairs[i][0];
-        const u32 flag_b = contradicting_pairs[i][1];
-        if (flags & flag_a && flags & flag_b) {
-            i32 index_a = 0;
-            i32 index_b = 0;
-            while (flag_a != 1U << index_a) index_a++;
-            while (flag_b != 1U << index_b) index_b++;
-
-
-#define X_(name, id) #name,
-            static const char *const flag_strings[P_WINDOW_MAX_N_FLAGS_] = {
-                P_WINDOW_FLAG_LIST
-            };
-#undef X_
-            s_log_error("Mutually exclusive flags: \"%s\" and \"%s\"",
-                flag_strings[index_a], flag_strings[index_b]);
-            ret++;
-        }
-    }
-
-    return ret;
-}
-
-static void set_default_flags(u32 *flags)
-{
-    const u32 orig_flags = *flags;
-#define not_set(flag) (!(orig_flags & flag))
-
-    if (not_set(P_WINDOW_TYPE_NORMAL) && not_set(P_WINDOW_TYPE_DUMMY))
-        *flags |= P_WINDOW_TYPE_NORMAL;
-
-    if (not_set(P_WINDOW_VSYNC_SUPPORT_REQUIRED) &&
-        not_set(P_WINDOW_VSYNC_SUPPORT_OPTIONAL))
-    {
-        *flags |= P_WINDOW_VSYNC_SUPPORT_OPTIONAL;
-    }
-
-    if (not_set(P_WINDOW_PREFER_ACCELERATED) &&
-        not_set(P_WINDOW_REQUIRE_ACCELERATED) &&
-        not_set(P_WINDOW_REQUIRE_OPENGL) &&
-        not_set(P_WINDOW_REQUIRE_VULKAN) &&
-        not_set(P_WINDOW_NO_ACCELERATION))
-    {
-        *flags |= P_WINDOW_PREFER_ACCELERATED;
-    }
-
-#undef not_set
 }
 
 static enum window_type detect_environment(void)
