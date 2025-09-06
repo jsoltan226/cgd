@@ -24,14 +24,14 @@ struct keyboard_x11 {
     _Atomic volatile i8 key_events[P_KEYBOARD_N_KEYS];
 };
 
-i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win);
+i32 keyboard_X11_init(struct keyboard_x11 *kb, struct window_x11 *win);
 
-void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
+void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
     pressable_obj_t pobj[P_KEYBOARD_N_KEYS]);
 
-void X11_keyboard_destroy(struct keyboard_x11 *kb);
+void keyboard_X11_destroy(struct keyboard_x11 *kb);
 
-void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
+void keyboard_X11_store_key_event(struct keyboard_x11 *kb,
     xcb_keysym_t keysym, enum keyboard_x11_key_event event);
 
 static const u32 keycode_map[P_KEYBOARD_N_KEYS] = {

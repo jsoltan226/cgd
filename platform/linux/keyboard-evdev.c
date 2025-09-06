@@ -29,7 +29,7 @@ static void read_keyevents_from_evdev(i32 fd,
     pressable_obj_t keys[P_KEYBOARD_N_KEYS],
     bool updated_keys[P_KEYBOARD_N_KEYS]);
 
-i32 evdev_keyboard_init(struct keyboard_evdev *kb)
+i32 keyboard_evdev_init(struct keyboard_evdev *kb)
 {
     memset(kb, 0, sizeof(struct keyboard_evdev));
     kb->kbdevs = evdev_find_and_load_devices(EVDEV_MASK_KEYBOARD);
@@ -50,11 +50,11 @@ i32 evdev_keyboard_init(struct keyboard_evdev *kb)
     return 0;
 
 err:
-    evdev_keyboard_destroy(kb);
+    keyboard_evdev_destroy(kb);
     return 1;
 }
 
-void evdev_keyboard_destroy(struct keyboard_evdev *kb)
+void keyboard_evdev_destroy(struct keyboard_evdev *kb)
 {
     if (kb == NULL) return;
 
@@ -69,7 +69,7 @@ void evdev_keyboard_destroy(struct keyboard_evdev *kb)
     /* All members are already reset */
 }
 
-void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
+void keyboard_evdev_update_all_keys(struct keyboard_evdev *kb,
     pressable_obj_t pobjs[P_KEYBOARD_N_KEYS])
 {
     u_check_params(kb != NULL && kb->kbdevs != NULL && pobjs != NULL);

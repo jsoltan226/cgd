@@ -4,6 +4,9 @@
 #include <platform/common/guard.h>
 
 #include "../window.h"
+#define P_INTERNAL_GUARD__
+#include "tty.h"
+#undef P_INTERNAL_GUARD__
 #include <core/int.h>
 #include <core/pixel.h>
 #include <core/shapes.h>
@@ -53,8 +56,7 @@ struct window_fbdev {
 
     bool closed;
 
-    i32 tty_fd;
-    struct termios orig_term_config;
+    struct tty_ctx ttydev_ctx;
 };
 
 i32 window_fbdev_open(struct window_fbdev *win,

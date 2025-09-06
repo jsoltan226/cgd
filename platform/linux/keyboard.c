@@ -96,19 +96,19 @@ struct p_keyboard * p_keyboard_init(struct p_window *win)
         );
         switch (fallback_types[win_type][i]) {
             case KB_TYPE_EVDEV:
-                if (evdev_keyboard_init(&kb->evdev))
+                if (keyboard_evdev_init(&kb->evdev))
                     s_log_warn("Failed to set up keyboard using event devices");
                 else
                     goto keyboard_setup_success;
                 break;
             case KB_TYPE_TTY:
-                if (tty_keyboard_init(&kb->tty))
+                if (keyboard_tty_init(&kb->tty))
                     s_log_warn("Failed to set up keyboard using tty stdin");
                 else
                     goto keyboard_setup_success;
                 break;
             case KB_TYPE_X11:
-                if (X11_keyboard_init(&kb->x11, &win->x11))
+                if (keyboard_X11_init(&kb->x11, &win->x11))
                     s_log_warn("Failed to set up keyboard with X11");
                 else
                     goto keyboard_setup_success;
@@ -137,13 +137,13 @@ void p_keyboard_update(struct p_keyboard *kb)
 
     switch (kb->type) {
         case KB_TYPE_TTY:
-            tty_keyboard_update_all_keys(&kb->tty, kb->keys);
+            keyboard_tty_update_all_keys(&kb->tty, kb->keys);
             break;
         case KB_TYPE_EVDEV:
-            evdev_keyboard_update_all_keys(&kb->evdev, kb->keys);
+            keyboard_evdev_update_all_keys(&kb->evdev, kb->keys);
             break;
         case KB_TYPE_X11:
-            X11_keyboard_update_all_keys(&kb->x11, kb->keys);
+            keyboard_X11_update_all_keys(&kb->x11, kb->keys);
             break;
         default:
             break;
@@ -166,13 +166,13 @@ void p_keyboard_destroy(struct p_keyboard **kb_p)
         keyboard_type_strings[kb->type]);
     switch(kb->type) {
         case KB_TYPE_EVDEV:
-            evdev_keyboard_destroy(&kb->evdev);
+            keyboard_evdev_destroy(&kb->evdev);
             break;
         case KB_TYPE_TTY:
-            tty_keyboard_destroy(&kb->tty);
+            keyboard_tty_destroy(&kb->tty);
             break;
         case KB_TYPE_X11:
-            X11_keyboard_destroy(&kb->x11);
+            keyboard_X11_destroy(&kb->x11);
             break;
         default: case KB_TYPE_FAIL:
             break;

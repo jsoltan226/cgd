@@ -13,3 +13,9 @@
 * Refactored the `s_log_output_cfg`'s `flag_*` field into actual bit mask flags defined in `enum s_log_config_flags`
     * Just what the title says
     * Obviously adapted the codebase to this change
+
+* Refactored the generic tty management code to a new module `platform/linux/tty`
+    * Moved all code that manages the tty (opens/closes the tty fd, sets raw mode, etc) to `platform/linux/tty`
+    * Made `window-dri` also set the tty to raw mode
+    * Renamed all `platform/linux/keyboard-*` functions from `XXX_keyboard_*` to `keyboard_XXX_*`,
+        for consistency with the rest of the codebase

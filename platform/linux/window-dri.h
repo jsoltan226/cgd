@@ -4,6 +4,9 @@
 #include <platform/common/guard.h>
 
 #include "../window.h"
+#define P_INTERNAL_GUARD__
+#include "tty.h"
+#undef P_INTERNAL_GUARD__
 #include <core/int.h>
 #include <core/util.h>
 #include <core/pixel.h>
@@ -179,6 +182,8 @@ struct window_dri {
     struct p_window_info *generic_info_p;
 
     struct window_dri_listener_thread listener;
+
+    struct tty_ctx ttydev_ctx;
 
     bool initialized_;
 };

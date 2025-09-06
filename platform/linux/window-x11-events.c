@@ -215,7 +215,7 @@ static void handle_xi2_event(struct window_x11 *win,
             ev.key_press->detail,
             0
         );
-        X11_keyboard_store_key_event(keyboard,
+        keyboard_X11_store_key_event(keyboard,
             press_keysym, KEYBOARD_X11_PRESS);
 
         break;
@@ -230,7 +230,7 @@ static void handle_xi2_event(struct window_x11 *win,
             ev.key_release->detail,
             0
         );
-        X11_keyboard_store_key_event(keyboard,
+        keyboard_X11_store_key_event(keyboard,
             release_keysym, KEYBOARD_X11_RELEASE);
 
         break;

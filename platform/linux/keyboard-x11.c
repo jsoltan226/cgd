@@ -25,7 +25,7 @@ static inline void process_ev(const i8 ev, pressable_obj_t *pobj)
         pressable_obj_update(pobj, pobj->pressed);
 }
 
-i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
+i32 keyboard_X11_init(struct keyboard_x11 *kb, struct window_x11 *win)
 {
     u_check_params(win != NULL);
     memset(kb, 0, sizeof(struct keyboard_x11));
@@ -39,11 +39,11 @@ i32 X11_keyboard_init(struct keyboard_x11 *kb, struct window_x11 *win)
     return 0;
 
 err:
-    X11_keyboard_destroy(kb);
+    keyboard_X11_destroy(kb);
     return 1;
 }
 
-void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
+void keyboard_X11_update_all_keys(struct keyboard_x11 *kb,
     pressable_obj_t pobjs[P_KEYBOARD_N_KEYS])
 {
     for (u32 i = 0; i < P_KEYBOARD_N_KEYS; i++) {
@@ -53,7 +53,7 @@ void X11_keyboard_update_all_keys(struct keyboard_x11 *kb,
     }
 }
 
-void X11_keyboard_destroy(struct keyboard_x11 *kb)
+void keyboard_X11_destroy(struct keyboard_x11 *kb)
 {
     if (kb == NULL) return;
 
@@ -62,7 +62,7 @@ void X11_keyboard_destroy(struct keyboard_x11 *kb)
     memset(kb, 0, sizeof(struct keyboard_x11));
 }
 
-void X11_keyboard_store_key_event(struct keyboard_x11 *kb,
+void keyboard_X11_store_key_event(struct keyboard_x11 *kb,
     xcb_keysym_t keysym, enum keyboard_x11_key_event event)
 {
     enum p_keyboard_keycode p_kb_keycode = P_KEYBOARD_FAIL_;

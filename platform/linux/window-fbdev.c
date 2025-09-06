@@ -1,4 +1,10 @@
 #define _GNU_SOURCE
+#define P_INTERNAL_GUARD__
+#include "window-fbdev.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "tty.h"
+#undef P_INTERNAL_GUARD__
 #include "../ptime.h"
 #include "../event.h"
 #include "../window.h"
@@ -22,13 +28,6 @@
 #include <linux/fb.h>
 #include <linux/mman.h>
 
-#define P_INTERNAL_GUARD__
-#include "window-fbdev.h"
-#undef P_INTERNAL_GUARD__
-#define P_INTERNAL_GUARD__
-#include "keyboard-tty.h"
-#undef P_INTERNAL_GUARD__
-
 #define MODULE_NAME "window-fbdev"
 
 #define FBDEV_PATH "/dev/fb0"
@@ -46,7 +45,6 @@ i32 window_fbdev_open(struct window_fbdev *win,
 {
     memset(win, 0, sizeof(struct window_fbdev));
     win->closed = false;
-    win->tty_fd = -1;
     win->generic_info_p = info;
 
     if (flags & P_WINDOW_REQUIRE_ACCELERATED ||
@@ -132,13 +130,10 @@ i32 window_fbdev_open(struct window_fbdev *win,
 
     /* Set the terminal to raw mode to avoid echoing user input
      * on the console */
-    win->tty_fd = open(TTYDEV_FILEPATH, O_RDWR | O_NONBLOCK | O_CLOEXEC);
-    if (win->tty_fd != -1) {
-        if (tty_keyboard_set_term_raw_mode(win->tty_fd,
-            &win->orig_term_config, NULL))
-        {
-            s_log_warn("Failed to set the tty to raw mode");
-        }
+    if (tty_ctx_init(&win->ttydev_ctx, NULL) ||
+        tty_set_raw_mode(&win->ttydev_ctx)) {
+        s_log_error("Failed to initialize the tty device to raw mode");
+        s_log_warn("Expect junk in the terminal");
     }
 
     /* Test the vsync ioctl */
@@ -236,26 +231,7 @@ kill_thread:
         u_nfree(&win->back_buffer.buf);
 
     /* Reset the tty back to its normal state */
-    if (win->tty_fd != -1) {
-        /* Restore the terminal configuration */
-        (void) tcsetattr(win->tty_fd, TCSANOW, &win->orig_term_config);
-        struct termios tmp;
-        if (tcgetattr(win->tty_fd, &tmp))
-            s_log_error("Failed to get the current terminal configuration: %s",
-                strerror(errno));
-        if (memcmp(&win->orig_term_config, &tmp, sizeof(struct termios)))
-            s_log_error("Failed to restore the original tty configuration");
-
-        /* Discard any characters written on stdin
-         * (Clear the command line) */
-        if (tcflush(win->tty_fd, TCIOFLUSH))
-            s_log_error("Failed to flush the terminal: %s", strerror(errno));
-
-        /* Close the tty file descriptor */
-        if (close(win->tty_fd))
-            s_log_error("Failed to close the tty fd: %s", strerror(errno));
-        win->tty_fd = -1;
-    }
+    tty_ctx_cleanup(&win->ttydev_ctx);
 
     /* Unmap and close the device */
     if (win->mem != NULL) {

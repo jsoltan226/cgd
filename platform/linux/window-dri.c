@@ -2,6 +2,9 @@
 #define P_INTERNAL_GUARD__
 #include "window-dri.h"
 #undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "tty.h"
+#undef P_INTERNAL_GUARD__
 #include "../event.h"
 #include "../window.h"
 #include "../librtld.h"
@@ -106,6 +109,14 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area,
     VECTOR(struct file) files = NULL;
     memset(win, 0, sizeof(struct window_dri));
     win->generic_info_p = info;
+
+    /* Set the terminal to raw mode to avoid echoing user input
+     * on the console */
+    if (tty_ctx_init(&win->ttydev_ctx, NULL) ||
+        tty_set_raw_mode(&win->ttydev_ctx)) {
+        s_log_error("Failed to initialie the tty device to raw mode");
+        s_log_warn("Expect junk in the terminal");
+    }
 
     /* See if we can use KMS at all (usually that isn't the case) */
     win->initialized_ = true;
@@ -247,6 +258,9 @@ kill_thread:
         p_librtld_close(&win->libgbm);
     if (win->libdrm != NULL)
         p_librtld_close(&win->libdrm);
+
+    /* Restore the tty to what it was before */
+    tty_ctx_cleanup(&win->ttydev_ctx);
 
     memset(win, 0, sizeof(struct window_dri));
     win->dev.fd = -1;

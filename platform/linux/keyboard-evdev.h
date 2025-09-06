@@ -21,10 +21,10 @@ struct keyboard_evdev {
     VECTOR(struct pollfd) poll_fds;
 };
 
-i32 evdev_keyboard_init(struct keyboard_evdev *kb);
-void evdev_keyboard_destroy(struct keyboard_evdev *kb);
+i32 keyboard_evdev_init(struct keyboard_evdev *kb);
+void keyboard_evdev_destroy(struct keyboard_evdev *kb);
 
-void evdev_keyboard_update_all_keys(struct keyboard_evdev *kb,
+void keyboard_evdev_update_all_keys(struct keyboard_evdev *kb,
     pressable_obj_t pobjs[P_KEYBOARD_N_KEYS]);
 
 static const i32 linux_input_code_2_kb_keycode_map[P_KEYBOARD_N_KEYS][2] = {

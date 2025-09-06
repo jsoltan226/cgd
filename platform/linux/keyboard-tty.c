@@ -1,60 +1,47 @@
 #define _GNU_SOURCE
+#define P_INTERNAL_GUARD__
+#include "keyboard-tty.h"
+#undef P_INTERNAL_GUARD__
+#define P_INTERNAL_GUARD__
+#include "tty.h"
+#undef P_INTERNAL_GUARD__
 #include "../keyboard.h"
 #include <core/log.h>
 #include <core/util.h>
 #include <core/ansi-esc-sequences.h>
-#include <errno.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <termios.h>
-#include <sys/types.h>
-#define P_INTERNAL_GUARD__
-#include "keyboard-tty.h"
-#undef P_INTERNAL_GUARD__
 
 #define MODULE_NAME "keyboard-tty"
 
-static i32 tty_keyboard_next_key(struct keyboard_tty *kb);
+static i32 get_next_key(struct keyboard_tty *kb);
 static enum p_keyboard_keycode parse_buffered_sequence(char buf[MAX_ESC_SEQUENCE_LEN]);
 static enum p_keyboard_keycode parse_standard_char(char c);
 
-i32 tty_keyboard_init(struct keyboard_tty *kb)
+i32 keyboard_tty_init(struct keyboard_tty *kb)
 {
     memset(kb, 0, sizeof(struct keyboard_tty));
+    if (tty_ctx_init(&kb->ttydev_ctx, NULL))
+        goto_error("Failed to initialize the tty device");
 
-    kb->fd = -1;
-    kb->is_orig_termios_initialized_ = false;
-
-    /* Open the tty device */
-    kb->fd = open(TTYDEV_FILEPATH, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (kb->fd == -1)
-        goto_error("Failed to open %s: %s", TTYDEV_FILEPATH, strerror(errno));
-
-    /* Perform sanity checks */
-    if (!isatty(kb->fd))
-        goto_error("%s is not a tty!", TTYDEV_FILEPATH);
-
-    /* Set the terminal to raw mode */
-    if (tty_keyboard_set_term_raw_mode(kb->fd, &kb->orig_termios,
-            &kb->is_orig_termios_initialized_))
-        goto err;
+    if (tty_set_raw_mode(&kb->ttydev_ctx))
+        goto_error("Failed to set the tty to raw mode");
 
     return 0;
 
 err:
-    tty_keyboard_destroy(kb);
+    keyboard_tty_destroy(kb);
     return 1;
 }
 
-void tty_keyboard_update_all_keys(struct keyboard_tty *kb,
+void keyboard_tty_update_all_keys(struct keyboard_tty *kb,
     pressable_obj_t *pobjs)
 {
     enum p_keyboard_keycode kc = 0;
     bool key_updated[P_KEYBOARD_N_KEYS] = { 0 };
 
     /* Update the keys that were pressed */
-    while (kc = tty_keyboard_next_key(kb), kc != -1) {
+    while (kc = get_next_key(kb), kc != -1) {
         pressable_obj_update(&pobjs[kc], true);
         key_updated[kc] = true;
     }
@@ -66,82 +53,29 @@ void tty_keyboard_update_all_keys(struct keyboard_tty *kb,
     }
 }
 
-void tty_keyboard_destroy(struct keyboard_tty *kb)
+void keyboard_tty_destroy(struct keyboard_tty *kb)
 {
-    if (kb->fd >= 0) {
-        if (kb->is_orig_termios_initialized_) {
-            /* Restore the terminal configuration */
-            (void) tcsetattr(kb->fd, TCSANOW, &kb->orig_termios);
-            struct termios tmp;
-            if (tcgetattr(kb->fd, &tmp))
-                s_log_error("Failed to get the current tty configuration: %s",
-                    strerror(errno));
-            if (memcmp(&kb->orig_termios, &tmp, sizeof(struct termios)))
-                s_log_error("Failed to restore the original tty configuration");
-            else
-                s_log_debug("Restored original terminal configuration");
-        }
+    if (kb == NULL)
+        return;
 
-        if (close(kb->fd))
-            s_log_error("Failed to close the tty fd: %s", strerror(errno));
-    }
-    memset(kb, 0, sizeof(struct keyboard_tty));
-    kb->fd = -1;
+    tty_ctx_cleanup(&kb->ttydev_ctx);
+    memset(kb->esc_seq_buf, 0, sizeof(kb->esc_seq_buf));
 }
 
-i32 tty_keyboard_set_term_raw_mode(i32 fd, struct termios *orig_termios_o,
-    bool *is_orig_termios_initialized_o)
-{
-    u_check_params(orig_termios_o != NULL && fd != -1);
-    struct termios tmp = { 0 };
-
-    /* Get the terminal configuration */
-    if (tcgetattr(fd, orig_termios_o)) {
-        s_log_error("Failed to get the current terminal configuration: %s",
-            strerror(errno));
-        return 1;
-    }
-
-    /* Save terminal configuration before modifying it
-     * so that it can be restored during cleanup */
-    memcpy(&tmp, orig_termios_o, sizeof(struct termios));
-    if (is_orig_termios_initialized_o != NULL)
-        *is_orig_termios_initialized_o = true;
-
-    /* Set the tty to raw mode so that we get input on a per-character basis
-     * instead of a per-line basis */
-    tmp.c_lflag &= ~(ICANON | ECHO);
-    tmp.c_iflag &= ~(IXON | ICRNL);
-    (void) tcsetattr(fd, TCSANOW, &tmp);
-
-    /* Make sure that the changes were all successfully applied */
-    struct termios chk = { 0 };
-    if (tcgetattr(fd, &chk)) {
-        s_log_error("Failed to get the current terminal configuration: %s",
-            strerror(errno));
-        return 1;
-    }
-    if (memcmp(&tmp, &chk, sizeof(struct termios))) {
-        s_log_error("Failed to set tty to raw mode: %s", strerror(errno));
-        return 1;
-    }
-
-    return 0;
-}
-
-static i32 tty_keyboard_next_key(struct keyboard_tty *kb)
+static i32 get_next_key(struct keyboard_tty *kb)
 {
     if (kb->esc_seq_buf[0])
         return parse_buffered_sequence(kb->esc_seq_buf);
 
     char c;
-    if (read(kb->fd, &c, 1) != 1)
+    if (read(kb->ttydev_ctx.fd, &c, 1) != 1)
         return -1; /* Either `read()` failed (-1)
                       or no more data is available (0 [bytes read]) */
 
     if (c == es_ESC_chr) {
         kb->esc_seq_buf[0] = es_ESC_chr;
-        if (read(kb->fd, kb->esc_seq_buf + 1, MAX_ESC_SEQUENCE_LEN - 1) <= 0)
+        if (read(kb->ttydev_ctx.fd,
+                kb->esc_seq_buf + 1, MAX_ESC_SEQUENCE_LEN - 1) <= 0)
             return -1; /* Same as above */
 
         return parse_buffered_sequence(kb->esc_seq_buf);
