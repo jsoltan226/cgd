@@ -9,3 +9,7 @@
         before the call to `pc_window_initialize_acceleration_from_flags` in `platform/linux/window-dri`
     * Fixed missing failure condition check after a `malloc` in `platform/windows/librtld.c` and `platform/linux/librtld.c`
     * Added logging of the path of the shared object that's actually being loaded in `platform/*/librtld`
+
+* Refactored the `s_log_output_cfg`'s `flag_*` field into actual bit mask flags defined in `enum s_log_config_flags`
+    * Just what the title says
+    * Obviously adapted the codebase to this change

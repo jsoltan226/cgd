@@ -36,7 +36,7 @@ i32 cgd_main(i32 argc, char **argv)
     const struct s_log_output_cfg new_output_cfg = {
         .type = S_LOG_OUTPUT_MEMORYBUF,
         .out.membuf = membuf,
-        .flag_strip_esc_sequences = true,
+        .flags = S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES
     };
     struct s_log_output_cfg old_output_cfg = { 0 };
     if (s_configure_log_output(S_LOG_VERBOSE, &new_output_cfg, &old_output_cfg))
@@ -65,7 +65,7 @@ i32 cgd_main(i32 argc, char **argv)
         goto_error("membuf wrap-around test failed");
 
     if (old_level <= S_LOG_VERBOSE)
-        old_output_cfg.flag_copy = true;
+        old_output_cfg.flags |= S_LOG_CONFIG_FLAG_COPY;
 
     if (s_configure_log_output(S_LOG_VERBOSE, &old_output_cfg, NULL))
         goto_error("Failed to set S_LOG_VERBOSE output back to the default");
@@ -86,7 +86,7 @@ err:
     }
     if (old_output_cfg.type == S_LOG_OUTPUT_FILE) {
         if (old_level <= S_LOG_VERBOSE)
-            old_output_cfg.flag_copy = true;
+            old_output_cfg.flags |= S_LOG_CONFIG_FLAG_COPY;
         (void) s_configure_log_output(S_LOG_VERBOSE, &old_output_cfg, NULL);
     }
     if (membuf != NULL) {

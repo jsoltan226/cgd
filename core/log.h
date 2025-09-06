@@ -252,31 +252,35 @@ struct s_log_output_cfg {
         struct ringbuffer *membuf;
 
     } out;
-    /* Used only by `S_LOG_OUTPUT_FILEPATH`.
-     * If set, the new log file will be opened in append mode,
-     * avoiding overwriting it's previous contents. */
-    bool flag_append;
 
-    /* Used only when the previous output type is `S_LOG_OUTPUT_MEMORYBUF`.
-     * If set, the entire contents of the buffer will be "dumped"
-     * to the new output stream, avoiding the loss of logs.
-     *
-     * It's always recommended to set this flag when changing the output
-     * from `S_LOG_OUTPUT_MEMORYBUF` to (hopefully) an actual file
-     *
-     * Note that copying from one buffer to another is supported,
-     * PROVIDED THAT THE NEW AND OLD BUFFERS DON'T OVERLAP! */
-    bool flag_copy;
+    /* Additional log output configuration parameters */
+    enum s_log_config_flags {
+        /* Used only by `S_LOG_OUTPUT_FILEPATH`.
+         * If set, the new log file will be opened in append mode,
+         * avoiding overwriting it's previous contents. */
+        S_LOG_CONFIG_FLAG_APPEND = 1 << 0,
 
-    /* Specifies whether the line format string (see `s_configure_log_line`)
-     * should be stripped of any ANSI terminal escape sequences.
-     *
-     * Note that this only applies to the line format string,
-     * NOT to the main message (in `fmt` and the varargs).
-     *
-     * It's recommended to set this flag when writing to a file on disk,
-     * while leaving it `false` when writing to `stdout`/`stderr`. */
-    bool flag_strip_esc_sequences;
+        /* Used only when the previous output type is `S_LOG_OUTPUT_MEMORYBUF`.
+         * If set, the entire contents of the buffer will be "dumped"
+         * to the new output stream, avoiding the loss of logs.
+         *
+         * It's always recommended to set this flag when changing the output
+         * from `S_LOG_OUTPUT_MEMORYBUF` to (hopefully) an actual file
+         *
+         * Note that copying from one buffer to another is supported,
+         * PROVIDED THAT THE NEW AND OLD BUFFERS DON'T OVERLAP! */
+        S_LOG_CONFIG_FLAG_COPY = 1 << 1,
+
+        /* Specifies whether the line format string (see `s_configure_log_line`)
+         * should be stripped of any ANSI terminal escape sequences.
+         *
+         * Note that this only applies to the line format string,
+         * NOT to the main message (in `fmt` and the varargs).
+         *
+         * It's recommended to set this flag when writing to a file on disk,
+         * while leaving it `false` when writing to `stdout`/`stderr`. */
+        S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES = 1 << 2,
+    } flags;
 };
 /* Set the output stream of `level` to one specified in `in_new_cfg`,
  * while returning the previous configuration to `out_old_cfg`.

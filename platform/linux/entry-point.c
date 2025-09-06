@@ -96,11 +96,12 @@ static i32 setup_log(FILE **o_out_log_fp, FILE **o_err_log_fp,
         }
     }
 
+    /* Set the strip esc sequences flags if we're not writing to a terminal */
     struct s_log_output_cfg output_cfg = {
         .type = S_LOG_OUTPUT_FILE,
         .out.file = out_log_fp,
-        .flag_copy = true,
-        .flag_strip_esc_sequences = out_log_fp != stdout,
+        .flags = S_LOG_CONFIG_FLAG_COPY |
+            (out_log_fp != stdout ? S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES : 0),
     };
     i32 ret = s_configure_log_outputs(S_LOG_STDOUT_MASKS, &output_cfg);
     if (ret != 0) {
@@ -109,7 +110,11 @@ static i32 setup_log(FILE **o_out_log_fp, FILE **o_err_log_fp,
     }
 
     output_cfg.out.file = err_log_fp;
-    output_cfg.flag_strip_esc_sequences = err_log_fp != stderr;
+    if (err_log_fp != stderr)
+        output_cfg.flags |= S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES;
+    else
+        output_cfg.flags &= ~S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES;
+
     ret = s_configure_log_outputs(S_LOG_STDERR_MASKS, &output_cfg);
     if (ret != 0) {
         fprintf(stderr, "Failed to configure %d stderr log output(s)\n", ret);

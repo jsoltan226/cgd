@@ -78,7 +78,7 @@ static _Atomic enum s_log_level g_log_level = ATOMIC_VAR_INIT(S_LOG_TRACE);
 /* Ensure that all the default level strings are <= S_LOG_LINEFMT_MAX_SIZE */
 #define init_line_string(level, str)                                        \
     static_assert(sizeof(str) <= S_LOG_LINEFMT_MAX_SIZE,                    \
-        "Default line format string for log level \"" #level "\" too long");
+        "Default line format string for log level \"" #level "\" is too long");
 LINE_STRING_LIST
 #undef init_line_string
 
@@ -477,7 +477,7 @@ static void read_output_config(struct s_log_output_cfg *o,
             break;
     }
 
-    o->flag_copy = o->flag_append = o->flag_strip_esc_sequences = false;
+    o->flags = 0;
 }
 
 union tmp_output_data {
@@ -500,7 +500,9 @@ static i32 try_set_output_config(const struct s_log_output_cfg *i,
     }
 
     /* Handle the "copy" flag */
-    if (cfg->type == S_LOG_OUTPUT_MEMORYBUF && i->flag_copy) {
+    if (cfg->type == S_LOG_OUTPUT_MEMORYBUF &&
+        i->flags & S_LOG_CONFIG_FLAG_COPY)
+    {
         copy_old_data(&tmp_new_output, i->type, level);
         /* Clear the buffer after copying data,
          * to prevent duplication of messages when switching
@@ -537,7 +539,8 @@ static i32 try_init_new_output(enum s_log_level level,
                 "(for level %s) is NULL", log_level_strings[level]);
             return 1;
         }
-        o->fp = fopen(i->out.filepath, i->flag_append ? "ab" : "wb");
+        o->fp = fopen(i->out.filepath,
+            i->flags & S_LOG_CONFIG_FLAG_APPEND ? "ab" : "wb");
         if (o->fp == NULL) {
             s_log_error("Failed to open new log file \"%s\" "
                 "(for level %s): %s",
@@ -598,7 +601,7 @@ static void store_new_output(struct output *o,
     case S_LOG_OUTPUT_NONE:
         break;
     }
-    o->strip_esc_sequences = i->flag_strip_esc_sequences;
+    o->strip_esc_sequences = (i->flags & S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES);
     o->type = i->type;
 }
 

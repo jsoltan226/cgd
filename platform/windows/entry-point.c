@@ -208,8 +208,7 @@ static i32 setup_log(FILE **o_log_fp, const char *filepath,
     const struct s_log_output_cfg output_cfg = {
         .type = S_LOG_OUTPUT_FILE,
         .out.file = fp,
-        .flag_copy = true,
-        .flag_strip_esc_sequences = true,
+        .flags = S_LOG_CONFIG_FLAG_COPY | S_LOG_CONFIG_FLAG_STRIP_ESC_SEQUENCES
     };
     i32 ret = s_configure_log_outputs(S_LOG_ALL_MASKS, &output_cfg);
     if (ret != 0) {

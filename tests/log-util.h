@@ -67,9 +67,7 @@ static i32 test_log_setup(void)
         .out = {
             .file = log_fp,
         },
-        .flag_append = true,
-        .flag_copy = true,
-        .flag_strip_esc_sequences = false,
+        .flags = S_LOG_CONFIG_FLAG_APPEND | S_LOG_CONFIG_FLAG_COPY,
     };
     if (s_configure_log_outputs(S_LOG_ALL_MASKS, &out_cfg)) {
         fprintf(stderr, "Failed to configure log output. Stop.\n");
