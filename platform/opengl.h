@@ -27,7 +27,10 @@ struct p_opengl_functions {
 #endif /* P_OPENGL_LOADER_INTERNAL_GUARD__ */
 
 /* Create an OpenGL context and bind it to `win`.
- * In case of failure, NULL is returned. */
+ * Returns a handle to a new OpenGL context, or `NULL` on failure.
+ *
+ * Note: You must first set the window's acceleration
+ * to `P_WINDOW_ACCELERATION_OPENGL` (see `p_window_set_acceleration`) */
 struct p_opengl_ctx * p_opengl_create_context(struct p_window *win);
 
 /* Retrieve the OpenGL function pointers from `ctx` into `o`. */

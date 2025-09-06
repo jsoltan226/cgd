@@ -137,7 +137,9 @@ i32 window_dri_open(struct window_dri *win, const rect_t *area,
     if (flags & P_WINDOW_POS_CENTERED_Y)
         info->client_area.y = (info->display_rect.h - info->client_area.h) / 2;
 
-    /* Initialize the GPU acceleration */
+    info->gpu_acceleration = P_WINDOW_ACCELERATION_UNSET_;
+    /* Initialize the GPU acceleration.
+     * This will also set the value of `info->vsync_supported`. */
     const pc_window_set_acceleration_fn_t set_acceleration_fn =
         (pc_window_set_acceleration_fn_t)window_dri_set_acceleration;
 

@@ -104,12 +104,16 @@ static i32 load_opengl_functions(struct p_opengl_functions *o,
 
 struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
 {
+    u_check_params(win != NULL);
+    struct p_window_info win_info;
+    p_window_get_info(win, &win_info);
+    if (win_info.gpu_acceleration != P_WINDOW_ACCELERATION_OPENGL)
+        goto_error("Window acceleration not set to OpenGL!");
+
     struct p_opengl_ctx *ctx = calloc(1, sizeof(struct p_opengl_ctx));
     s_assert(ctx != NULL, "calloc() failed for new OpenGL context");
 
     ctx->bound_win = win;
-    if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL))
-        goto_error("Failed to set window acceleration to OpenGL.");
 
     if (init_egl(&ctx->egl, win))
         goto_error("Failed to initialize EGL.");
@@ -176,11 +180,6 @@ void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
     }
 
     terminate_egl(&ctx->egl);
-
-    if (ctx->bound_win != NULL) {
-        if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_))
-            s_log_error("Failed to unset the window acceleration mode");
-    }
 
     memset(ctx, 0, sizeof(struct p_opengl_ctx));
     u_nfree(ctx_p);
@@ -291,6 +290,7 @@ static void terminate_egl(struct egl_ctx *egl)
             s_log_error("Failed to release EGL context: %s",
                 egl_get_last_error(egl));
         }
+        s_log_trace("Released EGL context");
     }
 
     if (egl->ctx != EGL_NO_CONTEXT && egl->fns.eglDestroyContext != NULL) {
@@ -298,6 +298,7 @@ static void terminate_egl(struct egl_ctx *egl)
             s_log_error("Failed to destroy EGL context: %s",
                 egl_get_last_error(egl));
         }
+        s_log_trace("Destroyed EGL context");
     }
 
     if (egl->surface != EGL_NO_SURFACE && egl->fns.eglDestroySurface != NULL) {
@@ -305,12 +306,14 @@ static void terminate_egl(struct egl_ctx *egl)
             s_log_error("Failed to destroy EGL window surface: %s",
                 egl_get_last_error(egl));
         }
+        s_log_trace("Destroyed EGL surface");
     }
 
     if (egl->dpy != EGL_NO_DISPLAY && egl->fns.eglTerminate != NULL) {
         if (egl->fns.eglTerminate(egl->dpy) == EGL_FALSE) {
             s_log_error("Failed to terminate EGL: Bad display handle");
         }
+        s_log_trace("Terminated EGL");
     }
 
 
@@ -332,18 +335,76 @@ static i32 check_egl_support(const struct egl_ctx *egl, enum window_bit *o)
         return 1;
     }
 
-    if (strstr(exts, "EGL_EXT_platform_xcb"))
-        *o |= WINDOW_BIT_X11;
+    s_log_trace("Supported EGL extensions: %s", exts);
 
-    if (strstr(exts, "EGL_KHR_platform_gbm"))
-        *o |= WINDOW_BIT_DRI;
+    char *save_ptr = NULL;
+    char *exts_dup = strdup(exts);
+    s_assert(exts_dup != NULL, "strdup(exts) returned NULL");
 
-    if (*o == 0) {
+    enum window_bit tmp_o = 0;
+    bool found_ext_client_extensions = false;
+
+    struct {
+        bool found;
+        const char *const *strs;
+    } ext_name_table[N_WINDOW_TYPES] = {
+        [WINDOW_TYPE_DRI] = { .found = false,
+            .strs = (const char *[]) {
+                "EGL_EXT_platform_gbm",
+                "EGL_KHR_platform_gbm",
+                "EGL_MESA_platform_gbm",
+                NULL
+            },
+        },
+        [WINDOW_TYPE_X11] = { .found = false,
+            .strs = (const char *[]) {
+                "EGL_EXT_platform_xcb",
+                "EGL_KHR_platform_xcb",
+                "EGL_MESA_platform_xcb",
+                NULL,
+            },
+        },
+        /* Not supported */
+        [WINDOW_TYPE_FBDEV] = { .found = true, .strs = NULL },
+        [WINDOW_TYPE_DUMMY] = { .found = true, .strs = NULL },
+    };
+
+    char *tok = strtok_r(exts_dup, " ", &save_ptr);
+    while (tok != NULL) {
+        for (u32 i = 0; i < N_WINDOW_TYPES; i++) {
+            if (!ext_name_table[i].found) {
+
+                for (u32 j = 0; ext_name_table[i].strs[j] != NULL; j++) {
+                    if (!strcmp(ext_name_table[i].strs[j], tok)) {
+                        tmp_o |= (1 << i); /* WINDOW_BIT_... */
+                        ext_name_table[i].found = true;
+                        break;
+                    }
+                }
+
+            }
+        }
+
+        if (!found_ext_client_extensions &&
+            !strcmp(tok, "EGL_EXT_client_extensions")
+        )
+            found_ext_client_extensions = true;
+
+        tok = strtok_r(NULL, " ", &save_ptr);
+    }
+    free(exts_dup);
+
+    if (!found_ext_client_extensions) {
+        s_log_error("EGL_EXT_client_extensions not found "
+            "in the extension list");
+        return 1;
+    } else if (tmp_o == 0) {
         s_log_error("No window types are supported "
             "by this EGL implementation.");
         return 1;
     }
 
+    *o = tmp_o;
     return 0;
 }
 

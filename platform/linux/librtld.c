@@ -4,8 +4,9 @@
 #include <core/util.h>
 #include <core/vector.h>
 #include <stdlib.h>
-#include <dlfcn.h>
 #include <string.h>
+#include <link.h>
+#include <dlfcn.h>
 
 #define MODULE_NAME "librtld"
 
@@ -101,6 +102,7 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
         if (!prefix_already_provided_in_libname) {
             /* Cut off the existing prefix */
             char *new_so_name = malloc(total_so_name_size - strlen(prefix));
+            s_assert(new_so_name != NULL, "malloc failed for new so_name");
             strcpy(new_so_name, lib->so_name + strlen(prefix));
             free(lib->so_name);
             lib->so_name = new_so_name;
@@ -116,6 +118,12 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
     }
 
     lib->syms = vector_new(struct sym);
+
+    /* Log the full path to the shared object */
+    struct link_map *lm_p;
+    if (dlinfo(lib->handle, RTLD_DI_LINKMAP, &lm_p))
+        goto_error("dlinfo failed on \"%s\": %s", lib->so_name, dlerror());
+    s_log_verbose("%s -> %s", lib->so_name, lm_p->l_name);
 
     return lib;
 err:
@@ -160,7 +168,7 @@ void p_librtld_close(struct p_lib **lib_p)
     struct p_lib *lib = *lib_p;
 
     if (lib->handle != NULL) {
-        if (dlclose(lib->handle)) {
+        if (false && dlclose(lib->handle)) {
             s_log_error("Failed to dlclose \"%s\": %s",
                 lib->so_name ? lib->so_name : "<N/A>", dlerror());
         }

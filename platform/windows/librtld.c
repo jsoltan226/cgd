@@ -2,8 +2,10 @@
 #include <core/log.h>
 #include <core/util.h>
 #include <core/vector.h>
+#include <errhandlingapi.h>
 #include <stdlib.h>
 #include <string.h>
+#include <winerror.h>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif /* WIN32_LEAN_AND_MEAN */
@@ -74,7 +76,7 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
     total_module_name_size += strlen(suffix);
 
     if (version_string != NULL)
-        total_module_name_size += strlen(version_string) + u_strlen(".");
+        total_module_name_size += strlen(version_string) + u_strlen("-");
 
     total_module_name_size++; /* The NULL terminator */
 
@@ -112,6 +114,7 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
         if (!prefix_already_provided_in_libname) {
             /* Cut off the existing prefix */
             char *new_dll_name = malloc(total_module_name_size - strlen(prefix));
+            s_assert(new_dll_name != NULL, "malloc failed for new dll_name");
             strcpy(new_dll_name, lib->dll_name + strlen(prefix));
             free(lib->dll_name);
             lib->dll_name = new_dll_name;
@@ -125,6 +128,17 @@ struct p_lib * p_librtld_load_lib_explicit(const char *libname,
                 lib->dll_name, get_last_error_msg());
         }
     }
+
+    /* Log the actual path to the library */
+    char buf[PATH_MAX] = { 0 };
+    if (GetModuleFileNameA(lib->module_handle, buf, sizeof(buf)) == 0)
+        goto_error("Failed to get the library's path: %s",
+            get_last_error_msg());
+    if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+        s_log_warn("The dll's path string was truncated "
+            "due to insufficient buffer size");
+
+    s_log_verbose("%s -> %s", lib->dll_name, buf);
 
     lib->syms = vector_new(struct sym);
 

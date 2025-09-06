@@ -1,11 +1,11 @@
-## NEWS for 20.08.2025
+## NEWS for 06.09.2025
 
-* Refactored `platform/*/*` code that was repeated across platforms into `platform/common/`
-    * Moved a couple common functions from `platform/*/window*` to `platform/common/util-window`:
-        - `check_flags` became `pc_window_check_flags`
-        - `set_default_flags` became `pc_window_check_flags`
-        - The various `initialize_acceleration`s became the generic `pc_window_initialize_acceleration_from_flags`
-    * Added a common `platform/common/guard.h` to replace the `#ifndef P_INTERNAL_GUARD__`... found everywhere in `platform/`
-    * Fixed a bunch of missing header guards in `platform/*/*`
-    * Fixed using `atomic_store` and `atomic_load` instead of `atomic_exchange` in `platform/linux/event`
-    * Fixed a typo in `asset-loader/plugin-registry.h`
+* Changed the way `P_WINDOW_ACCELERATION_OPENGL` is initialized and fixed a couple of bugs
+    * Made it so that the window's acceleration must be set to `P_WINDOW_ACCELERATION_OPENGL` by the user,
+        before the call to `p_opengl_create_context` (i.e. `p_opengl_create_context` doesn't itself set the window's acceleration to OpenGL)
+    * Refactored the `check_egl_support` function in `platform/linux/opengl`, to improve it's reliability & maintainability
+    * Added documentation in `platform/common/util-window.h`
+    * Fixed the acceleration value not being initialized to `P_WINDOW_ACCELERATION_UNSET_`
+        before the call to `pc_window_initialize_acceleration_from_flags` in `platform/linux/window-dri`
+    * Fixed missing failure condition check after a `malloc` in `platform/windows/librtld.c` and `platform/linux/librtld.c`
+    * Added logging of the path of the shared object that's actually being loaded in `platform/*/librtld`

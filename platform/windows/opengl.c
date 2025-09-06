@@ -52,8 +52,6 @@ static const char *const wgl_symnames[] = {
 struct p_opengl_ctx {
     bool initialized_;
 
-    bool acceleration_set;
-
     HDC window_dc;
 
     i32 pixel_format_handle;
@@ -87,16 +85,15 @@ static i32 load_all_opengl_functions(
 struct p_opengl_ctx * p_opengl_create_context(struct p_window *win)
 {
     u_check_params(win != NULL && atomic_load(&win->init_ok_));
+    struct p_window_info win_info;
+    p_window_get_info(win, &win_info);
+    if (win_info.gpu_acceleration != P_WINDOW_ACCELERATION_OPENGL)
+        goto_error("Window acceleration not set to OpenGL!");
 
     struct p_opengl_ctx *ctx = calloc(1, sizeof(struct p_opengl_ctx));
     s_assert(ctx != NULL, "calloc failed for new opengl context");
 
     ctx->initialized_ = true;
-
-    ctx->acceleration_set = false;
-    if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL))
-        goto_error("Failed to set the window acceleration to OpenGL");
-    ctx->acceleration_set = true;
 
     ctx->window_dc = GetDC(win->win_handle);
     if (ctx->window_dc == NULL) {
@@ -202,13 +199,6 @@ void p_opengl_destroy_context(struct p_opengl_ctx **ctx_p,
             s_log_error("The window DC was not released.");
 
         ctx->window_dc = NULL;
-    }
-
-    if (ctx->acceleration_set) {
-        if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_UNSET_))
-            s_log_error("Failed to unset the window acceleration mode");
-
-        ctx->acceleration_set = false;
     }
 
     ctx->initialized_ = false;

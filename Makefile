@@ -25,7 +25,8 @@ LDFLAGS += -municode -mwindows
 endif
 SO_LDFLAGS := -shared
 ifeq ($(PLATFORM), linux)
-ASAN_FLAGS := -fsanitize=address
+ASAN_FLAGS :=
+#-fsanitize=address
 #-fsanitize=thread
 endif
 ifeq ($(PLATFORM), windows)

@@ -56,9 +56,12 @@ err:
 static i32 opengl_test(void)
 {
     s_log_info("Initializing OpenGL...");
+    if (p_window_set_acceleration(win, P_WINDOW_ACCELERATION_OPENGL))
+        goto_error("Failed to set the window acceleration to OpenGL");
+
     gl_ctx = p_opengl_create_context(win);
     if (gl_ctx == NULL)
-        goto_error("Failed to create OpenGL context. Stop.");
+        goto_error("Failed to create the OpenGL context. Stop.");
     p_time_sleep(3);
 
     struct p_opengl_functions GL = { 0 };
